@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "frontend",
+			"path": "../boscochat/frontend"
+		},
+		{
+			"name": "backend",
+			"path": "../boscochat/backend"
+		}
+	],
+	"settings": {}
+}
