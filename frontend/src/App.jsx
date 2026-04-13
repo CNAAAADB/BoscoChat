@@ -6,25 +6,26 @@ function App() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (!query) return
 
-    const fakeResults = [
-      {
-        id: 1,
-        text: "Don Bosco fundó la congregación salesiana...",
-        page: 12,
-        doc: "revista_1901.pdf"
-      },
-      {
-        id: 2,
-        text: "La educación fue el pilar fundamental...",
-        page: 45,
-        doc: "historia_salesianos.pdf"
-      }
-    ]
+    try {
+      const response = await fetch('http://localhost:3000/users/1')
+      const data = await response.json()
 
-    setResults(fakeResults)
+      const formattedResults = [
+        {
+          id: data.id,
+          text: `Usuario: ${data.name} (${data.email})`,
+          page: '-',
+          doc: '#'
+        }
+      ]
+
+      setResults(formattedResults)
+    } catch (error) {
+      console.error("Error al conectar con el backend:", error)
+    }
   }
 
   // LOGIN SIMPLE
@@ -79,7 +80,7 @@ function App() {
 
             <br />
 
-            <a href={`/pdfs/${r.doc}`} target="_blank" rel="noreferrer">
+            <a href={r.doc} target="_blank" rel="noreferrer">
               Ver documento
             </a>
           </div>

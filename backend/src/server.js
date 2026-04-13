@@ -1,7 +1,22 @@
-import app from "./app.js";
+import express from 'express';
+import cors from 'cors';
+import usersRoutes from './routes/users.js';
 
-const PORT = 4000;
+const app = express();
 
-app.listen(PORT, () => {
-  console.log("BoscoChat backend running on port " + PORT);
+// MIDDLEWARES
+app.use(cors());
+app.use(express.json());
+
+// RUTAS
+app.use('/users', usersRoutes);
+
+// TEST
+app.get('/', (req, res) => {
+  res.send('API funcionando');
+});
+
+// PUERTO
+app.listen(3000, () => {
+  console.log('Backend corriendo en http://localhost:3000');
 });
