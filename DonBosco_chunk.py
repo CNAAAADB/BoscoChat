@@ -67,6 +67,134 @@ NUMBER_PATTERNS = [
     re.compile(r"\bNUMERO\.?\s*[:.\-]?\s*(?P<number>\d{1,3}|[IVXLCDM]{1,12})\b", re.IGNORECASE),
 ]
 
+SIGNATURE_HINTS = (
+    "COOPERADOR SALESIANO",
+    "S. S.",
+    "PBRO",
+    "P.",
+    "RDO",
+    "REV.",
+    "SACERDOTE",
+)
+
+HEADER_NOISE_PATTERNS = [
+    re.compile(r"DON\s+BOSCO\s+EN\s+ESPA[ÑN]A", re.IGNORECASE),
+    re.compile(r"\bN[ÚU]M", re.IGNORECASE),
+    re.compile(rf"\b{MONTH_PATTERN}\b", re.IGNORECASE),
+    re.compile(r"\b19\d{2}\b"),
+    re.compile(r"ESCUELAS\s+SALESIANAS", re.IGNORECASE),
+    re.compile(r"RONDA\s+DE\s+ATOCHA", re.IGNORECASE),
+    re.compile(r"APARTADO", re.IGNORECASE),
+    re.compile(r"DIRECCI[ÓO]N", re.IGNORECASE),
+]
+
+def normalize_line(line: str) -> str:
+    line = SOFT_HYPHEN_RE.sub("", line)
+    line = CONTROL_CHARS_RE.sub("", line)
+    line = line.replace("\r", " ")
+    line = MULTISPACE_RE.sub(" ", line)
+    return line.strip(" \t-—_:;,.·•*='\"")
+
+def get_raw_nonempty_lines(page_text: str) -> list[str]:
+    lines = []
+    for line in page_text.splitlines():
+        line = normalize_line(line)
+        if line:
+            lines.append(line)
+    return lines
+
+def looks_like_header_noise(line: str) -> bool:
+    up = line.upper()
+
+    if len(line) <= 2:
+        return True
+    if re.fullmatch(r"\d+", up):
+        return True
+    if any(p.search(up) for p in HEADER_NOISE_PATTERNS):
+        return True
+
+    return False
+
+def looks_like_paragraph_line(line: str) -> bool:
+    words = line.split()
+    if len(words) >= 8:
+        return True
+    if line.endswith((".", ",", ";", ":")) and len(words) >= 6:
+        return True
+    return False
+
+def looks_like_signature(line: str) -> bool:
+    up = line.upper()
+
+    if len(line) < 5 or len(line) > 90:
+        return False
+    if re.fullmatch(r"\d+", up):
+        return False
+
+    # Línea de lugar+fecha, no firma
+    if re.search(r"\b19\d{2}\b", up) and any(m in up for m in SPANISH_MONTHS):
+        return False
+
+    if any(h in up for h in SIGNATURE_HINTS):
+        return True
+
+    alpha = [c for c in line if c.isalpha()]
+    if not alpha:
+        return False
+
+    upper_ratio = sum(c.isupper() for c in alpha) / len(alpha)
+    words = re.sub(r"[.,;:()]", " ", line).split()
+
+    return 2 <= len(words) <= 8 and upper_ratio >= 0.65
+
+def extract_title_candidate(page_text: str) -> Optional[str]:
+    lines = get_raw_nonempty_lines(page_text)
+    if not lines:
+        return None
+
+    top_lines = lines[:18]
+    title_lines = []
+
+    for line in top_lines:
+        if looks_like_header_noise(line):
+            continue
+        if looks_like_signature(line):
+            continue
+        if len(line) < 4 or len(line) > 100:
+            continue
+
+        # Si ya empezó el cuerpo, paramos
+        if looks_like_paragraph_line(line) and title_lines:
+            break
+
+        # Si parece cuerpo y aún no tenemos título, lo ignoramos
+        if looks_like_paragraph_line(line) and not title_lines:
+            continue
+
+        title_lines.append(line)
+
+        if len(title_lines) >= 3:
+            break
+
+    if not title_lines:
+        return None
+
+    title = " ".join(title_lines).strip()
+    return title[:180] if title else None
+
+def extract_signature_candidate(page_text: str) -> Optional[str]:
+    lines = get_raw_nonempty_lines(page_text)
+    if not lines:
+        return None
+
+    bottom_lines = lines[-12:]
+
+    for line in reversed(bottom_lines):
+        if looks_like_signature(line):
+            return line[:120]
+
+    return None
+
 PUBLICATION_PATTERNS = [
     re.compile(r"DON\s+BOSCO\s+EN\s+ESPA[ÑN]A", re.IGNORECASE),
     re.compile(r'"DON\s*BOSCO\s*EN\s*ESP[AO]R[AO]"', re.IGNORECASE),  # OCR muy sucio
@@ -130,6 +258,15 @@ class IssueMetadata:
     year: Optional[int]
     confidence: str             # high / medium / low / fallback
 
+from dataclasses import dataclass
+from typing import Optional
+
+@dataclass
+class ArticleMetadata:
+    title: Optional[str]
+    signature: Optional[str]
+    confidence: str   # high / medium / low / fallback
+    
 @dataclass
 class Chunk:
     position_in_page: int
@@ -304,6 +441,9 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             issue_date TEXT,
             issue_year INTEGER,
             issue_confidence TEXT,
+            article_title TEXT,
+            article_signature TEXT,
+            article_confidence TEXT,
             updated_at TEXT NOT NULL,
             UNIQUE(document_id, page_number)
         );
@@ -316,6 +456,8 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             issue_number TEXT,
             issue_date TEXT,
             issue_year INTEGER,
+            article_title TEXT,
+            article_signature TEXT,
             page_number INTEGER NOT NULL,
             position_in_page INTEGER NOT NULL,
             char_start INTEGER NOT NULL,
@@ -324,6 +466,7 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             overlap_config INTEGER NOT NULL,
             ocr_version TEXT NOT NULL,
             text TEXT NOT NULL,
+            search_text TEXT NOT NULL,
             text_hash TEXT NOT NULL,
             created_at TEXT NOT NULL,
             UNIQUE(page_id, position_in_page, ocr_version, chunk_size_config, overlap_config)
@@ -333,6 +476,8 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_chunks_doc_page ON chunks(document_id, page_number);
         CREATE INDEX IF NOT EXISTS idx_chunks_issue_date ON chunks(issue_date);
         CREATE INDEX IF NOT EXISTS idx_chunks_issue_number ON chunks(issue_number);
+        CREATE INDEX IF NOT EXISTS idx_chunks_article_title ON chunks(article_title);
+CREATE INDEX IF NOT EXISTS idx_chunks_article_signature ON chunks(article_signature);
         """
     )
     conn.commit()
@@ -387,38 +532,111 @@ def upsert_page(
     ocr_hash: str,
     ocr_version: str,
     issue_meta: IssueMetadata,
+    article_meta: ArticleMetadata,
 ) -> tuple[int, bool]:
-    """
-    Devuelve (page_id, changed)
-    changed=True si el OCR cambió y por tanto hay que regenerar chunks.
-    """
     now = datetime.utcnow().isoformat(timespec="seconds")
-    cur = conn.execute(
+
+    row = conn.execute(
         """
-        SELECT id, ocr_hash, ocr_version, publication, issue_number, issue_date, issue_year
+        SELECT
+            id,
+            ocr_hash,
+            ocr_version,
+            publication,
+            issue_number,
+            issue_date,
+            issue_year,
+            article_title,
+            article_signature
         FROM pages
         WHERE document_id = ? AND page_number = ?
         """,
         (document_id, page_number),
-    )
-    row = cur.fetchone()
+    ).fetchone()
 
-    if row:
-        page_id, old_hash, old_ver, old_pub, old_num, old_date, old_year = row
-        changed = (
-            old_hash != ocr_hash
-            or old_ver != ocr_version
-            or old_pub != issue_meta.publication
-            or old_num != issue_meta.number
-            or old_date != issue_meta.date_iso
-            or old_year != issue_meta.year
+    if row is None:
+        cur = conn.execute(
+            """
+            INSERT INTO pages (
+                document_id,
+                page_number,
+                ocr_raw,
+                ocr_clean,
+                ocr_hash,
+                ocr_version,
+                publication,
+                issue_number,
+                issue_date,
+                issue_year,
+                issue_confidence,
+                article_title,
+                article_signature,
+                article_confidence,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                document_id,
+                page_number,
+                ocr_raw,
+                ocr_clean,
+                ocr_hash,
+                ocr_version,
+                issue_meta.publication,
+                issue_meta.number,
+                issue_meta.date_iso,
+                issue_meta.year,
+                issue_meta.confidence,
+                article_meta.title,
+                article_meta.signature,
+                article_meta.confidence,
+                now,
+            ),
         )
+        return cur.lastrowid, True
+
+    (
+        page_id,
+        old_hash,
+        old_ver,
+        old_pub,
+        old_num,
+        old_date,
+        old_year,
+        old_article_title,
+        old_article_sig,
+    ) = row
+
+    changed = (
+        old_hash != ocr_hash
+        or old_ver != ocr_version
+        or old_pub != issue_meta.publication
+        or old_num != issue_meta.number
+        or old_date != issue_meta.date_iso
+        or old_year != issue_meta.year
+        or old_article_title != article_meta.title
+        or old_article_sig != article_meta.signature
+    )
+
+    if changed:
         conn.execute(
             """
             UPDATE pages
-            SET ocr_raw = ?, ocr_clean = ?, ocr_hash = ?, ocr_version = ?,
-                publication = ?, issue_number = ?, issue_date = ?, issue_year = ?,
-                issue_confidence = ?, updated_at = ?
+            SET
+                ocr_raw = ?,
+                ocr_clean = ?,
+                ocr_hash = ?,
+                ocr_version = ?,
+                publication = ?,
+                issue_number = ?,
+                issue_date = ?,
+                issue_year = ?,
+                issue_confidence = ?,
+                article_title = ?,
+                article_signature = ?,
+                article_confidence = ?,
+                updated_at = ?
             WHERE id = ?
             """,
             (
@@ -431,42 +649,30 @@ def upsert_page(
                 issue_meta.date_iso,
                 issue_meta.year,
                 issue_meta.confidence,
+                article_meta.title,
+                article_meta.signature,
+                article_meta.confidence,
                 now,
                 page_id,
             ),
         )
-        conn.commit()
-        return page_id, changed
 
-    cur = conn.execute(
-        """
-        INSERT INTO pages (
-            document_id, page_number, ocr_raw, ocr_clean, ocr_hash, ocr_version,
-            publication, issue_number, issue_date, issue_year, issue_confidence, updated_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            document_id,
-            page_number,
-            ocr_raw,
-            ocr_clean,
-            ocr_hash,
-            ocr_version,
-            issue_meta.publication,
-            issue_meta.number,
-            issue_meta.date_iso,
-            issue_meta.year,
-            issue_meta.confidence,
-            now,
-        ),
-    )
-    conn.commit()
-    return cur.lastrowid, True
+    return page_id, changed
 
 def delete_chunks_for_page(conn: sqlite3.Connection, page_id: int) -> None:
     conn.execute("DELETE FROM chunks WHERE page_id = ?", (page_id,))
     conn.commit()
+
+def build_search_text(article_meta: ArticleMetadata, chunk_text: str) -> str:
+    parts = []
+
+    if article_meta.title:
+        parts.append(f"Título del artículo: {article_meta.title}")
+    if article_meta.signature:
+        parts.append(f"Firma: {article_meta.signature}")
+
+    parts.append(chunk_text)
+    return "\n".join(parts)
 
 def insert_chunks(
     conn: sqlite3.Connection,
@@ -474,6 +680,7 @@ def insert_chunks(
     document_id: int,
     page_number: int,
     issue_meta: IssueMetadata,
+    article_meta: ArticleMetadata,
     chunks: list[Chunk],
     chunk_size: int,
     overlap: int,
@@ -490,6 +697,8 @@ def insert_chunks(
                 issue_meta.number,
                 issue_meta.date_iso,
                 issue_meta.year,
+                article_meta.title,
+                article_meta.signature,
                 page_number,
                 ch.position_in_page,
                 ch.char_start,
@@ -498,6 +707,7 @@ def insert_chunks(
                 overlap,
                 ocr_version,
                 ch.text,
+                build_search_text(article_meta, ch.text),
                 sha256_text(ch.text),
                 now,
             )
@@ -507,12 +717,13 @@ def insert_chunks(
         """
         INSERT INTO chunks (
             page_id, document_id, publication, issue_number, issue_date, issue_year,
+            article_title, article_signature,
             page_number, position_in_page, char_start, char_end,
             chunk_size_config, overlap_config, ocr_version,
-            text, text_hash, created_at
+            text, search_text, text_hash, created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
         rows,
     )
     conn.commit()
@@ -562,6 +773,62 @@ def propagate_issue_metadata(page_texts_clean: list[str], file_publication: Opti
 
     return propagated
 
+def propagate_article_metadata(page_texts_raw: list[str]) -> list[ArticleMetadata]:
+    """
+    Detecta título al inicio de artículo y firma al final.
+    Propaga ambos metadatos a todas las páginas del artículo.
+    """
+    result = [ArticleMetadata(title=None, signature=None, confidence="fallback") for _ in page_texts_raw]
+
+    current_start = None
+    current_title = None
+    current_signature = None
+
+    def flush_segment(end_idx: int):
+        nonlocal current_start, current_title, current_signature
+
+        if current_start is None:
+            return
+
+        if current_title and current_signature:
+            confidence = "high"
+        elif current_title:
+            confidence = "medium"
+        elif current_signature:
+            confidence = "low"
+        else:
+            confidence = "fallback"
+
+        for j in range(current_start, end_idx + 1):
+            result[j] = ArticleMetadata(
+                title=current_title,
+                signature=current_signature,
+                confidence=confidence,
+            )
+
+    for i, raw_page in enumerate(page_texts_raw):
+        title = extract_title_candidate(raw_page)
+        signature = extract_signature_candidate(raw_page)
+
+        # Nuevo artículo
+        if title:
+            if current_start is not None:
+                flush_segment(i - 1)
+
+            current_start = i
+            current_title = title
+            current_signature = signature
+            continue
+
+        # Misma pieza, aparece firma más adelante
+        if current_start is not None and signature:
+            current_signature = signature
+
+    if current_start is not None:
+        flush_segment(len(page_texts_raw) - 1)
+
+    return result
+
 def process_pdf(
     conn: sqlite3.Connection,
     path: str,
@@ -590,6 +857,8 @@ def process_pdf(
 
     manual_meta = get_manual_issue_metadata(source_filename, publication, file_year)
 
+    article_metas = propagate_article_metadata(raw_pages)
+
     if manual_meta and manual_meta.number and manual_meta.date_iso:
         issue_metas = [manual_meta for _ in raw_pages]
     else:
@@ -598,7 +867,8 @@ def process_pdf(
     pages_processed = 0
     chunks_inserted = 0
 
-    for idx, (ocr_raw, ocr_clean, meta) in enumerate(zip(raw_pages, clean_pages, issue_metas), start=1):
+    for idx, (ocr_raw, ocr_clean, issue_meta, article_meta) in enumerate(
+        zip(raw_pages, clean_pages, issue_metas, article_metas), start=1):
         if not ocr_clean.strip():
             continue
 
@@ -611,7 +881,8 @@ def process_pdf(
             ocr_clean=ocr_clean,
             ocr_hash=ocr_hash,
             ocr_version=ocr_version,
-            issue_meta=meta,
+            issue_meta=issue_meta,
+            article_meta=article_meta,
         )
 
         # Regeneración completa de chunks por página si cambió OCR/meta o si todavía no hay chunks.
@@ -626,7 +897,8 @@ def process_pdf(
                 page_id=page_id,
                 document_id=doc_id,
                 page_number=idx,
-                issue_meta=meta,
+                issue_meta=issue_meta,
+                article_meta=article_meta,
                 chunks=chunks,
                 chunk_size=chunk_size,
                 overlap=overlap,
