@@ -1,12 +1,10 @@
-import pkg from 'pg';
-const { Pool } = pkg;
+import mysql from 'mysql2/promise';
 
-const pool = new Pool({
-  user: 'postgres',
+const pool = mysql.createPool({
   host: 'localhost',
-  database: 'boscochat',
-  password: 'password',
-  port: 5432,
+  user: 'root',
+  password: '19012004', 
+  database: 'boscochat'
 });
 
 export default pool;
