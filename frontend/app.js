@@ -47,7 +47,7 @@ export default function App() {
       const res = await fetch(`http://localhost:3000/search?q=${searchQuery}`);
       const data = await res.json();
       setResults(data);
-    } catch (err) { alert("Error de conexión"); }
+    } catch { alert("Error de conexión"); }
   };
 
   const handleLogin = async (e) => {
@@ -60,7 +60,7 @@ export default function App() {
       });
       if (res.ok) { setUser(await res.json()); setView('dashboard'); } 
       else { alert("Acceso denegado"); }
-    } catch (err) { alert("Error al conectar"); }
+    } catch { alert("Error al conectar"); }
   };
 
   const handleInyectar = async () => {
@@ -71,7 +71,7 @@ export default function App() {
         body: JSON.stringify({ title: docInyect.title, author: user.name, pages, role: user.role })
       });
       if (res.ok) { alert("Inyectado con éxito"); setDocInyect({ title: '', content: '' }); }
-    } catch (err) { alert("Error"); }
+    } catch { alert("Error"); }
   };
 
   return (
