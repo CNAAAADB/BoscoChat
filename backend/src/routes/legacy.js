@@ -30,6 +30,7 @@ export function createLegacyRouter(pool, authService) {
   const router = express.Router();
   const authenticated = requireSession(authService);
   const documentaryManager = requireSession(authService, new Set(['admin', 'gestor']));
+  const administrator = requireSession(authService, new Set(['admin']));
 
   router.get('/search', authenticated, async (req, res, next) => {
     try {
@@ -66,7 +67,7 @@ export function createLegacyRouter(pool, authService) {
     }
   });
 
-  router.post('/update-role', documentaryManager, async (req, res, next) => {
+  router.post('/update-role', administrator, async (req, res, next) => {
     try {
       const { userId, newRole } = req.body;
       await pool.execute('UPDATE users SET role = ? WHERE id = ?', [newRole, userId]);
