@@ -20,7 +20,7 @@ This file is the product/work source of truth. It is seeded from `docs/requireme
 
 ### BC-001 — User registration and authentication
 - Priority: P1
-- Status: IN_REVIEW
+- Status: BLOCKED
 - Owner role: Developer
 - Depends on: -
 - SRS: RF-USER-01, RF-USER-02, RNF-SEC-01, RNF-SEC-03
