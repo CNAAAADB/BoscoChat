@@ -1,10 +1,8 @@
 import mysql from 'mysql2/promise';
+import { databaseConfig } from '../config/database.js';
 
-const pool = mysql.createPool({
-  host: 'localhost',
-  user: 'root',
-  password: '19012004', 
-  database: 'boscochat'
-});
+export function createDatabasePool(environment = process.env) {
+  return mysql.createPool(databaseConfig(environment));
+}
 
-export default pool;
+export default createDatabasePool();

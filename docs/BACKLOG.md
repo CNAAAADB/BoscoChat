@@ -20,24 +20,24 @@ This file is the product/work source of truth. It is seeded from `docs/requireme
 
 ### BC-001 — User registration and authentication
 - Priority: P1
-- Status: READY
+- Status: IN_REVIEW
 - Owner role: Developer
 - Depends on: -
 - SRS: RF-USER-01, RF-USER-02, RNF-SEC-01, RNF-SEC-03
 - Design/mockup: TBD
-- PR: -
+- PR: #4
 
 **Story**  
 As a visitor, I want to register and authenticate securely so that I can access BoscoChat functionality.
 
 **Acceptance criteria**
-- [ ] Registration accepts username, email and password.
-- [ ] Duplicate email registration is rejected.
-- [ ] New accounts receive the Free role by default.
-- [ ] Login accepts email/password and rejects invalid credentials.
-- [ ] Passwords are stored using an appropriate password-hashing mechanism, never plaintext.
-- [ ] Authentication/session controls are enforced server-side.
-- [ ] Automated tests cover successful and failed registration/login paths.
+- [x] Registration accepts username, email and password.
+- [x] Duplicate email registration is rejected.
+- [x] New accounts receive the Free role by default.
+- [x] Login accepts email/password and rejects invalid credentials.
+- [x] Passwords are stored using an appropriate password-hashing mechanism, never plaintext.
+- [x] Authentication/session controls are enforced server-side.
+- [x] Automated tests cover successful and failed registration/login paths.
 
 **Security / privacy considerations**
 - Personal data and credentials; GDPR/privacy by design.

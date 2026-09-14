@@ -71,6 +71,16 @@ Exact AWS services, network boundaries, identity model, IaC, deployment topology
 - Personal data processing is subject to GDPR/privacy-by-design requirements.
 - Phase 3 face/person analysis requires a dedicated biometric-data privacy/legal review and mandatory human validation.
 
+## Implemented authentication boundary (BC-001)
+
+- The Express API owns registration, credential verification, session creation, session lookup and logout (`RF-USER-01`, `RF-USER-02`, `RNF-SEC-01`, `RNF-SEC-03`).
+- Passwords are stored as per-user salted `scrypt` hashes. Passwords and hashes are never returned by the API.
+- Browser authentication uses a 256-bit opaque token in an `HttpOnly`, `SameSite=Lax` cookie (`Secure` in production). Only the SHA-256 digest of the token is persisted in MySQL, with an eight-hour expiry.
+- Protected legacy routes resolve the current user from the server-side session; caller-supplied user IDs are not trusted for identity.
+- Login attempts are limited per source/email key. This limiter is process-local for the current single-instance MVP; a shared limiter is required before horizontal API scaling.
+- Database credentials are runtime configuration only. Exact allowed browser origins are configured with `CORS_ORIGINS`, and cross-origin state-changing requests from other origins are rejected.
+- The authentication migration creates the canonical user/session schema, hashes legacy plaintext passwords and removes the plaintext column. Deployment requires a verified backup and rotation of the credential formerly present in repository history.
+
 ## Performance/scalability targets from the SRS
 
 - Indexed documentary search: target < 2 seconds.
