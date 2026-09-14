@@ -1,43 +1,29 @@
 import { useState } from 'react';
+import { login } from '../api/auth.js';
 
 function Login({ setUser }) {
-  const [email, setEmail] = useState('');
+  const [credentials, setCredentials] = useState({ email: '', password: '' });
+  const [error, setError] = useState('');
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError('');
     try {
-      const response = await fetch('http://localhost:3000/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data); // Esto nos manda al Dashboard automáticamente
-      } else {
-        alert("Usuario no encontrado en la base de datos");
-      }
-    } catch (error) {
-      alert("Error al conectar con el servidor. ¿Está el backend encendido?");
+      const result = await login(credentials);
+      setUser(result.user);
+    } catch (requestError) {
+      setError(requestError.message);
     }
   };
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h2>Iniciar Sesión 🔐</h2>
-      <form onSubmit={handleSubmit}>
-        <input 
-          type="email" 
-          placeholder="Tu email de MySQL" 
-          value={email} 
-          onChange={(e) => setEmail(e.target.value)} 
-          style={{ padding: '10px', marginBottom: '10px' }}
-        />
-        <br />
-        <button type="submit">Entrar</button>
-      </form>
-    </div>
+    <form onSubmit={handleSubmit}>
+      <h2>Iniciar sesión</h2>
+      {error ? <p role="alert">{error}</p> : null}
+      <label>Correo electrónico<input required type="email" autoComplete="email" value={credentials.email} onChange={(event) => setCredentials({ ...credentials, email: event.target.value })} /></label>
+      <label>Contraseña<input required type="password" autoComplete="current-password" value={credentials.password} onChange={(event) => setCredentials({ ...credentials, password: event.target.value })} /></label>
+      <button type="submit">Entrar</button>
+    </form>
   );
 }
 

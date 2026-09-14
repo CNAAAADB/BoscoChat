@@ -1,53 +1,36 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react';
+import { register } from '../api/auth.js';
 
-function Register() {
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [accepted, setAccepted] = useState(false)
+function Register({ onRegistered }) {
+  const [form, setForm] = useState({ username: '', email: '', password: '', terms: false });
+  const [error, setError] = useState('');
 
-  const navigate = useNavigate()
-
-  const handleRegister = async () => {
-    if (!accepted) {
-      alert('Debes aceptar la política de datos')
-      return
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError('');
+    if (!form.terms) {
+      setError('Debes aceptar la política de protección de datos.');
+      return;
     }
-
-    await fetch('http://localhost:3000/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password })
-    })
-
-    navigate('/login')
-  }
+    try {
+      await register(form);
+      onRegistered?.(form.email);
+    } catch (requestError) {
+      setError(requestError.message);
+    }
+  };
 
   return (
-    <div style={{ textAlign: 'center', marginTop: '100px' }}>
+    <form onSubmit={handleSubmit}>
       <h2>Registro</h2>
-
-      <input placeholder="Nombre" onChange={(e) => setName(e.target.value)} />
-      <br /><br />
-
-      <input placeholder="Email" onChange={(e) => setEmail(e.target.value)} />
-      <br /><br />
-
-      <input type="password" placeholder="Password" onChange={(e) => setPassword(e.target.value)} />
-
-      <br /><br />
-
-      <label>
-        <input type="checkbox" onChange={(e) => setAccepted(e.target.checked)} />
-        Acepto la política de protección de datos
-      </label>
-
-      <br /><br />
-
-      <button onClick={handleRegister}>Registrarse</button>
-    </div>
-  )
+      {error ? <p role="alert">{error}</p> : null}
+      <label>Nombre de usuario<input required minLength="2" maxLength="80" autoComplete="username" value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} /></label>
+      <label>Correo electrónico<input required type="email" autoComplete="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
+      <label>Contraseña<input required type="password" minLength="12" maxLength="128" autoComplete="new-password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /></label>
+      <label><input type="checkbox" checked={form.terms} onChange={(event) => setForm({ ...form, terms: event.target.checked })} /> Acepto la política de protección de datos</label>
+      <button type="submit">Registrarse</button>
+    </form>
+  );
 }
 
-export default Register
+export default Register;

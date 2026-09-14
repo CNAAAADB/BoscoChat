@@ -380,3 +380,4 @@ Every applicable story must preserve these constraints:
 ## Automation rule
 
 Automated development may select only stories with `Status: READY`, all dependencies resolved, and no active branch/PR already implementing the same story. Product scope must not be invented outside this backlog/SRS without moving the proposed work through product review first.
+
