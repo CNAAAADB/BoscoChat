@@ -1,16 +1,16 @@
 # BoscoChat Progress
 
 ## Current focus
-Security remediation and independent review of BC-001 — User registration and authentication.
+Post-merge security remediation and independent verification of BC-001 — User registration and authentication.
 
 ## In progress
 - None.
 
 ## Blocked
-- BC-001 deployment gate: rotate/revoke the database credential previously committed to Git history and record evidence; validate backup/restore plus the authentication migration on representative staging data.
+- BC-001 release/deployment gate: PR #4 was merged on 2026-09-14 while its gate remained FAIL/BLOCKED. Rotate/revoke the database credential previously committed to Git history and record evidence; validate backup/restore plus the authentication migration on representative staging data; complete independent verification and independent FULL security review.
 
 ## In review
-- BC-001 — PR #4. Local backend/frontend build, lint, tests and dependency audits pass after remediation; independent verification and independent FULL security confirmation remain pending.
+- None.
 
 ## Recently completed
-- None recorded in this governance bootstrap.
+- BC-001 implementation was merged via PR #4 on 2026-09-14. The story is not DONE because mandatory security, staging migration and independent verification evidence remain open.
