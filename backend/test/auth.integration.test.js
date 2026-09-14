@@ -186,4 +186,11 @@ test('RNF-SEC-03 enforces the server session on existing protected endpoints', a
     method: 'POST', cookie, body: { title: 'x', content: 'y', page: 1 },
   });
   assert.equal(unauthorizedAdmin.response.status, 403);
+
+  repository.users[0].role = 'gestor';
+  const unauthorizedRoleChange = await jsonRequest(baseUrl, '/api/update-role', {
+    method: 'POST', cookie, body: { userId: 999, newRole: 'admin' },
+  });
+  assert.equal(unauthorizedRoleChange.response.status, 403);
+  assert.equal(calls.some(({ sql }) => sql.startsWith('UPDATE users SET role')), false);
 });
