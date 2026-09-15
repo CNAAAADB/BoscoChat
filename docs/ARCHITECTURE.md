@@ -59,6 +59,28 @@ For the initial low-traffic MVP, database connection pools are intentionally sma
 
 The application DB credential is runtime-only. The human/master copy may be kept in the project owner's password manager; Lambda receives the runtime value as an encrypted-at-rest environment variable for the MVP. It must never be committed to Git, exposed via Amplify/Vite, returned to the browser, or logged. Secrets Manager remains an optional later hardening step rather than an MVP dependency.
 
+### Validated AWS runtime — 2026-09-15
+
+The authentication path introduced by PR #7 has been provisioned and validated end-to-end in `us-east-1`:
+
+- Amplify production origin: `https://main.dyqpe5eifx600.amplifyapp.com`.
+- API Gateway HTTP API base URL: `https://i40yd4xj1k.execute-api.us-east-1.amazonaws.com`.
+- API Gateway routing: `$default` stage with automatic deployment and `ANY /{proxy+}` forwarding to Lambda.
+- Lambda function: `boscochat-backend`, Node.js 22.x, x86_64, running the Express server through AWS Lambda Web Adapter.
+- VPC: `vpc-02f28e9c3d2d0eab2`.
+- Lambda security group: `boscochat-lambda-sg` (`sg-0c280487ace7bd7b5`).
+- RDS instance: `boscochat-db`, private MySQL, application database `boscochat`.
+- RDS endpoint: `boscochat-db.c8748aycc2rw.us-east-1.rds.amazonaws.com:3306`.
+- RDS security group: `boscochat-rds-sg` (`sg-03cc39ee8b10af87a`), with MySQL access from the Lambda security group.
+- Application DB user: `boscochat_app`; the application does not run as the RDS master user.
+- RDS certificate authority: `rds-ca-rsa2048-g1`.
+- Verified TLS requires `DB_SSL_MODE=require` and, in the deployed Lambda runtime, the matching RDS root CA supplied through `DB_SSL_CA_BASE64`.
+- Browser CORS is exact-origin. `CORS_ORIGINS` must be `https://main.dyqpe5eifx600.amplifyapp.com` with no trailing slash.
+- Cross-site browser sessions use `SESSION_COOKIE_SAME_SITE=none`, `NODE_ENV=production` and credentialed requests, producing `HttpOnly; Secure; SameSite=None` session cookies.
+- Amplify uses `VITE_API_URL=https://i40yd4xj1k.execute-api.us-east-1.amazonaws.com/api`.
+
+Validated behavior includes `GET /health`, user registration, login, persisted `auth_sessions`, session restoration after browser reload, and logout/session invalidation. No database credential is exposed to Amplify or the browser.
+
 Detailed deployment and verification instructions live in `docs/deployment/AWS_AMPLIFY_RDS.md`.
 
 ## Target infrastructure
