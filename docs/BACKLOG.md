@@ -65,23 +65,23 @@ As the platform, I want role-based authorization so that users only access funct
 
 ### BC-003 — Query usage logging and quotas
 - Priority: P1
-- Status: IN_PROGRESS
+- Status: IN_REVIEW
 - Owner role: Developer
 - Depends on: BC-001
 - SRS: RF-USAGE-01, RF-USAGE-02, RF-USAGE-03
 - Design/mockup: TBD
-- PR: -
+- PR: pending
 
 **Story**  
 As BoscoChat, I want to record and enforce per-plan query quotas so that use and operating costs can be controlled.
 
 **Acceptance criteria**
-- [ ] Search and conversational queries are counted separately.
-- [ ] Query records include user, type, timestamp and parameters.
-- [ ] Periodic limits can be configured per plan.
-- [ ] Requests beyond the limit are blocked.
-- [ ] User receives a clear limit/upgrade message.
-- [ ] Tests cover counters, reset-period behavior and exceeded limits.
+- [x] Search and conversational queries are counted separately.
+- [x] Query records include user, type, timestamp and parameters.
+- [x] Periodic limits can be configured per plan.
+- [x] Requests beyond the limit are blocked.
+- [x] User receives a clear limit/upgrade message.
+- [x] Tests cover counters, reset-period behavior and exceeded limits.
 
 ### BC-004 — Subscription plans
 - Priority: P1

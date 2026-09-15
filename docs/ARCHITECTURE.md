@@ -136,3 +136,11 @@ Exact network IDs, regions, sizing, backup/recovery, IaC and observability detai
 - Do not introduce Phase 2/3 infrastructure into MVP without a concrete need or approved architectural decision.
 - Update this document and `docs/DECISIONS.md` for material architecture changes.
 - Trace architecture-impacting PRs back to `RF-*`/`RNF-*` IDs and `BC-*` stories.
+
+## Query usage and quota boundary (BC-003)
+
+- Authenticated search and chat requests pass through `UsageService` before query execution (`RF-USAGE-01`, `RF-USAGE-02`, `RF-USAGE-03`).
+- Per-plan/type limit and fixed-window duration are validated runtime configuration (`QUERY_QUOTAS_JSON`); absent configuration fails closed rather than silently allowing unbounded use.
+- `query_usage_counters` provides atomic MySQL counters locked within a transaction. `query_logs` records user, type, timestamp, bounded JSON parameters and accepted/blocked outcome. Search and chat counters remain independent.
+- Quota responses expose limit, remaining units and reset time through rate-limit headers. Exhausted requests return HTTP 429 with a safe upgrade message.
+- Query logs are personal/operational data: they are not publicly exposed and foreign-key deletion follows account deletion. A production retention schedule remains a deployment/privacy policy responsibility.
