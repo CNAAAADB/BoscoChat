@@ -14,4 +14,4 @@ Select the next executable P1 story after completion of BC-001.
 - None.
 
 ## Recently completed
-- BC-001 — User registration and authentication. PR #4 merged on 2026-09-14. Independent code/functional verification and FULL source-based security review recorded in `docs/reviews/BC-001-independent-review-2026-09-15.md`. Acceptance criteria pass; release constraints remain listed separately above.
+- BC-001 — User registration and authentication. PR #4 merged on 2026-09-14. Independent code/functional verification and FULL source-based security review recorded in PR #5. Acceptance criteria pass; release constraints remain listed separately above.
