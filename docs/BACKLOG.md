@@ -70,7 +70,7 @@ As the platform, I want role-based authorization so that users only access funct
 - Depends on: BC-001
 - SRS: RF-USAGE-01, RF-USAGE-02, RF-USAGE-03
 - Design/mockup: TBD
-- PR: pending
+- PR: #10
 
 **Story**  
 As BoscoChat, I want to record and enforce per-plan query quotas so that use and operating costs can be controlled.

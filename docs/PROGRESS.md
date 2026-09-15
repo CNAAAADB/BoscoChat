@@ -12,7 +12,7 @@
 - BC-006 — Documentary data model and protected storage requires an approved storage architecture/provider, encryption and authorization decision before implementation.
 
 ## In review
-- BC-003 — Query usage logging and quotas; implementation, automated tests, migration, architecture and traceability are included in the feature PR.
+- BC-003 — Query usage logging and quotas; implementation, automated tests, migration, architecture and traceability are included in PR #10.
 
 ## Recently completed
 - AWS MVP authentication runtime validated end-to-end on 2026-09-15: Amplify frontend, API Gateway HTTP API, Lambda/Express via Lambda Web Adapter, private RDS MySQL, verified RDS TLS, exact-origin CORS, registration, login, persisted session/reload and logout. Architecture and deployment evidence were documented in PR #8 and merged to `main`.
