@@ -20,7 +20,7 @@ The migration fails explicitly if it cannot establish unique emails or if any ac
 
 The migration also creates `query_logs` and atomic `query_usage_counters`. Configure `QUERY_QUOTAS_JSON` with an approved limit and reset period for each role/plan allowed to execute search or chat. The values in `.env.example` demonstrate the schema only and are not approved product policy. A missing plan/type quota fails closed with `QUOTA_NOT_CONFIGURED`.
 
-Query logs contain the authenticated user, query type, timestamp, parameters and whether quota enforcement accepted or blocked the request. They are not exposed through a public API and are deleted with the owning user.
+Query logs contain the authenticated user, query type, timestamp, parameters and accepted/blocked outcome. To prevent storage amplification after exhaustion, at most one quota-rejected marker is persisted per user, query type and quota period. Logs are not exposed through a public API and are deleted with the owning user.
 
 ## Checks
 

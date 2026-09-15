@@ -16,8 +16,12 @@ class MemoryUsageRepository {
     const key = `${entry.userId}|${entry.type}|${entry.periodStart.toISOString()}`;
     const used = this.counters.get(key) ?? 0;
     const consumed = used < entry.limit;
-    this.logs.push({ ...entry, outcome: consumed ? 'accepted' : 'blocked_quota' });
-    if (consumed) this.counters.set(key, used + 1);
+    if (consumed) {
+      this.logs.push({ ...entry, outcome: 'accepted' });
+      this.counters.set(key, used + 1);
+    } else if (!this.logs.some((log) => log.key === key && log.outcome === 'blocked_quota')) {
+      this.logs.push({ ...entry, key, outcome: 'blocked_quota' });
+    }
     return { consumed, used: consumed ? used + 1 : used };
   }
 }
@@ -121,7 +125,7 @@ test('BC-003 fails closed when a plan has no configured quota and bounds logged 
   );
 });
 
-test('BC-003 / RF-USAGE-02 serializes MySQL counter updates and logs blocked attempts', async () => {
+test('BC-003 / RF-USAGE-02 serializes counters and bounds quota-rejected logs per period', async () => {
   const calls = [];
   const connection = {
     async beginTransaction() { calls.push('begin'); },
@@ -145,8 +149,39 @@ test('BC-003 / RF-USAGE-02 serializes MySQL counter updates and logs blocked att
   assert.deepEqual(result, { consumed: false, used: 2 });
   assert.equal(calls.some((entry) => typeof entry === 'object' && entry.sql.includes('FOR UPDATE')), true);
   const log = calls.find((entry) => typeof entry === 'object' && entry.sql.includes('INSERT INTO query_logs'));
-  assert.equal(log.parameters[3], 'blocked_quota');
+  assert.match(log.sql, /NOT EXISTS/);
+  assert.match(log.sql, /'blocked_quota'/);
+  assert.deepEqual(log.parameters.slice(0, 3), [9, 'search', '{"query":"Bosco"}']);
   assert.equal(calls.some((entry) => typeof entry === 'object' && entry.sql.includes('SET query_count')), false);
+  assert.deepEqual(calls.slice(-2), ['commit', 'release']);
+});
+
+test('BC-003 / RF-USAGE-01 persists accepted queries and increments their counter atomically', async () => {
+  const calls = [];
+  const connection = {
+    async beginTransaction() { calls.push('begin'); },
+    async execute(sql, parameters) {
+      calls.push({ sql, parameters });
+      if (sql.includes('SELECT query_count')) return [[{ queryCount: 1 }]];
+      return [{ affectedRows: 1 }];
+    },
+    async commit() { calls.push('commit'); },
+    async rollback() { calls.push('rollback'); },
+    release() { calls.push('release'); },
+  };
+  const repository = new UsageRepository({ async getConnection() { return connection; } });
+  const periodStart = new Date('2026-09-15T12:00:00.000Z');
+  const periodEnd = new Date('2026-09-15T13:00:00.000Z');
+  const result = await repository.consume({
+    userId: 9, plan: 'free', type: 'search', parametersJson: '{"query":"Bosco"}',
+    timestamp: new Date('2026-09-15T12:05:00.000Z'), periodStart, periodEnd, limit: 2,
+  });
+
+  assert.deepEqual(result, { consumed: true, used: 2 });
+  const log = calls.find((entry) => typeof entry === 'object' && entry.sql.includes('INSERT INTO query_logs'));
+  assert.match(log.sql, /'accepted'/);
+  assert.deepEqual(log.parameters.slice(0, 3), [9, 'search', '{"query":"Bosco"}']);
+  assert.equal(calls.some((entry) => typeof entry === 'object' && entry.sql.includes('SET query_count')), true);
   assert.deepEqual(calls.slice(-2), ['commit', 'release']);
 });
 
