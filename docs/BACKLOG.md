@@ -125,7 +125,7 @@ As a paying user, I want subscription payments and renewals handled by an extern
 
 ### BC-006 — Documentary data model and protected storage
 - Priority: P1
-- Status: READY
+- Status: BLOCKED
 - Owner role: Developer
 - Depends on: -
 - SRS: RF-DOC-04, RF-DOCMGMT-01, RNF-SEC-02, RNF-SCALE-02, RNF-MAINT-01
