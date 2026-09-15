@@ -20,7 +20,7 @@ This file is the product/work source of truth. It is seeded from `docs/requireme
 
 ### BC-001 — User registration and authentication
 - Priority: P1
-- Status: BLOCKED
+- Status: DONE
 - Owner role: Developer
 - Depends on: -
 - SRS: RF-USER-01, RF-USER-02, RNF-SEC-01, RNF-SEC-03
@@ -42,6 +42,7 @@ As a visitor, I want to register and authenticate securely so that I can access 
 **Security / privacy considerations**
 - Personal data and credentials; GDPR/privacy by design.
 - Rate-limit or otherwise protect authentication attempts.
+- Release constraint (not a development dependency): production deployment remains prohibited until the previously exposed MySQL credential is rotated/revoked and the migration/restore procedure is validated on representative staging data.
 
 ### BC-002 — Roles and authorization
 - Priority: P1
