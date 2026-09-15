@@ -65,7 +65,7 @@ As the platform, I want role-based authorization so that users only access funct
 
 ### BC-003 — Query usage logging and quotas
 - Priority: P1
-- Status: READY
+- Status: IN_PROGRESS
 - Owner role: Developer
 - Depends on: BC-001
 - SRS: RF-USAGE-01, RF-USAGE-02, RF-USAGE-03
