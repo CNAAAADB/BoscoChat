@@ -21,11 +21,7 @@ function sslConfig(environment) {
 
   const ssl = { rejectUnauthorized: true };
   if (environment.DB_SSL_CA_BASE64) {
-    try {
-      ssl.ca = Buffer.from(environment.DB_SSL_CA_BASE64, 'base64').toString('utf8');
-    } catch {
-      throw new Error('DB_SSL_CA_BASE64 must contain a valid base64-encoded CA bundle');
-    }
+    ssl.ca = Buffer.from(environment.DB_SSL_CA_BASE64, 'base64').toString('utf8');
   }
   return ssl;
 }
@@ -33,6 +29,8 @@ function sslConfig(environment) {
 export function databaseConfig(environment = process.env) {
   const port = Number(environment.DB_PORT ?? DEFAULTS.port);
   const connectionLimit = Number(environment.DB_CONNECTION_LIMIT ?? 10);
+  const ssl = sslConfig(environment);
+
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error('DB_PORT must be an integer between 1 and 65535');
   }
@@ -49,6 +47,6 @@ export function databaseConfig(environment = process.env) {
     waitForConnections: true,
     connectionLimit,
     enableKeepAlive: true,
-    ...(sslConfig(environment) ? { ssl: sslConfig(environment) } : {}),
+    ...(ssl ? { ssl } : {}),
   };
 }
