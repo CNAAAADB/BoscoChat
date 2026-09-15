@@ -45,6 +45,18 @@ The SRS defines these domain entities:
 
 MVP implementation may introduce supporting technical entities, but changes must preserve traceability to this domain model.
 
+## AWS deployment baseline for the MVP
+
+The current hosting choice is AWS Amplify Hosting for the React/Vite frontend. To preserve the existing Express + MySQL implementation, the production trust path is:
+
+`Browser -> Amplify Hosting -> HTTPS backend API -> private Amazon RDS for MySQL`
+
+The browser never connects directly to the database. The backend is the only database client.
+
+For the initial MVP, AWS App Runner is the preferred low-friction runtime for the existing Express API, with outbound VPC access to the private RDS database. RDS must not be publicly accessible. Database credentials belong in the backend runtime/Secrets Manager, not in Amplify frontend variables.
+
+Detailed deployment and verification instructions live in `docs/deployment/AWS_AMPLIFY_RDS.md`.
+
 ## Target infrastructure
 
 AWS is the target hosting environment. The SRS requires a modular cloud infrastructure containing conceptually:
@@ -57,7 +69,7 @@ AWS is the target hosting environment. The SRS requires a modular cloud infrastr
 - external AI services for embeddings/generation and later image processing;
 - monitoring/observability.
 
-Exact AWS services, network boundaries, identity model, IaC, deployment topology, backup/recovery and observability choices must be captured as architecture decisions before or during implementation.
+Exact network IDs, regions, sizing, backup/recovery, IaC and observability details must be captured as they are provisioned.
 
 ## Security and privacy boundaries
 
@@ -75,10 +87,10 @@ Exact AWS services, network boundaries, identity model, IaC, deployment topology
 
 - The Express API owns registration, credential verification, session creation, session lookup and logout (`RF-USER-01`, `RF-USER-02`, `RNF-SEC-01`, `RNF-SEC-03`).
 - Passwords are stored as per-user salted `scrypt` hashes. Passwords and hashes are never returned by the API.
-- Browser authentication uses a 256-bit opaque token in an `HttpOnly`, `SameSite=Lax` cookie (`Secure` in production). Only the SHA-256 digest of the token is persisted in MySQL, with an eight-hour expiry.
+- Browser authentication uses a 256-bit opaque token in an `HttpOnly` cookie. The default is `SameSite=Lax`; an Amplify frontend calling an API on a different site uses `SESSION_COOKIE_SAME_SITE=none`, which also forces the cookie to be `Secure`. Only the SHA-256 digest of the token is persisted in MySQL, with an eight-hour expiry.
 - Protected legacy routes resolve the current user from the server-side session; caller-supplied user IDs are not trusted for identity.
 - Login attempts are limited per source/email key. This limiter is process-local for the current single-instance MVP; a shared limiter is required before horizontal API scaling.
-- Database credentials are runtime configuration only. Exact allowed browser origins are configured with `CORS_ORIGINS`, and cross-origin state-changing requests from other origins are rejected.
+- Database credentials are runtime configuration only. Production RDS connections use TLS (`DB_SSL_MODE=require`). Exact allowed browser origins are configured with `CORS_ORIGINS`, and cross-origin state-changing requests from other origins are rejected.
 - The authentication migration creates the canonical user/session schema, hashes legacy plaintext passwords and removes the plaintext column. Deployment requires a verified backup and rotation of the credential formerly present in repository history.
 
 ## Performance/scalability targets from the SRS
