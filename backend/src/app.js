@@ -11,7 +11,10 @@ export function createApp({ pool, environment = process.env, authService } = {})
   const app = express();
   const allowedOrigins = new Set((environment.CORS_ORIGINS ?? 'http://localhost:5173').split(',').map((value) => value.trim()).filter(Boolean));
   const service = authService ?? new AuthService(new AuthRepository(pool));
-  const authRouter = createAuthRouter(service, { production: environment.NODE_ENV === 'production' });
+  const authRouter = createAuthRouter(service, {
+    production: environment.NODE_ENV === 'production',
+    cookieSameSite: environment.SESSION_COOKIE_SAME_SITE ?? 'lax',
+  });
 
   app.disable('x-powered-by');
   app.set('trust proxy', environment.TRUST_PROXY === '1' ? 1 : false);
