@@ -47,13 +47,17 @@ MVP implementation may introduce supporting technical entities, but changes must
 
 ## AWS deployment baseline for the MVP
 
-The current hosting choice is AWS Amplify Hosting for the React/Vite frontend. To preserve the existing Express + MySQL implementation, the production trust path is:
+The current hosting choice is AWS Amplify Hosting for the React/Vite frontend. The MVP trust path is:
 
-`Browser -> Amplify Hosting -> HTTPS backend API -> private Amazon RDS for MySQL`
+`Browser -> Amplify Hosting -> API Gateway HTTP API -> AWS Lambda (Express) -> private Amazon RDS for MySQL`
 
-The browser never connects directly to the database. The backend is the only database client.
+The browser never connects directly to the database. Lambda is the only application runtime allowed to use the application database credential.
 
-For the initial MVP, AWS App Runner is the preferred low-friction runtime for the existing Express API, with outbound VPC access to the private RDS database. RDS must not be publicly accessible. Database credentials belong in the backend runtime/Secrets Manager, not in Amplify frontend variables.
+The existing Express application is reused in Lambda through AWS Lambda Web Adapter rather than maintaining a second set of handlers. Lambda is attached to the RDS VPC and uses a dedicated runtime security group. RDS must remain non-public and permits TCP/3306 only from explicitly approved security groups.
+
+For the initial low-traffic MVP, database connection pools are intentionally small because each Lambda execution environment can own a separate pool. Reserved Lambda concurrency should also be capped until RDS connection pressure is measured.
+
+The application DB credential is runtime-only. The human/master copy may be kept in the project owner's password manager; Lambda receives the runtime value as an encrypted-at-rest environment variable for the MVP. It must never be committed to Git, exposed via Amplify/Vite, returned to the browser, or logged. Secrets Manager remains an optional later hardening step rather than an MVP dependency.
 
 Detailed deployment and verification instructions live in `docs/deployment/AWS_AMPLIFY_RDS.md`.
 
@@ -89,9 +93,9 @@ Exact network IDs, regions, sizing, backup/recovery, IaC and observability detai
 - Passwords are stored as per-user salted `scrypt` hashes. Passwords and hashes are never returned by the API.
 - Browser authentication uses a 256-bit opaque token in an `HttpOnly` cookie. The default is `SameSite=Lax`; an Amplify frontend calling an API on a different site uses `SESSION_COOKIE_SAME_SITE=none`, which also forces the cookie to be `Secure`. Only the SHA-256 digest of the token is persisted in MySQL, with an eight-hour expiry.
 - Protected legacy routes resolve the current user from the server-side session; caller-supplied user IDs are not trusted for identity.
-- Login attempts are limited per source/email key. This limiter is process-local for the current single-instance MVP; a shared limiter is required before horizontal API scaling.
+- Login attempts are limited per source/email key. This limiter is process-local for the current MVP; Lambda can create multiple execution environments, so a shared limiter is required before relying on it as a fleet-wide control at higher scale.
 - Database credentials are runtime configuration only. Production RDS connections use TLS (`DB_SSL_MODE=require`). Exact allowed browser origins are configured with `CORS_ORIGINS`, and cross-origin state-changing requests from other origins are rejected.
-- The authentication migration creates the canonical user/session schema, hashes legacy plaintext passwords and removes the plaintext column. Deployment requires a verified backup and rotation of the credential formerly present in repository history.
+- The authentication migration creates the canonical user/session schema, hashes legacy plaintext passwords and removes the plaintext column. Deployment requires a verified backup and rotation of any credential formerly present in repository history.
 
 ## Performance/scalability targets from the SRS
 
