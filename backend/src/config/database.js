@@ -12,6 +12,24 @@ function required(environment, name) {
   return value;
 }
 
+function sslConfig(environment) {
+  const mode = (environment.DB_SSL_MODE ?? 'disable').toLowerCase();
+  if (!['disable', 'require'].includes(mode)) {
+    throw new Error('DB_SSL_MODE must be either disable or require');
+  }
+  if (mode === 'disable') return undefined;
+
+  const ssl = { rejectUnauthorized: true };
+  if (environment.DB_SSL_CA_BASE64) {
+    try {
+      ssl.ca = Buffer.from(environment.DB_SSL_CA_BASE64, 'base64').toString('utf8');
+    } catch {
+      throw new Error('DB_SSL_CA_BASE64 must contain a valid base64-encoded CA bundle');
+    }
+  }
+  return ssl;
+}
+
 export function databaseConfig(environment = process.env) {
   const port = Number(environment.DB_PORT ?? DEFAULTS.port);
   const connectionLimit = Number(environment.DB_CONNECTION_LIMIT ?? 10);
@@ -31,5 +49,6 @@ export function databaseConfig(environment = process.env) {
     waitForConnections: true,
     connectionLimit,
     enableKeepAlive: true,
+    ...(sslConfig(environment) ? { ssl: sslConfig(environment) } : {}),
   };
 }
