@@ -1,7 +1,7 @@
 # BoscoChat Progress
 
 ## Current focus
-- BC-002 — Roles and authorization is the next executable P1 story. BC-001 is DONE, its dependency is resolved, and there is currently no active PR implementing BC-002.
+- BC-003 — Query usage logging and quotas is implemented and awaiting review. BC-002 was skipped by this automation because its feature branch already exists.
 - Automated development may proceed against the validated AWS MVP architecture now present on `main`: Amplify Hosting -> API Gateway HTTP API -> Lambda/Express via Lambda Web Adapter -> private RDS MySQL.
 
 ## In progress
@@ -12,7 +12,7 @@
 - BC-006 — Documentary data model and protected storage requires an approved storage architecture/provider, encryption and authorization decision before implementation.
 
 ## In review
-- None.
+- BC-003 — Query usage logging and quotas; implementation, automated tests, migration, architecture and traceability are included in PR #10.
 
 ## Recently completed
 - AWS MVP authentication runtime validated end-to-end on 2026-09-15: Amplify frontend, API Gateway HTTP API, Lambda/Express via Lambda Web Adapter, private RDS MySQL, verified RDS TLS, exact-origin CORS, registration, login, persisted session/reload and logout. Architecture and deployment evidence were documented in PR #8 and merged to `main`.
