@@ -65,12 +65,15 @@ As the platform, I want role-based authorization so that users only access funct
 
 ### BC-003 — Query usage logging and quotas
 - Priority: P1
-- Status: IN_REVIEW
+- Status: BLOCKED
 - Owner role: Developer
 - Depends on: BC-001
 - SRS: RF-USAGE-01, RF-USAGE-02, RF-USAGE-03
 - Design/mockup: TBD
-- PR: #10
+- PR: #10 (merged 2026-09-17 while the delivery gate was BLOCKED)
+
+**Gate status**
+- Code is present on `main`, but story completion remains blocked pending independent functional verification of the remediated head, independent FULL security confirmation of `c74dce1`, and explicit approval or exception acceptance for production quota/reset values and query-log retention.
 
 **Story**  
 As BoscoChat, I want to record and enforce per-plan query quotas so that use and operating costs can be controlled.
