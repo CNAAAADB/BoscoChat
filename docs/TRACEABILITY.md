@@ -21,6 +21,8 @@ Use `TRACE-GAP` where required evidence is missing. Do not infer links that are 
 | RF-SEARCH-10, RF-SEARCH-11, RF-SEARCH-12, RNF-USE-02 | BC-011 |
 | RF-DOC-01, RF-DOC-02, RF-DOC-03, RF-DOC-04, RNF-SEC-02 | BC-012 |
 | RF-ADMIN-03 | BC-013 |
+| TRACE-GAP — owner-directed addition pending SRS-baseline approval | BC-014 |
+| TRACE-GAP — owner-directed addition pending SRS-baseline approval | BC-015 |
 | RF-CHAT-01, RF-CHAT-02, RF-CHAT-03, RF-CHAT-06, RNF-USE-02 | BC-101 |
 | RF-RAG-01, RF-RAG-02, RF-RAG-05, RNF-PERF-02 | BC-102 |
 | RF-RAG-03, RF-RAG-04, RF-CHAT-07 | BC-103 |
@@ -47,11 +49,11 @@ These are not considered complete from a single story and must be evidenced acro
 | Story | Design / Mockup | Code / Components | Tests | PR | Verification | Security | Status |
 |---|---|---|---|---|---|---|---|
 | BC-001 (`RF-USER-01`, `RF-USER-02`, `RNF-SEC-01`, `RNF-SEC-03`) | DEC-001; no visual mockup required for existing auth forms | `backend/src/auth/`, `backend/src/routes/auth.js`, `backend/src/db/auth-repository.js`, `backend/scripts/migrate.js`, `frontend/src/App.jsx`, `frontend/src/api/auth.js` | `backend/test/password.test.js`, `backend/test/auth.integration.test.js`, `backend/test/config-security.test.js` | #4 (implementation, merged 2026-09-14); #7/#8 (AWS runtime preparation and validated deployment documentation) | PASS: independent code/functional verification 2026-09-15; AWS end-to-end registration/login/session reload/logout validated 2026-09-15; representative staging migration remains a release-only TRACE-GAP | PASS for implementation: FULL source review 2026-09-15; production remains blocked until credential rotation/revocation and staging migration evidence | DONE |
-| BC-002 (`RF-USER-04`, `RF-ADMIN-01`, `RNF-SEC-03`) | DEC-004; existing administration UI styling | `backend/src/users/`, `backend/src/middleware/authorization.js`, `backend/src/routes/admin-users.js`, `backend/src/auth/service.js`, `backend/src/db/auth-repository.js`, `frontend/src/api/users.js`, `frontend/src/App.jsx`, `backend/scripts/migrate.js` | `backend/test/roles.test.js`, `backend/test/authorization.integration.test.js`, existing auth/usage regression suites | #13 | Developer checks: backend build/lint and 28/28 tests; frontend build/lint; TRACE-GAP: independent verification pending | Dependency audit 0 vulnerabilities and focused developer security checks completed; TRACE-GAP: independent FULL authorization/security review pending | IN_REVIEW |
+| BC-002 (`RF-USER-04`, `RF-ADMIN-01`, `RNF-SEC-03`) | DEC-004; existing administration UI styling | `backend/src/users/`, `backend/src/middleware/authorization.js`, `backend/src/routes/admin-users.js`, `backend/src/auth/service.js`, `backend/src/db/auth-repository.js`, `frontend/src/api/users.js`, `frontend/src/App.jsx`, `backend/scripts/migrate.js` | Developer tests exist; missing concurrent last-active-administrator regression and independent rerun | #13 (open; artifact branch is not `main`) | TRACE-GAP: independent functional verification, frontend CI and representative migration validation pending | BLOCKED: independent FULL review pending; SEC-BC002-01 (CWE-362) and SEC-BC002-02 policy gap unresolved | BLOCKED |
 | BC-003 (`RF-USAGE-01`, `RF-USAGE-02`, `RF-USAGE-03`) | DEC-003 | `backend/src/usage/`, `backend/src/db/usage-repository.js`, `backend/src/routes/legacy.js`, `backend/scripts/migrate.js` | `backend/test/usage.test.js`, updated `backend/test/auth.integration.test.js` | #10 (merged 2026-09-17 while gate was BLOCKED) | Local rerun on remediated head: build/lint PASS, 19/19 tests; TRACE-GAP: independent functional verification of `c74dce1` pending | HIGH CWE-400 storage-amplification path remediated in `c74dce1`; TRACE-GAP: independent FULL confirmation and approved quota/reset plus query-log-retention policy pending | BLOCKED |
 | BC-004 | TRACE-GAP | TRACE-GAP | TRACE-GAP | - | TRACE-GAP | TRACE-GAP | READY |
 | BC-005 | TRACE-GAP | TRACE-GAP | TRACE-GAP | - | TRACE-GAP | TRACE-GAP | IDEA |
-| BC-006 | TRACE-GAP | TRACE-GAP | TRACE-GAP | - | TRACE-GAP | TRACE-GAP | BLOCKED |
+| BC-006 | DEC-005 (proposed; not approved) | TRACE-GAP | TRACE-GAP | #14 is test-corpus tooling only, not implementation evidence | TRACE-GAP: architecture approval and deployment verification pending | TRACE-GAP: KMS/IAM/backend authorization, rights scope and operational controls pending | BLOCKED |
 | BC-007 | TRACE-GAP | TRACE-GAP | TRACE-GAP | - | TRACE-GAP | TRACE-GAP | READY |
 | BC-008 | TRACE-GAP | TRACE-GAP | TRACE-GAP | - | TRACE-GAP | TRACE-GAP | READY |
 | BC-009 | TRACE-GAP | TRACE-GAP | TRACE-GAP | - | TRACE-GAP | TRACE-GAP | READY |
@@ -59,6 +61,8 @@ These are not considered complete from a single story and must be evidenced acro
 | BC-011 | TRACE-GAP | TRACE-GAP | TRACE-GAP | - | TRACE-GAP | TRACE-GAP | READY |
 | BC-012 | TRACE-GAP | TRACE-GAP | TRACE-GAP | - | TRACE-GAP | TRACE-GAP | READY |
 | BC-013 | TRACE-GAP | TRACE-GAP | TRACE-GAP | - | TRACE-GAP | TRACE-GAP | IDEA |
+| BC-014 | TRACE-GAP: measurable criteria drafted; SRS baseline missing | TRACE-GAP | TRACE-GAP | - | TRACE-GAP | TRACE-GAP: privacy/authorization review pending | IDEA |
+| BC-015 | TRACE-GAP: measurable criteria drafted; SRS baseline and provider policy missing | TRACE-GAP | TRACE-GAP | - | TRACE-GAP | TRACE-GAP: token/email security and privacy review pending | IDEA |
 | BC-101 | TRACE-GAP | TRACE-GAP | TRACE-GAP | - | TRACE-GAP | TRACE-GAP | IDEA |
 | BC-102 | TRACE-GAP | TRACE-GAP | TRACE-GAP | - | TRACE-GAP | TRACE-GAP | IDEA |
 | BC-103 | TRACE-GAP | TRACE-GAP | TRACE-GAP | - | TRACE-GAP | TRACE-GAP | IDEA |
