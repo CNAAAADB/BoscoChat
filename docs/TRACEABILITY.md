@@ -21,8 +21,6 @@ Use `TRACE-GAP` where required evidence is missing. Do not infer links that are 
 | RF-SEARCH-10, RF-SEARCH-11, RF-SEARCH-12, RNF-USE-02 | BC-011 |
 | RF-DOC-01, RF-DOC-02, RF-DOC-03, RF-DOC-04, RNF-SEC-02 | BC-012 |
 | RF-ADMIN-03 | BC-013 |
-| TRACE-GAP — owner-directed addition pending SRS-baseline approval | BC-014 |
-| TRACE-GAP — owner-directed addition pending SRS-baseline approval | BC-015 |
 | RF-CHAT-01, RF-CHAT-02, RF-CHAT-03, RF-CHAT-06, RNF-USE-02 | BC-101 |
 | RF-RAG-01, RF-RAG-02, RF-RAG-05, RNF-PERF-02 | BC-102 |
 | RF-RAG-03, RF-RAG-04, RF-CHAT-07 | BC-103 |
@@ -61,8 +59,6 @@ These are not considered complete from a single story and must be evidenced acro
 | BC-011 | TRACE-GAP | TRACE-GAP | TRACE-GAP | - | TRACE-GAP | TRACE-GAP | READY |
 | BC-012 | TRACE-GAP | TRACE-GAP | TRACE-GAP | - | TRACE-GAP | TRACE-GAP | READY |
 | BC-013 | TRACE-GAP | TRACE-GAP | TRACE-GAP | - | TRACE-GAP | TRACE-GAP | IDEA |
-| BC-014 | TRACE-GAP: measurable criteria drafted; SRS baseline missing | TRACE-GAP | TRACE-GAP | - | TRACE-GAP | TRACE-GAP: privacy/authorization review pending | IDEA |
-| BC-015 | TRACE-GAP: measurable criteria drafted; SRS baseline and provider policy missing | TRACE-GAP | TRACE-GAP | - | TRACE-GAP | TRACE-GAP: token/email security and privacy review pending | IDEA |
 | BC-101 | TRACE-GAP | TRACE-GAP | TRACE-GAP | - | TRACE-GAP | TRACE-GAP | IDEA |
 | BC-102 | TRACE-GAP | TRACE-GAP | TRACE-GAP | - | TRACE-GAP | TRACE-GAP | IDEA |
 | BC-103 | TRACE-GAP | TRACE-GAP | TRACE-GAP | - | TRACE-GAP | TRACE-GAP | IDEA |
