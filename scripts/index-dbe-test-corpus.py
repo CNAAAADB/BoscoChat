@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
-"""Build and query a LOCAL SQLite FTS5 index of authorized DBE test PDFs.
-
-Requires pdftotext (Poppler) and Python SQLite with FTS5 support.
-No database/PDF is committed or uploaded to AWS. Usage:
-  python3 scripts/index-dbe-test-corpus.py build
-  python3 scripts/index-dbe-test-corpus.py search 'Don Bosco'
-  python3 scripts/index-dbe-test-corpus.py smoke
-"""
+"""Build/query a local SQLite FTS5 index from verified, private DBE PDFs."""
 import argparse
 import csv
+import hashlib
+import os
+import resource
 import sqlite3
 import subprocess
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,6 +15,8 @@ BASE = ROOT / 'data/test-corpus'
 PDF_DIR = BASE / 'local-pdfs'
 DB = BASE / 'local-index.sqlite3'
 CATALOG = BASE / 'dbe-public-sources.csv'
+MAX_PDF_BYTES = 30 * 1024 * 1024
+MAX_TEXT_BYTES = 64 * 1024 * 1024
 
 
 def manifest():
@@ -25,30 +24,71 @@ def manifest():
         return list(csv.DictReader(source))
 
 
+def sha256_file(path):
+    digest = hashlib.sha256()
+    with path.open('rb') as source:
+        while chunk := source.read(64 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def verify_pdf(row, pdf):
+    if not pdf.is_file() or pdf.stat().st_size > MAX_PDF_BYTES:
+        raise ValueError(f'Missing or oversized PDF: {pdf}')
+    with pdf.open('rb') as source:
+        if source.read(5) != b'%PDF-':
+            raise ValueError(f'Invalid PDF header: {pdf}')
+    expected = row.get('sha256', '').strip().lower()
+    if len(expected) != 64 or sha256_file(pdf) != expected:
+        raise ValueError(f'Unverified PDF checksum: {pdf}')
+
+
+def parser_limits():
+    resource.setrlimit(resource.RLIMIT_CPU, (60, 60))
+    resource.setrlimit(resource.RLIMIT_AS, (512 * 1024 * 1024, 512 * 1024 * 1024))
+    resource.setrlimit(resource.RLIMIT_FSIZE, (MAX_TEXT_BYTES, MAX_TEXT_BYTES))
+    resource.setrlimit(resource.RLIMIT_NOFILE, (32, 32))
+
+
 def pages_of(pdf):
-    # Form-feed is Poppler's page separator; no shell interpolation.
-    result = subprocess.run(['pdftotext', '-layout', '-enc', 'UTF-8', str(pdf), '-'],
-                            capture_output=True, text=True, check=True, timeout=120)
-    return [p.strip() for p in result.stdout.split(chr(12)) if p.strip()]
+    with tempfile.TemporaryDirectory(prefix='boscochat-pdftotext-') as directory:
+        output = Path(directory) / 'extracted.txt'
+        completed = subprocess.run(
+            ['pdftotext', '-layout', '-enc', 'UTF-8', str(pdf), str(output)],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+            timeout=90,
+            close_fds=True,
+            env={'PATH': os.environ.get('PATH', '/usr/bin:/bin'), 'LANG': 'C.UTF-8'},
+            preexec_fn=parser_limits,
+        )
+        if completed.returncode != 0:
+            raise RuntimeError(f'pdftotext failed safely: {completed.stderr[:500]}')
+        if not output.is_file() or output.stat().st_size > MAX_TEXT_BYTES:
+            raise ValueError('Extracted text is missing or exceeds the 64 MiB limit')
+        text = output.read_text(encoding='utf-8', errors='strict')
+    return [page.strip() for page in text.split(chr(12)) if page.strip()]
 
 
 def build():
     if not PDF_DIR.exists():
-        raise SystemExit('No local PDFs. Use fetch-dbe-test-corpus.py --authorized first.')
+        raise SystemExit('No local PDFs. Run the authorized fetch first.')
     with sqlite3.connect(DB) as db:
         db.execute('CREATE VIRTUAL TABLE IF NOT EXISTS page_index USING fts5(issue UNINDEXED, publication UNINDEXED, period UNINDEXED, page UNINDEXED, text, tokenize="unicode61 remove_diacritics 2")')
         db.execute('DELETE FROM page_index')
         total = 0
         for row in manifest():
             pdf = PDF_DIR / f'dbe-{int(row["issue"])}.pdf'
-            if not pdf.is_file():
-                print(f'skip {row["issue"]}: missing PDF')
-                continue
-            if not pdf.open('rb').read(5) == b'%PDF-':
-                raise ValueError(f'Invalid PDF header: {pdf}')
+            verify_pdf(row, pdf)
             pages = pages_of(pdf)
-            db.executemany('INSERT INTO page_index(issue, publication, period, page, text) VALUES(?,?,?,?,?)',
-                           [(row['issue'], row['publication'], row['period'], i, text[:100000]) for i, text in enumerate(pages, 1)])
+            db.executemany(
+                'INSERT INTO page_index(issue, publication, period, page, text) VALUES(?,?,?,?,?)',
+                [(row['issue'], row['publication'], row['period'], number, text[:100000])
+                 for number, text in enumerate(pages, 1)],
+            )
             print(f'indexed issue {row["issue"]}: {len(pages)} pages')
             total += len(pages)
         if not total:
@@ -60,7 +100,11 @@ def search(query):
     if not DB.exists():
         raise SystemExit('No index. Run build first.')
     with sqlite3.connect(f'file:{DB}?mode=ro', uri=True) as db:
-        rows = db.execute('SELECT issue, period, page, snippet(page_index, 4, "[", "]", " ... ", 18) FROM page_index WHERE page_index MATCH ? ORDER BY rank LIMIT 20', (query,)).fetchall()
+        rows = db.execute(
+            'SELECT issue, period, page, snippet(page_index, 4, "[", "]", " ... ", 18) '
+            'FROM page_index WHERE page_index MATCH ? ORDER BY rank LIMIT 20',
+            (query,),
+        ).fetchall()
     for issue, period, page, excerpt in rows:
         print(f'DBE {issue} ({period}), PDF page {page}: {excerpt.replace(chr(10), " ")[:300]}')
     return len(rows)
@@ -70,8 +114,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
     sub.add_parser('build')
-    s = sub.add_parser('search')
-    s.add_argument('query')
+    search_parser = sub.add_parser('search')
+    search_parser.add_argument('query')
     sub.add_parser('smoke')
     args = parser.parse_args()
     if args.command == 'build':

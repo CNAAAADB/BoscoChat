@@ -1,22 +1,8 @@
-# Don Bosco en España — fuentes públicas para pruebas
+# Don Bosco en España — corpus privado autorizado para pruebas
 
-Se identificaron tres números públicos de la revista oficial de la Confederación: 766, 767 y 768 (2024). Los enlaces exactos y los periodos están en [dbe-public-sources.csv](dbe-public-sources.csv). La fuente general es https://confedebosco.es/revista-dbe/.
+El propietario del producto confirmó el 30 de octubre de 2026 que la Confederación posee estos PDF y autorizó su uso para pruebas de BoscoChat. La autorización se limita a pruebas del producto y **no autoriza publicación, redistribución pública ni incorporación de binarios a Git**. Los PDF, OCR e índices deben permanecer en almacenamiento privado conforme al SRS.
 
-**Importante:** que un PDF pueda consultarse públicamente no garantiza permiso para redistribuirlo, indexarlo comercialmente ni publicarlo en GitHub. **No se incorporan binarios, OCR íntegro ni material protegido a Git.** El campo `license_status` queda como `redistribution_not_verified`; requiere validación con el titular de derechos antes de alojar copias en entornos compartidos o de producción.
-
-Para pruebas locales autorizadas, ejecutar desde la raíz:
-
-```bash
-python3 scripts/fetch-dbe-test-corpus.py --authorized
-```
-
-Los ficheros irán a `data/test-corpus/local-pdfs/`, que debe permanecer ignorada por Git. El descargador comprueba código de respuesta, tipo PDF, cabecera y tamaño máximo de 30 MiB por número. **No es un pipeline de ingesta.** El buscador documental real depende todavía de BC-006 (almacenamiento seguro), BC-007 (OCR e indexación) y BC-008 (búsqueda); no se deben declarar funcionales hasta que haya pruebas extremo a extremo.
-
-Cuando existan permisos y pipeline, probar búsquedas sobre textos comprobados de estos números, verificando publicación, número, página y concordancia del OCR con el PDF original. Registrar permisos, procedencia y checksum por fichero antes de importar.
-
-## Índice de búsqueda local
-
-Requiere Poppler `pdftotext` y Python con SQLite FTS5. **Solo para PDFs con uso autorizado**:
+El catálogo [dbe-public-sources.csv](dbe-public-sources.csv) identifica los números 766, 767 y 768. Antes de descargar, una persona autorizada debe registrar el SHA-256 esperado de cada fuente. El descargador falla de forma cerrada si falta el hash, cambia el contenido, el host final tras una redirección no pertenece a la Confederación, la respuesta no es PDF o supera 30 MiB.
 
 ```bash
 python3 scripts/fetch-dbe-test-corpus.py --authorized
@@ -25,4 +11,11 @@ python3 scripts/index-dbe-test-corpus.py search '"Don Bosco"'
 python3 scripts/index-dbe-test-corpus.py smoke
 ```
 
-Esto permite comprobar búsqueda por páginas y procedencia en un entorno local; **no conecta todavía la interfaz web**. Para una búsqueda integral en AWS todavía hacen falta BC-006, BC-007 y BC-008, junto con permisos de uso/hosting de estos ejemplares. La extracción depende de que los PDF contengan texto; si son imágenes sin capa de texto se necesita OCR. Las pruebas locales no se han ejecutado en este PR.
+Los ficheros se guardan en `data/test-corpus/local-pdfs/` y el índice en `data/test-corpus/local-index.sqlite3`; ambos están excluidos de Git. `pdftotext` se ejecuta sin shell, con timeout y límites de CPU, memoria, descriptores y tamaño de salida. Esto reduce el riesgo de PDF malicioso, pero no sustituye el aislamiento del pipeline productivo.
+
+## Estado y trazabilidad
+
+- Material de prueba para BC-006, BC-007 y BC-008; no demuestra que esas historias estén implementadas.
+- La propuesta de almacenamiento está en `docs/proposals/BC-006-private-document-storage.md`.
+- Pendiente antes de cualquier ingesta compartida: registrar hashes, aprobar las decisiones BC-006 indicadas en la propuesta y ejecutar pruebas de integración en AWS.
+- Pendiente antes de merge: checks de los scripts y revisión independiente de seguridad/calidad sobre el SHA exacto.

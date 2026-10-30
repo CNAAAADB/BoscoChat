@@ -1,0 +1,29 @@
+name: Validate private corpus tools
+
+on:
+  pull_request:
+    paths:
+      - 'data/test-corpus/**'
+      - 'scripts/fetch-dbe-test-corpus.py'
+      - 'scripts/index-dbe-test-corpus.py'
+      - 'scripts/tests/test_corpus_tools.py'
+      - 'docs/proposals/BC-006-private-document-storage.md'
+      - '.github/workflows/corpus-tools.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile scripts
+        run: python -m py_compile scripts/fetch-dbe-test-corpus.py scripts/index-dbe-test-corpus.py
+      - name: Run regression tests
+        run: python -m unittest discover -s scripts/tests -p 'test_corpus_tools.py' -v
