@@ -14,7 +14,7 @@
 - BC-006 — Documentary data model and protected storage requires an approved storage architecture/provider, encryption and authorization decision before implementation.
 
 ## In review
-- BC-002 — Six canonical roles, backend authorization, account administration, suspension/session revocation, deletion and administrator UI; feature PR pending.
+- BC-002 — Six canonical roles, backend authorization, account administration, suspension/session revocation, deletion and administrator UI; PR #13.
 
 ## Recently completed
 - AWS MVP authentication runtime validated end-to-end on 2026-09-15: Amplify frontend, API Gateway HTTP API, Lambda/Express via Lambda Web Adapter, private RDS MySQL, verified RDS TLS, exact-origin CORS, registration, login, persisted session/reload and logout. Architecture and deployment evidence were documented in PR #8 and merged to `main`.

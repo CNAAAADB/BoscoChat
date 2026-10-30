@@ -41,5 +41,5 @@ Record material product/architecture/security/privacy decisions here.
 - Context: BC-002 requires six user roles and administrator-controlled account lifecycle operations. The legacy MVP used `admin` / `gestor` strings and duplicated cookie/role checks inside individual routes, which risked inconsistent authorization and unsafe role updates.
 - Decision: Store the six canonical role identifiers defined by RF-USER-04, normalize legacy aliases during migration, and centralize session resolution plus role allowlists in backend middleware. Expose account administration through `/api/admin/users`, restricted to `administrator`; suspension revokes sessions, and self-demotion/self-suspension/self-deletion are rejected. Keep the legacy role-update endpoint only as a compatibility alias delegating to the same validated service.
 - Consequences: Role changes are effective on the next authenticated request because sessions resolve the current database user. Documentary-manager permission remains distinct from paid tiers. Deployments must run the migration before using the new API, and independent authorization/security review remains mandatory before completion.
-- Related stories/PRs: BC-002; feature PR pending.
+- Related stories/PRs: BC-002; PR #13.
 

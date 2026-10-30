@@ -51,7 +51,7 @@ As a visitor, I want to register and authenticate securely so that I can access 
 - Depends on: BC-001
 - SRS: RF-USER-04, RF-ADMIN-01, RNF-SEC-03
 - Design/mockup: TBD
-- PR: pending
+- PR: #13
 
 **Story**  
 As the platform, I want role-based authorization so that users only access functions permitted for their role.
