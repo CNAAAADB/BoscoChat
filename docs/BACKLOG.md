@@ -46,22 +46,22 @@ As a visitor, I want to register and authenticate securely so that I can access 
 
 ### BC-002 — Roles and authorization
 - Priority: P1
-- Status: IN_PROGRESS
+- Status: IN_REVIEW
 - Owner role: Developer
 - Depends on: BC-001
 - SRS: RF-USER-04, RF-ADMIN-01, RNF-SEC-03
 - Design/mockup: TBD
-- PR: -
+- PR: pending
 
 **Story**  
 As the platform, I want role-based authorization so that users only access functions permitted for their role.
 
 **Acceptance criteria**
-- [ ] Support Free, Pro, Premium, Advanced, Administrator and Documentary manager roles.
-- [ ] Authorization is enforced by the backend, not only by the UI.
-- [ ] Administrator can create accounts, modify roles, suspend accounts and delete accounts.
-- [ ] Unauthorized operations return safe, consistent errors.
-- [ ] Tests prove privilege boundaries for protected operations.
+- [x] Support Free, Pro, Premium, Advanced, Administrator and Documentary manager roles.
+- [x] Authorization is enforced by the backend, not only by the UI.
+- [x] Administrator can create accounts, modify roles, suspend accounts and delete accounts.
+- [x] Unauthorized operations return safe, consistent errors.
+- [x] Tests prove privilege boundaries for protected operations.
 
 ### BC-003 — Query usage logging and quotas
 - Priority: P1
@@ -384,3 +384,4 @@ Every applicable story must preserve these constraints:
 ## Automation rule
 
 Automated development may select only stories with `Status: READY`, all dependencies resolved, and no active branch/PR already implementing the same story. Product scope must not be invented outside this backlog/SRS without moving the proposed work through product review first.
+

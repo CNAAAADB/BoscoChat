@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { hashPassword, verifyPassword } from './password.js';
+import { normalizeRole, ROLES } from '../users/roles.js';
 
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -31,7 +32,12 @@ function normalizeRegistration(input) {
 }
 
 function publicUser(user) {
-  return { id: user.id, username: user.username, email: user.email, role: user.role };
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    role: normalizeRole(user.role, { acceptLegacyAliases: true }),
+  };
 }
 
 export function tokenDigest(token) {
@@ -45,10 +51,16 @@ export class AuthService {
   }
 
   async register(input) {
+    return this.createAccount(input, ROLES.FREE);
+  }
+
+  async createAccount(input, role = ROLES.FREE) {
     const { username, email, password } = normalizeRegistration(input);
+    const normalizedRole = normalizeRole(role);
+    if (!normalizedRole) throw new AuthError(400, 'INVALID_ROLE', 'Selecciona un rol válido.');
     const passwordHash = await hashPassword(password);
     try {
-      return publicUser(await this.repository.createUser({ username, email, passwordHash }));
+      return publicUser(await this.repository.createUser({ username, email, passwordHash, role: normalizedRole }));
     } catch (error) {
       if (error?.code === 'ER_DUP_ENTRY') {
         throw new AuthError(409, 'EMAIL_ALREADY_REGISTERED', 'Ya existe una cuenta con ese correo electrónico.');
@@ -69,6 +81,9 @@ export class AuthService {
     if (!user || !valid) {
       throw new AuthError(401, 'INVALID_CREDENTIALS', 'Credenciales no válidas.');
     }
+    if (user.suspendedAt) {
+      throw new AuthError(403, 'ACCOUNT_SUSPENDED', 'La cuenta está suspendida. Contacta con administración.');
+    }
 
     const token = randomBytes(32).toString('base64url');
     const expiresAt = new Date(this.now().getTime() + SESSION_TTL_MS);
@@ -86,3 +101,4 @@ export class AuthService {
     if (token) await this.repository.deleteSession(tokenDigest(token));
   }
 }
+

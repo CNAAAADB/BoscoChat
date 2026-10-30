@@ -144,3 +144,12 @@ Exact network IDs, regions, sizing, backup/recovery, IaC and observability detai
 - `query_usage_counters` provides atomic MySQL counters locked within a transaction. `query_logs` records user, type, timestamp, bounded JSON parameters and accepted/blocked outcome. Search and chat counters remain independent.
 - Quota responses expose limit, remaining units and reset time through rate-limit headers. Exhausted requests return HTTP 429 with a safe upgrade message.
 - Query logs are personal/operational data: they are not publicly exposed and foreign-key deletion follows account deletion. A production retention schedule remains a deployment/privacy policy responsibility.
+
+## Role and account-administration boundary (BC-002)
+
+- BoscoChat uses six canonical roles: `free`, `pro`, `premium`, `advanced`, `administrator` and `documentary_manager` (`RF-USER-04`). Legacy `admin` and `gestor` values are accepted only at migration/authorization boundaries and are normalized in storage.
+- Every protected request resolves the current user from the opaque server-side session. The backend middleware applies the role allowlist; client-supplied roles or user IDs never establish authority (`RNF-SEC-03`).
+- Only `administrator` may list/create accounts, change roles, suspend/reactivate accounts or delete accounts (`RF-ADMIN-01`). `documentary_manager` has documentary-management permission but no account-administration permission; paid roles do not imply documentary or administrative privileges.
+- Suspension sets `users.suspended_at`, revokes active sessions atomically and prevents new sessions until reactivation. User deletion relies on database foreign-key cascades for sessions and user-linked usage records.
+- Self-demotion, self-suspension and self-deletion are rejected to preserve an active administrative control path. Password hashes and other authentication secrets are never returned by administration APIs.
+

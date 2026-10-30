@@ -1,26 +1,10 @@
 import express from 'express';
 import { AuthError } from '../auth/service.js';
 import { createAuthRateLimiter } from '../middleware/auth-rate-limit.js';
+import { SESSION_COOKIE_NAME, sessionToken } from '../middleware/authorization.js';
 
-const COOKIE_NAME = 'boscochat_session';
 const MAX_AGE_SECONDS = 8 * 60 * 60;
 const ALLOWED_SAME_SITE = new Set(['lax', 'strict', 'none']);
-
-function parseCookies(header = '') {
-  return Object.fromEntries(header.split(';').flatMap((part) => {
-    const separator = part.indexOf('=');
-    if (separator < 0) return [];
-    try {
-      return [[part.slice(0, separator).trim(), decodeURIComponent(part.slice(separator + 1).trim())]];
-    } catch {
-      return [];
-    }
-  }));
-}
-
-function sessionToken(req) {
-  return parseCookies(req.get('cookie'))[COOKIE_NAME] ?? null;
-}
 
 function cookieOptions(production, sameSite = 'lax') {
   const normalized = String(sameSite).toLowerCase();
@@ -58,7 +42,7 @@ export function createAuthRouter(authService, {
     try {
       const result = await authService.login(req.body ?? {});
       loginRateLimiter.clear(res.locals.authRateLimitKey);
-      res.cookie(COOKIE_NAME, result.token, sessionCookieOptions);
+      res.cookie(SESSION_COOKIE_NAME, result.token, sessionCookieOptions);
       res.json({ user: result.user, expiresAt: result.expiresAt.toISOString() });
     } catch (error) {
       next(error);
@@ -78,7 +62,7 @@ export function createAuthRouter(authService, {
   router.post('/logout', async (req, res, next) => {
     try {
       await authService.logout(sessionToken(req));
-      res.clearCookie(COOKIE_NAME, sessionCookieOptions);
+      res.clearCookie(SESSION_COOKIE_NAME, sessionCookieOptions);
       res.status(204).send();
     } catch (error) {
       next(error);
@@ -94,3 +78,4 @@ export function createAuthRouter(authService, {
 
   return router;
 }
+
