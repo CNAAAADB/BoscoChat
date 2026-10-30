@@ -46,7 +46,7 @@ As a visitor, I want to register and authenticate securely so that I can access 
 
 ### BC-002 — Roles and authorization
 - Priority: P1
-- Status: READY
+- Status: IN_PROGRESS
 - Owner role: Developer
 - Depends on: BC-001
 - SRS: RF-USER-04, RF-ADMIN-01, RNF-SEC-03
