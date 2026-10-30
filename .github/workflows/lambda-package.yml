@@ -1,15 +1,17 @@
-name: Package Lambda backend
+name: Build, test and package BoscoChat
 
 on:
   pull_request:
     paths:
       - 'backend/**'
+      - 'frontend/**'
       - '.github/workflows/lambda-package.yml'
   push:
     branches:
       - main
     paths:
       - 'backend/**'
+      - 'frontend/**'
       - '.github/workflows/lambda-package.yml'
   workflow_dispatch:
 
@@ -40,9 +42,17 @@ jobs:
         working-directory: backend
         run: npm test
 
+      - name: Build
+        working-directory: backend
+        run: npm run build
+
       - name: Lint and syntax checks
         working-directory: backend
         run: npm run lint
+
+      - name: Audit dependencies
+        working-directory: backend
+        run: npm audit --audit-level=high
 
       - name: Install production dependencies
         working-directory: backend
@@ -62,3 +72,35 @@ jobs:
           path: boscochat-backend-lambda.zip
           if-no-files-found: error
           retention-days: 14
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Audit dependencies
+        working-directory: frontend
+        run: npm audit --audit-level=high
+

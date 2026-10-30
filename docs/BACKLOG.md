@@ -61,14 +61,16 @@ As the platform, I want role-based authorization so that users only access funct
 - [x] Authorization is enforced by the backend, not only by the UI.
 - [x] Administrator can create accounts, modify roles, suspend accounts and delete accounts.
 - [x] Unauthorized operations return safe, consistent errors.
-- [ ] Tests prove privilege boundaries for protected operations, including the concurrent last-active-administrator invariant.
+- [x] Tests prove privilege boundaries for protected operations, including the concurrent last-active-administrator invariant.
 
-**Blocking evidence (PR #13, SHA `25f1e41`)**
+**Blocking evidence (PR #13, SHA `a62f0dd`)**
 - [ ] Independent functional verification on the exact reviewed SHA.
 - [ ] Independent FULL authorization/security review.
-- [ ] Representative migration validation and CI evidence for frontend build/lint/audit.
-- [ ] Resolve SEC-BC002-01 by preserving at least one active administrator atomically under concurrent mutations.
-- [ ] Resolve SEC-BC002-02 by adding security audit events for account-administration actions or approving an explicit policy exception.
+- [x] GitHub Actions validates backend/frontend build, lint, tests and high-severity dependency audits on the exact SHA.
+- [x] SEC-BC002-01 remediation implements a transactionally locked last-active-administrator invariant and concurrent regression test; independent FULL confirmation remains pending.
+- [x] SEC-BC002-02 remediation adds security audit events for administrative success/denial; independent FULL confirmation remains pending.
+- [ ] Representative MySQL migration/concurrency validation.
+- [ ] Approve access, retention and deletion policy for the personal identifiers in `admin_audit_logs`.
 
 ### BC-003 — Query usage logging and quotas
 - Priority: P1
@@ -309,6 +311,8 @@ As an Administrator, I want usage and resource monitoring so that I can supervis
 - Design/mockup: TBD
 - PR: -
 
+**Scope evidence:** `TRACE-GAP` — currently supported only by an assertion in PR #15; explicit product-owner confirmation and SRS-baseline approval are required before refinement beyond IDEA.
+
 **Story**  
 As an authenticated user, I want to view and maintain my profile so that my account information remains accurate.
 
@@ -328,6 +332,8 @@ As an authenticated user, I want to view and maintain my profile so that my acco
 - SRS: TRACE-GAP — owner-directed addition on 2026-10-30; no baseline RF-/RNF-* identifier
 - Design/mockup: TBD
 - PR: -
+
+**Scope evidence:** `TRACE-GAP` — currently supported only by an assertion in PR #15; explicit product-owner confirmation and SRS-baseline approval are required before refinement beyond IDEA.
 
 **Story**  
 As an account holder, I want to verify my email address and securely confirm email changes so that the platform can trust account contact addresses.
@@ -442,4 +448,5 @@ Every applicable story must preserve these constraints:
 ## Automation rule
 
 `READY` is a refinement state, not automatic execution authority. Automated development may select a story only when it is `READY`, every dependency is `DONE`, no active branch/PR already implements it, and no documented gate blocks it. Product scope outside the SRS must remain `IDEA` with `TRACE-GAP` until product review and SRS-baseline approval.
+
 

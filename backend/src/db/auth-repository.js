@@ -1,14 +1,55 @@
+const USER_FIELDS = 'id, username, email, role, suspended_at AS suspendedAt';
+
+function lastActiveAdministratorError() {
+  const error = new Error('At least one active administrator must remain');
+  error.code = 'LAST_ACTIVE_ADMIN';
+  return error;
+}
+
 export class AuthRepository {
   constructor(pool) {
     this.pool = pool;
   }
 
-  async createUser({ username, email, passwordHash, role = 'free' }) {
-    const [result] = await this.pool.execute(
-      'INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)',
-      [username, email, passwordHash, role],
+  async writeAdminAudit(executor, { actorId, targetId = null, action, outcome, details = null }) {
+    await executor.execute(
+      `INSERT INTO admin_audit_logs
+        (actor_user_id, target_user_id, action, outcome, details_json)
+       VALUES (?, ?, ?, ?, CAST(? AS JSON))`,
+      [actorId, targetId, action, outcome, JSON.stringify(details ?? {})],
     );
-    return { id: result.insertId, username, email, role, suspendedAt: null };
+  }
+
+  async recordAdminAudit(entry) {
+    await this.writeAdminAudit(this.pool, entry);
+  }
+
+  async createUser({ username, email, passwordHash, role = 'free', actorId = null }) {
+    if (actorId === null) {
+      const [result] = await this.pool.execute(
+        'INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)',
+        [username, email, passwordHash, role],
+      );
+      return { id: result.insertId, username, email, role, suspendedAt: null };
+    }
+    const connection = await this.pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [result] = await connection.execute(
+        'INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)',
+        [username, email, passwordHash, role],
+      );
+      await this.writeAdminAudit(connection, {
+        actorId, targetId: result.insertId, action: 'user.create', outcome: 'success', details: { role },
+      });
+      await connection.commit();
+      return { id: result.insertId, username, email, role, suspendedAt: null };
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
   }
 
   async findUserByEmail(email) {
@@ -44,42 +85,54 @@ export class AuthRepository {
   }
 
   async findUserById(id) {
-    const [rows] = await this.pool.execute(
-      'SELECT id, username, email, role, suspended_at AS suspendedAt FROM users WHERE id = ? LIMIT 1',
-      [id],
-    );
+    const [rows] = await this.pool.execute(`SELECT ${USER_FIELDS} FROM users WHERE id = ? LIMIT 1`, [id]);
     return rows[0] ?? null;
   }
 
   async listUsers() {
-    const [rows] = await this.pool.execute(
-      'SELECT id, username, email, role, suspended_at AS suspendedAt FROM users ORDER BY id',
-    );
+    const [rows] = await this.pool.execute(`SELECT ${USER_FIELDS} FROM users ORDER BY id`);
     return rows;
   }
 
-  async updateUserRole(id, role) {
-    const [result] = await this.pool.execute('UPDATE users SET role = ? WHERE id = ?', [role, id]);
-    return result.affectedRows === 0 ? null : this.findUserById(id);
+  async lockAdministrationState(connection, targetId) {
+    const [activeAdministrators] = await connection.execute(
+      `SELECT id FROM users
+        WHERE role = 'administrator' AND suspended_at IS NULL
+        ORDER BY id FOR UPDATE`,
+    );
+    const [targets] = await connection.execute(
+      `SELECT ${USER_FIELDS} FROM users WHERE id = ? FOR UPDATE`,
+      [targetId],
+    );
+    return { activeAdministrators, target: targets[0] ?? null };
   }
 
-  async setUserSuspended(id, suspended) {
+  ensureAdministratorRemains(activeAdministrators, target, removesActiveAdministrator) {
+    if (removesActiveAdministrator
+      && target.role === 'administrator'
+      && target.suspendedAt === null
+      && activeAdministrators.length <= 1) {
+      throw lastActiveAdministratorError();
+    }
+  }
+
+  async updateUserRole(actorId, id, role) {
     const connection = await this.pool.getConnection();
     try {
       await connection.beginTransaction();
-      const [result] = await connection.execute(
-        suspended
-          ? 'UPDATE users SET suspended_at = CURRENT_TIMESTAMP WHERE id = ?'
-          : 'UPDATE users SET suspended_at = NULL WHERE id = ?',
-        [id],
-      );
-      if (result.affectedRows === 0) {
+      const { activeAdministrators, target } = await this.lockAdministrationState(connection, id);
+      if (!target) {
         await connection.rollback();
         return null;
       }
-      if (suspended) await connection.execute('DELETE FROM auth_sessions WHERE user_id = ?', [id]);
+      this.ensureAdministratorRemains(activeAdministrators, target, role !== 'administrator');
+      await connection.execute('UPDATE users SET role = ? WHERE id = ?', [role, id]);
+      await this.writeAdminAudit(connection, {
+        actorId, targetId: id, action: 'user.role.change', outcome: 'success', details: { role },
+      });
+      const [rows] = await connection.execute(`SELECT ${USER_FIELDS} FROM users WHERE id = ?`, [id]);
       await connection.commit();
-      return this.findUserById(id);
+      return rows[0];
     } catch (error) {
       await connection.rollback();
       throw error;
@@ -88,9 +141,58 @@ export class AuthRepository {
     }
   }
 
-  async deleteUser(id) {
-    const [result] = await this.pool.execute('DELETE FROM users WHERE id = ?', [id]);
-    return result.affectedRows > 0;
+  async setUserSuspended(actorId, id, suspended) {
+    const connection = await this.pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const { activeAdministrators, target } = await this.lockAdministrationState(connection, id);
+      if (!target) {
+        await connection.rollback();
+        return null;
+      }
+      this.ensureAdministratorRemains(activeAdministrators, target, suspended);
+      await connection.execute(
+        suspended
+          ? 'UPDATE users SET suspended_at = CURRENT_TIMESTAMP WHERE id = ?'
+          : 'UPDATE users SET suspended_at = NULL WHERE id = ?',
+        [id],
+      );
+      if (suspended) await connection.execute('DELETE FROM auth_sessions WHERE user_id = ?', [id]);
+      await this.writeAdminAudit(connection, {
+        actorId, targetId: id, action: suspended ? 'user.suspend' : 'user.reactivate', outcome: 'success',
+      });
+      const [rows] = await connection.execute(`SELECT ${USER_FIELDS} FROM users WHERE id = ?`, [id]);
+      await connection.commit();
+      return rows[0];
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
+  async deleteUser(actorId, id) {
+    const connection = await this.pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const { activeAdministrators, target } = await this.lockAdministrationState(connection, id);
+      if (!target) {
+        await connection.rollback();
+        return false;
+      }
+      this.ensureAdministratorRemains(activeAdministrators, target, true);
+      await this.writeAdminAudit(connection, {
+        actorId, targetId: id, action: 'user.delete', outcome: 'success', details: { priorRole: target.role },
+      });
+      await connection.execute('DELETE FROM users WHERE id = ?', [id]);
+      await connection.commit();
+      return true;
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
   }
 }
-
