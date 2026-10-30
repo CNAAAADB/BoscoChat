@@ -46,7 +46,7 @@ As a visitor, I want to register and authenticate securely so that I can access 
 
 ### BC-002 — Roles and authorization
 - Priority: P1
-- Status: IN_REVIEW
+- Status: BLOCKED
 - Owner role: Developer
 - Depends on: BC-001
 - SRS: RF-USER-04, RF-ADMIN-01, RNF-SEC-03
@@ -61,7 +61,14 @@ As the platform, I want role-based authorization so that users only access funct
 - [x] Authorization is enforced by the backend, not only by the UI.
 - [x] Administrator can create accounts, modify roles, suspend accounts and delete accounts.
 - [x] Unauthorized operations return safe, consistent errors.
-- [x] Tests prove privilege boundaries for protected operations.
+- [ ] Tests prove privilege boundaries for protected operations, including the concurrent last-active-administrator invariant.
+
+**Blocking evidence (PR #13, SHA `25f1e41`)**
+- [ ] Independent functional verification on the exact reviewed SHA.
+- [ ] Independent FULL authorization/security review.
+- [ ] Representative migration validation and CI evidence for frontend build/lint/audit.
+- [ ] Resolve SEC-BC002-01 by preserving at least one active administrator atomically under concurrent mutations.
+- [ ] Resolve SEC-BC002-02 by adding security audit events for account-administration actions or approving an explicit policy exception.
 
 ### BC-003 — Query usage logging and quotas
 - Priority: P1
@@ -144,6 +151,17 @@ As the platform, I want a structured documentary data model and protected docume
 - [ ] Original documents are not publicly/directly accessible.
 - [ ] Backend authorizes access before serving document content.
 - [ ] Architecture supports adding new publications without redesigning the core data model.
+
+**Proposed storage architecture — DEC-005 (not implementation evidence)**
+- Private AWS S3 bucket with Block Public Access and bucket-owner-enforced object ownership.
+- Encryption at rest with a customer-managed AWS KMS key and TLS-only transport.
+- Least-privilege IAM limited to the backend runtime and approved object prefixes/actions.
+- Backend must authenticate and authorize each document request before streaming content or issuing a short-lived presigned URL; no stable public object URL.
+- Before implementation: approve region/key ownership, retention/versioning, malware scanning, presigned-URL expiry and audit-log retention; then verify the exact deployment independently.
+
+**Test-corpus provenance**
+- The project owner stated on 2026-10-30 that they represent the Confederation and authorize using the identified *Don Bosco en España* issues for BoscoChat testing.
+- This evidence covers project testing only; it does not establish permission for public redistribution or public hosting. PR #14 remains a draft test artifact and is not BC-006/007/008 implementation evidence.
 
 ### BC-007 — Document upload and ingestion pipeline
 - Priority: P1
@@ -282,6 +300,46 @@ As an Administrator, I want usage and resource monitoring so that I can supervis
 - [ ] Show user activity indicators.
 - [ ] Show system-resource/operational metrics available from the deployed environment.
 
+### BC-014 — User profile management
+- Priority: P2
+- Status: IDEA
+- Owner role: Product / Developer
+- Depends on: BC-001
+- SRS: TRACE-GAP — owner-directed addition on 2026-10-30; no baseline RF-/RNF-* identifier
+- Design/mockup: TBD
+- PR: -
+
+**Story**  
+As an authenticated user, I want to view and maintain my profile so that my account information remains accurate.
+
+**Acceptance criteria**
+- [ ] An authenticated user can view their own username, email, role/subscription and email-verification status without secrets or internal identifiers.
+- [ ] The user can update only the approved editable fields; email change is handled exclusively by BC-015.
+- [ ] Validation and uniqueness failures return safe, consistent errors.
+- [ ] Backend authorization prevents reading or modifying another user's profile.
+- [ ] Automated tests cover successful updates, validation failures and cross-account access denial.
+- [ ] Before READY: approve editable fields, audit requirements, privacy impact and add the requirement to the SRS baseline.
+
+### BC-015 — Email verification and controlled email change
+- Priority: P1
+- Status: IDEA
+- Owner role: Product / Developer
+- Depends on: BC-001
+- SRS: TRACE-GAP — owner-directed addition on 2026-10-30; no baseline RF-/RNF-* identifier
+- Design/mockup: TBD
+- PR: -
+
+**Story**  
+As an account holder, I want to verify my email address and securely confirm email changes so that the platform can trust account contact addresses.
+
+**Acceptance criteria**
+- [ ] Verification tokens are cryptographically random, stored only as digests, single-use and expire within 24 hours.
+- [ ] Verification and resend endpoints use generic responses, rate limits and do not expose token values in logs.
+- [ ] A new registration records verification status and sends a verification message through an approved provider/sender domain.
+- [ ] An email change requires an authenticated session and verification of the new unique address; the previous address remains active until confirmation.
+- [ ] Automated tests cover expiry, reuse, invalid tokens, resend throttling, duplicate addresses and confirmation of a changed address.
+- [ ] Before READY: approve provider, sender domain, resend limits, unverified-account access policy, retention and add the requirement to the SRS baseline.
+
 ---
 
 # Phase 2 — Conversational AI / RAG
@@ -383,5 +441,5 @@ Every applicable story must preserve these constraints:
 
 ## Automation rule
 
-Automated development may select only stories with `Status: READY`, all dependencies resolved, and no active branch/PR already implementing the same story. Product scope must not be invented outside this backlog/SRS without moving the proposed work through product review first.
+`READY` is a refinement state, not automatic execution authority. Automated development may select a story only when it is `READY`, every dependency is `DONE`, no active branch/PR already implements it, and no documented gate blocks it. Product scope outside the SRS must remain `IDEA` with `TRACE-GAP` until product review and SRS-baseline approval.
 
