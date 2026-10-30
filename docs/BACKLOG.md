@@ -65,23 +65,26 @@ As the platform, I want role-based authorization so that users only access funct
 
 ### BC-003 — Query usage logging and quotas
 - Priority: P1
-- Status: READY
+- Status: BLOCKED
 - Owner role: Developer
 - Depends on: BC-001
 - SRS: RF-USAGE-01, RF-USAGE-02, RF-USAGE-03
 - Design/mockup: TBD
-- PR: -
+- PR: #10 (merged 2026-09-17 while the delivery gate was BLOCKED)
+
+**Gate status**
+- Code is present on `main`, but story completion remains blocked pending independent functional verification of the remediated head, independent FULL security confirmation of `c74dce1`, and explicit approval or exception acceptance for production quota/reset values and query-log retention.
 
 **Story**  
 As BoscoChat, I want to record and enforce per-plan query quotas so that use and operating costs can be controlled.
 
 **Acceptance criteria**
-- [ ] Search and conversational queries are counted separately.
-- [ ] Query records include user, type, timestamp and parameters.
-- [ ] Periodic limits can be configured per plan.
-- [ ] Requests beyond the limit are blocked.
-- [ ] User receives a clear limit/upgrade message.
-- [ ] Tests cover counters, reset-period behavior and exceeded limits.
+- [x] Search and conversational queries are counted separately.
+- [x] Query records include user, type, timestamp and parameters.
+- [x] Periodic limits can be configured per plan.
+- [x] Requests beyond the limit are blocked.
+- [x] User receives a clear limit/upgrade message.
+- [x] Tests cover counters, reset-period behavior and exceeded limits.
 
 ### BC-004 — Subscription plans
 - Priority: P1
@@ -125,7 +128,7 @@ As a paying user, I want subscription payments and renewals handled by an extern
 
 ### BC-006 — Documentary data model and protected storage
 - Priority: P1
-- Status: READY
+- Status: BLOCKED
 - Owner role: Developer
 - Depends on: -
 - SRS: RF-DOC-04, RF-DOCMGMT-01, RNF-SEC-02, RNF-SCALE-02, RNF-MAINT-01

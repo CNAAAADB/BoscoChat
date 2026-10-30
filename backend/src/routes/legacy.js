@@ -26,7 +26,15 @@ function requireSession(authService, roles = null) {
   };
 }
 
-export function createLegacyRouter(pool, authService) {
+function setQuotaHeaders(res, quota) {
+  res.set({
+    'RateLimit-Limit': String(quota.limit),
+    'RateLimit-Remaining': String(quota.remaining),
+    'RateLimit-Reset': String(Math.ceil(new Date(quota.resetsAt).getTime() / 1000)),
+  });
+}
+
+export function createLegacyRouter(pool, authService, usageService) {
   const router = express.Router();
   const authenticated = requireSession(authService);
   const documentaryManager = requireSession(authService, new Set(['admin', 'gestor']));
@@ -35,16 +43,26 @@ export function createLegacyRouter(pool, authService) {
   router.get('/search', authenticated, async (req, res, next) => {
     try {
       const { q } = req.query;
-      if (req.user.id) {
-        await pool.execute('UPDATE users SET query_count = query_count + 1 WHERE id = ?', [req.user.id]);
-      }
+      const quota = await usageService.consume({ user: req.user, type: 'search', parameters: { query: q ?? '' } });
       const [rows] = await pool.execute(
         `SELECT d.title, p.text_content, p.page_number
            FROM pages p JOIN documents d ON p.document_id = d.id
           WHERE p.text_content LIKE ?`,
         [`%${q ?? ''}%`],
       );
+      setQuotaHeaders(res, quota);
       res.json(rows);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post('/chat', authenticated, async (req, res, next) => {
+    try {
+      const message = typeof req.body?.message === 'string' ? req.body.message : '';
+      const quota = await usageService.consume({ user: req.user, type: 'chat', parameters: { message } });
+      setQuotaHeaders(res, quota);
+      res.json({ answer: 'Respuesta simulada de BoscoChat' });
     } catch (error) {
       next(error);
     }

@@ -12,7 +12,7 @@ test('BC-001 regression: database credentials must come from the environment', a
   assert.match(ignoreRules, /^\.env$/m);
 });
 
-test('database configuration validates its port', () => {
+test('database configuration validates its port and pool size', () => {
   assert.throws(
     () => databaseConfig({ DB_USER: 'user', DB_PASSWORD: 'secret', DB_PORT: 'not-a-port' }),
     /DB_PORT/,
@@ -20,5 +20,29 @@ test('database configuration validates its port', () => {
   assert.throws(
     () => databaseConfig({ DB_USER: 'user', DB_PASSWORD: 'secret', DB_CONNECTION_LIMIT: '0' }),
     /DB_CONNECTION_LIMIT/,
+  );
+});
+
+test('database configuration can require verified TLS for AWS RDS', () => {
+  const config = databaseConfig({
+    DB_USER: 'user',
+    DB_PASSWORD: 'secret',
+    DB_HOST: 'boscochat.cluster-example.eu-west-1.rds.amazonaws.com',
+    DB_SSL_MODE: 'require',
+  });
+  assert.equal(config.ssl.rejectUnauthorized, true);
+
+  const ca = '-----BEGIN CERTIFICATE-----\nexample\n-----END CERTIFICATE-----';
+  const withCa = databaseConfig({
+    DB_USER: 'user',
+    DB_PASSWORD: 'secret',
+    DB_SSL_MODE: 'require',
+    DB_SSL_CA_BASE64: Buffer.from(ca).toString('base64'),
+  });
+  assert.equal(withCa.ssl.ca, ca);
+
+  assert.throws(
+    () => databaseConfig({ DB_USER: 'user', DB_PASSWORD: 'secret', DB_SSL_MODE: 'optional' }),
+    /DB_SSL_MODE/,
   );
 });

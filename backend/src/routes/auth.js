@@ -4,6 +4,7 @@ import { createAuthRateLimiter } from '../middleware/auth-rate-limit.js';
 
 const COOKIE_NAME = 'boscochat_session';
 const MAX_AGE_SECONDS = 8 * 60 * 60;
+const ALLOWED_SAME_SITE = new Set(['lax', 'strict', 'none']);
 
 function parseCookies(header = '') {
   return Object.fromEntries(header.split(';').flatMap((part) => {
@@ -21,16 +22,28 @@ function sessionToken(req) {
   return parseCookies(req.get('cookie'))[COOKIE_NAME] ?? null;
 }
 
-function cookieOptions(production) {
-  return { httpOnly: true, sameSite: 'lax', secure: production, path: '/', maxAge: MAX_AGE_SECONDS * 1000 };
+function cookieOptions(production, sameSite = 'lax') {
+  const normalized = String(sameSite).toLowerCase();
+  if (!ALLOWED_SAME_SITE.has(normalized)) {
+    throw new Error('SESSION_COOKIE_SAME_SITE must be lax, strict or none');
+  }
+  return {
+    httpOnly: true,
+    sameSite: normalized,
+    secure: production || normalized === 'none',
+    path: '/',
+    maxAge: MAX_AGE_SECONDS * 1000,
+  };
 }
 
 export function createAuthRouter(authService, {
   production = false,
+  cookieSameSite = 'lax',
   loginRateLimiter = createAuthRateLimiter(),
   registrationRateLimiter = createAuthRateLimiter({ limit: 10, windowMs: 60 * 60 * 1000 }),
 } = {}) {
   const router = express.Router();
+  const sessionCookieOptions = cookieOptions(production, cookieSameSite);
 
   router.post('/register', registrationRateLimiter, async (req, res, next) => {
     try {
@@ -45,7 +58,7 @@ export function createAuthRouter(authService, {
     try {
       const result = await authService.login(req.body ?? {});
       loginRateLimiter.clear(res.locals.authRateLimitKey);
-      res.cookie(COOKIE_NAME, result.token, cookieOptions(production));
+      res.cookie(COOKIE_NAME, result.token, sessionCookieOptions);
       res.json({ user: result.user, expiresAt: result.expiresAt.toISOString() });
     } catch (error) {
       next(error);
@@ -65,7 +78,7 @@ export function createAuthRouter(authService, {
   router.post('/logout', async (req, res, next) => {
     try {
       await authService.logout(sessionToken(req));
-      res.clearCookie(COOKIE_NAME, cookieOptions(production));
+      res.clearCookie(COOKIE_NAME, sessionCookieOptions);
       res.status(204).send();
     } catch (error) {
       next(error);

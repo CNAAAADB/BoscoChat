@@ -97,6 +97,30 @@ async function migrate() {
       CONSTRAINT fk_auth_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
 
+    await connection.execute(`CREATE TABLE IF NOT EXISTS query_logs (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      user_id ${userIdType} NOT NULL,
+      query_type VARCHAR(16) NOT NULL,
+      parameters_json JSON NOT NULL,
+      outcome VARCHAR(24) NOT NULL,
+      created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+      PRIMARY KEY (id),
+      KEY ix_query_logs_user_type_created (user_id, query_type, created_at),
+      CONSTRAINT fk_query_logs_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+
+    await connection.execute(`CREATE TABLE IF NOT EXISTS query_usage_counters (
+      user_id ${userIdType} NOT NULL,
+      plan VARCHAR(32) NOT NULL,
+      query_type VARCHAR(16) NOT NULL,
+      period_start DATETIME(3) NOT NULL,
+      period_end DATETIME(3) NOT NULL,
+      query_count INT UNSIGNED NOT NULL DEFAULT 0,
+      PRIMARY KEY (user_id, query_type, period_start, period_end),
+      KEY ix_query_usage_period_end (period_end),
+      CONSTRAINT fk_query_usage_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+
     await connection.commit();
     console.log('Authentication schema migration completed');
   } catch (error) {

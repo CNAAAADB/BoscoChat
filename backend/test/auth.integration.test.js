@@ -161,7 +161,16 @@ test('RNF-SEC-03 enforces the server session on existing protected endpoints', a
       return [{ affectedRows: 1 }];
     },
   };
-  const app = createApp({ pool, authService, environment: { CORS_ORIGINS: 'http://localhost:5173' } });
+  const app = createApp({
+    pool,
+    authService,
+    usageService: {
+      async consume() {
+        return { limit: 10, remaining: 9, resetsAt: '2026-09-15T13:00:00.000Z' };
+      },
+    },
+    environment: { CORS_ORIGINS: 'http://localhost:5173' },
+  });
   const server = await new Promise((resolve) => {
     const listener = app.listen(0, '127.0.0.1', () => resolve(listener));
   });
@@ -179,8 +188,8 @@ test('RNF-SEC-03 enforces the server session on existing protected endpoints', a
 
   const search = await jsonRequest(baseUrl, '/api/search?q=texto&userId=999', { cookie });
   assert.equal(search.response.status, 200);
-  const counterUpdate = calls.find(({ sql }) => sql.startsWith('UPDATE users SET query_count'));
-  assert.deepEqual(counterUpdate.parameters, [1]);
+  const searchQuery = calls.find(({ sql }) => sql.includes('SELECT d.title'));
+  assert.deepEqual(searchQuery.parameters, ['%texto%']);
 
   const unauthorizedAdmin = await jsonRequest(baseUrl, '/api/admin/upload-doc', {
     method: 'POST', cookie, body: { title: 'x', content: 'y', page: 1 },
