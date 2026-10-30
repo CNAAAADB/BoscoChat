@@ -29,7 +29,7 @@ def pages_of(pdf):
     # Form-feed is Poppler's page separator; no shell interpolation.
     result = subprocess.run(['pdftotext', '-layout', '-enc', 'UTF-8', str(pdf), '-'],
                             capture_output=True, text=True, check=True, timeout=120)
-    return [p.strip() for p in result.stdout.split('\\f') if p.strip()]
+    return [p.strip() for p in result.stdout.split(chr(12)) if p.strip()]
 
 
 def build():
