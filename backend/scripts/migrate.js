@@ -117,6 +117,20 @@ async function migrate() {
       CONSTRAINT fk_auth_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
 
+    await connection.execute(`CREATE TABLE IF NOT EXISTS admin_audit_logs (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      actor_user_id ${userIdType} NOT NULL,
+      target_user_id ${userIdType} NULL,
+      action VARCHAR(48) NOT NULL,
+      outcome VARCHAR(16) NOT NULL,
+      details_json JSON NOT NULL,
+      created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+      PRIMARY KEY (id),
+      KEY ix_admin_audit_actor_created (actor_user_id, created_at),
+      KEY ix_admin_audit_target_created (target_user_id, created_at),
+      KEY ix_admin_audit_action_created (action, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+
     await connection.execute(`CREATE TABLE IF NOT EXISTS query_logs (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
       user_id ${userIdType} NOT NULL,
@@ -156,4 +170,5 @@ migrate().catch((error) => {
   console.error('Authentication, authorization and usage schema migration failed:', error.message);
   process.exitCode = 1;
 });
+
 

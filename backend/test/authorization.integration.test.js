@@ -2,15 +2,18 @@ import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 import { createApp } from '../src/app.js';
 import { AuthService } from '../src/auth/service.js';
+import { UserAdministrationService } from '../src/users/administration-service.js';
 import { ROLE_VALUES, ROLES } from '../src/users/roles.js';
 
 class MemoryUserRepository {
   constructor() {
     this.users = [];
     this.sessions = new Map();
+    this.auditLogs = [];
+    this.administrationQueue = Promise.resolve();
   }
 
-  async createUser({ username, email, passwordHash, role }) {
+  async createUser({ username, email, passwordHash, role, actorId = null }) {
     if (this.users.some((user) => user.email === email)) {
       const error = new Error('duplicate');
       error.code = 'ER_DUP_ENTRY';
@@ -21,6 +24,9 @@ class MemoryUserRepository {
       username, email, passwordHash, role, suspendedAt: null,
     };
     this.users.push(user);
+    if (actorId !== null) {
+      this.auditLogs.push({ actorId, targetId: user.id, action: 'user.create', outcome: 'success', details: { role } });
+    }
     return user;
   }
 
@@ -36,33 +42,71 @@ class MemoryUserRepository {
     return [...this.users].sort((left, right) => left.id - right.id);
   }
 
-  async updateUserRole(id, role) {
-    const user = await this.findUserById(id);
-    if (!user) return null;
-    user.role = role;
-    return user;
+  async withAdministrationLock(operation) {
+    const previous = this.administrationQueue;
+    let release;
+    this.administrationQueue = new Promise((resolve) => { release = resolve; });
+    await previous;
+    try { return await operation(); } finally { release(); }
   }
 
-  async setUserSuspended(id, suspended) {
-    const user = await this.findUserById(id);
-    if (!user) return null;
-    user.suspendedAt = suspended ? new Date() : null;
-    if (suspended) {
+  activeAdministrators() {
+    return this.users.filter((user) => user.role === ROLES.ADMINISTRATOR && !user.suspendedAt);
+  }
+
+  assertAdministratorRemains(user, removesActiveAdministrator) {
+    if (removesActiveAdministrator && user.role === ROLES.ADMINISTRATOR
+      && !user.suspendedAt && this.activeAdministrators().length <= 1) {
+      const error = new Error('At least one active administrator must remain');
+      error.code = 'LAST_ACTIVE_ADMIN';
+      throw error;
+    }
+  }
+
+  async updateUserRole(actorId, id, role) {
+    return this.withAdministrationLock(async () => {
+      const user = await this.findUserById(id);
+      if (!user) return null;
+      this.assertAdministratorRemains(user, role !== ROLES.ADMINISTRATOR);
+      user.role = role;
+      this.auditLogs.push({ actorId, targetId: id, action: 'user.role.change', outcome: 'success', details: { role } });
+      return user;
+    });
+  }
+
+  async setUserSuspended(actorId, id, suspended) {
+    return this.withAdministrationLock(async () => {
+      const user = await this.findUserById(id);
+      if (!user) return null;
+      this.assertAdministratorRemains(user, suspended);
+      user.suspendedAt = suspended ? new Date() : null;
+      if (suspended) {
+        for (const [token, session] of this.sessions) {
+          if (session.userId === id) this.sessions.delete(token);
+        }
+      }
+      this.auditLogs.push({ actorId, targetId: id, action: suspended ? 'user.suspend' : 'user.reactivate', outcome: 'success' });
+      return user;
+    });
+  }
+
+  async deleteUser(actorId, id) {
+    return this.withAdministrationLock(async () => {
+      const index = this.users.findIndex((user) => user.id === id);
+      if (index < 0) return false;
+      const user = this.users[index];
+      this.assertAdministratorRemains(user, true);
+      this.users.splice(index, 1);
       for (const [token, session] of this.sessions) {
         if (session.userId === id) this.sessions.delete(token);
       }
-    }
-    return user;
+      this.auditLogs.push({ actorId, targetId: id, action: 'user.delete', outcome: 'success', details: { priorRole: user.role } });
+      return true;
+    });
   }
 
-  async deleteUser(id) {
-    const index = this.users.findIndex((user) => user.id === id);
-    if (index < 0) return false;
-    this.users.splice(index, 1);
-    for (const [token, session] of this.sessions) {
-      if (session.userId === id) this.sessions.delete(token);
-    }
-    return true;
+  async recordAdminAudit(entry) {
+    this.auditLogs.push(entry);
   }
 
   async createSession({ tokenHash, userId, expiresAt }) {
@@ -199,6 +243,33 @@ describe('BC-002 / RF-USER-04 / RF-ADMIN-01 role authorization', () => {
     assert.equal(selfDemotion.response.status, 409);
     assert.equal(selfDemotion.data.error.code, 'SELF_ADMINISTRATION_FORBIDDEN');
     assert.equal(administrator.role, ROLES.ADMINISTRATOR);
+    assert.equal(repository.auditLogs.some(({ action, outcome }) => action === 'user.role.change' && outcome === 'denied'), true);
+  });
+
+  test('CWE-362 regression: concurrent cross-demotions preserve one active administrator', async () => {
+    const isolatedRepository = new MemoryUserRepository();
+    const isolatedAuthService = new AuthService(isolatedRepository);
+    const service = new UserAdministrationService(isolatedRepository, isolatedAuthService);
+    const first = await isolatedAuthService.createAccount(
+      { username: 'First admin', email: 'first-admin@example.com', password: 'first-admin-password' },
+      ROLES.ADMINISTRATOR,
+    );
+    const second = await isolatedAuthService.createAccount(
+      { username: 'Second admin', email: 'second-admin@example.com', password: 'second-admin-password' },
+      ROLES.ADMINISTRATOR,
+    );
+
+    const results = await Promise.allSettled([
+      service.changeRole(first.id, second.id, ROLES.FREE),
+      service.changeRole(second.id, first.id, ROLES.FREE),
+    ]);
+
+    assert.equal(results.filter(({ status }) => status === 'fulfilled').length, 1);
+    const rejection = results.find(({ status }) => status === 'rejected');
+    assert.equal(rejection.reason.code, 'LAST_ACTIVE_ADMIN_REQUIRED');
+    assert.equal(isolatedRepository.activeAdministrators().length, 1);
+    assert.equal(isolatedRepository.auditLogs.some(({ action, outcome, details }) =>
+      action === 'user.role.change' && outcome === 'denied' && details.code === 'LAST_ACTIVE_ADMIN_REQUIRED'), true);
   });
 
   test('documentary manager permission is distinct from paid-user roles', async () => {
@@ -252,5 +323,7 @@ describe('BC-002 / RF-USER-04 / RF-ADMIN-01 role authorization', () => {
     const selfDelete = await jsonRequest(baseUrl, `/api/admin/users/${administrator.id}`, { method: 'DELETE', cookie: adminCookie });
     assert.equal(selfDelete.response.status, 409);
     assert.equal(selfDelete.data.error.code, 'SELF_ADMINISTRATION_FORBIDDEN');
+    assert.equal(repository.auditLogs.some(({ action, outcome }) => action === 'user.delete' && outcome === 'denied'), true);
   });
 });
+
