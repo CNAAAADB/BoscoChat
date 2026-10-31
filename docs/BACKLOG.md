@@ -303,6 +303,46 @@ As an Administrator, I want usage and resource monitoring so that I can supervis
 - [ ] Show system-resource/operational metrics available from the deployed environment.
 
 
+### BC-014 — User profile management
+- Priority: P2
+- Status: IDEA
+- Owner role: Product / Developer
+- Depends on: BC-001
+- SRS: TRACE-GAP — product-owner backlog directive dated 2026-10-30; SRS baseline update pending
+- Design/mockup: TBD
+- PR: -
+
+**Story**  
+As an authenticated user, I want to view and maintain my own profile so that my account information remains accurate.
+
+**Acceptance criteria**
+- [ ] The authenticated user can view their username, email, role, subscription and email-verification status without password hashes, tokens or internal security data.
+- [ ] Only the username is editable in this story; email change is handled exclusively by BC-015.
+- [ ] Username updates use the same validation limits as registration and reject invalid values with safe, consistent errors.
+- [ ] Backend authorization prevents reading or modifying another user's profile.
+- [ ] Automated tests cover profile retrieval, successful username update, validation failure and cross-account denial.
+- [ ] Before READY: add the requirement to the approved SRS baseline and approve privacy/audit requirements.
+
+### BC-015 — Email verification and controlled email change
+- Priority: P1
+- Status: IDEA
+- Owner role: Product / Developer
+- Depends on: BC-001
+- SRS: TRACE-GAP — product-owner backlog directive dated 2026-10-30; SRS baseline update pending
+- Design/mockup: TBD
+- PR: -
+
+**Story**  
+As an account holder, I want to verify my email address and securely confirm email changes so that BoscoChat can trust the account contact address.
+
+**Acceptance criteria**
+- [ ] Verification tokens are cryptographically random, stored only as digests, single-use and expire no later than 24 hours after issuance.
+- [ ] Verification and resend endpoints use generic responses, enforce rate limits and never log token values.
+- [ ] Registration records verification status and sends a verification message through an approved provider and sender domain.
+- [ ] Email change requires an authenticated session and confirmation of the new unique address; the previous address remains active until confirmation.
+- [ ] Automated tests cover valid confirmation, expiry, reuse, invalid token, resend throttling, duplicate address and controlled email change.
+- [ ] Before READY: approve provider, sender domain, resend limits, unverified-account access policy, retention/privacy controls and add the requirement to the approved SRS baseline.
+
 ---
 
 # Phase 2 — Conversational AI / RAG
