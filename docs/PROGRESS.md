@@ -25,10 +25,6 @@
 - None. PR #13 and PR #14 are active artifacts, but their gates are BLOCKED; an open PR does not override the story status.
 
 
-## Product review
-- BC-014 — User profile management and BC-015 — Email verification/controlled email change are separate `IDEA` stories created from the explicit backlog directive, with measurable criteria.
-- Both remain non-executable `TRACE-GAP` items until their requirements and privacy/security policies are approved in the SRS baseline.
-
 ## Recently completed
 - AWS MVP authentication runtime validated end-to-end on 2026-09-15: Amplify frontend, API Gateway HTTP API, Lambda/Express via Lambda Web Adapter, private RDS MySQL, verified RDS TLS, exact-origin CORS, registration, login, persisted session/reload and logout. Architecture and deployment evidence were documented in PR #8 and merged to `main`.
 - BC-001 — User registration and authentication. PR #4 merged on 2026-09-14. Independent code/functional verification and FULL source-based security review recorded in PR #5. Acceptance criteria pass; release constraints remain listed separately above.
