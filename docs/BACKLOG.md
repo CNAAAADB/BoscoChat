@@ -46,12 +46,12 @@ As a visitor, I want to register and authenticate securely so that I can access 
 
 ### BC-002 — Roles and authorization
 - Priority: P1
-- Status: IN_REVIEW
+- Status: BLOCKED
 - Owner role: Developer
 - Depends on: BC-001
 - SRS: RF-USER-04, RF-ADMIN-01, RNF-SEC-03
 - Design/mockup: TBD
-- PR: #13
+- PR: #13 (merged 2026-11-02; delivery gate remains BLOCKED)
 
 **Story**  
 As the platform, I want role-based authorization so that users only access functions permitted for their role.
@@ -61,7 +61,15 @@ As the platform, I want role-based authorization so that users only access funct
 - [x] Authorization is enforced by the backend, not only by the UI.
 - [x] Administrator can create accounts, modify roles, suspend accounts and delete accounts.
 - [x] Unauthorized operations return safe, consistent errors.
-- [x] Tests prove privilege boundaries for protected operations.
+- [x] Tests prove privilege boundaries for protected operations, including the concurrent last-active-administrator invariant.
+
+**Gate status**
+- Implementation is present on `main` through PR #13 and its producer CI passed on `a62f0dd`.
+- [ ] Independent functional verification on the exact merged implementation.
+- [ ] Independent FULL authorization/security review.
+- [ ] Representative MySQL migration/concurrency validation.
+- [ ] Approve access, retention and deletion policy for personal identifiers in `admin_audit_logs`.
+- A merged PR does not satisfy these gates; BC-002 remains `BLOCKED`.
 
 ### BC-003 — Query usage logging and quotas
 - Priority: P1
@@ -132,8 +140,8 @@ As a paying user, I want subscription payments and renewals handled by an extern
 - Owner role: Developer
 - Depends on: -
 - SRS: RF-DOC-04, RF-DOCMGMT-01, RNF-SEC-02, RNF-SCALE-02, RNF-MAINT-01
-- Design/mockup: TBD
-- PR: -
+- Design/mockup: docs/proposals/BC-006-private-document-storage.md (proposed, not approved)
+- PR: #14 (merged 2026-11-02; test tooling/proposal only)
 
 **Story**  
 As the platform, I want a structured documentary data model and protected document storage so that historical publications can be ingested and served securely.
@@ -144,6 +152,12 @@ As the platform, I want a structured documentary data model and protected docume
 - [ ] Original documents are not publicly/directly accessible.
 - [ ] Backend authorizes access before serving document content.
 - [ ] Architecture supports adding new publications without redesigning the core data model.
+
+**Gate status**
+- PR #14 added owner-authorized private test-corpus tooling and a proposed S3/SSE-KMS/IAM/backend-authorized-access architecture.
+- The catalog SHA-256 fields for issues 766, 767 and 768 are blank; no PDF is accepted until approved hashes are populated and independently verified.
+- No S3 bucket, KMS key, IAM policy, backend document-access integration, IaC or representative AWS verification exists.
+- Cloud/privacy decisions and independent FULL review remain pending. BC-006 stays `BLOCKED`; PR #14 does not implement BC-006, BC-007 or BC-008.
 
 ### BC-007 — Document upload and ingestion pipeline
 - Priority: P1
@@ -282,6 +296,46 @@ As an Administrator, I want usage and resource monitoring so that I can supervis
 - [ ] Show user activity indicators.
 - [ ] Show system-resource/operational metrics available from the deployed environment.
 
+### BC-014 — User profile management
+- Priority: P2
+- Status: IDEA
+- Owner role: Product / Developer
+- Depends on: BC-001
+- SRS: TRACE-GAP — explicit product-owner backlog mandate dated 2026-11-02; SRS baseline approval pending
+- Design/mockup: TBD
+- PR: -
+
+**Story**  
+As an authenticated user, I want to view and maintain my own profile so that my account information remains accurate.
+
+**Acceptance criteria**
+- [ ] The authenticated user can view their username, email, role, subscription and email-verification status without password hashes, tokens or internal security data.
+- [ ] Only the username is editable in this story; email change is handled exclusively by BC-015.
+- [ ] Username updates use the same validation limits as registration and reject invalid values with safe, consistent errors.
+- [ ] Backend authorization prevents reading or modifying another user's profile.
+- [ ] Automated tests cover profile retrieval, successful username update, validation failure and cross-account denial.
+- [ ] Before READY: add the requirement to the approved SRS baseline and approve privacy/audit requirements.
+
+### BC-015 — Email verification and controlled email change
+- Priority: P1
+- Status: IDEA
+- Owner role: Product / Developer
+- Depends on: BC-001
+- SRS: TRACE-GAP — explicit product-owner backlog mandate dated 2026-11-02; SRS baseline approval pending
+- Design/mockup: TBD
+- PR: -
+
+**Story**  
+As an account holder, I want to verify my email address and securely confirm email changes so that BoscoChat can trust the account contact address.
+
+**Acceptance criteria**
+- [ ] Verification tokens are cryptographically random, stored only as digests, single-use and expire no later than 24 hours after issuance.
+- [ ] Verification and resend endpoints use generic responses, enforce rate limits and never log token values.
+- [ ] Registration records verification status and sends a verification message through an approved provider and sender domain.
+- [ ] Email change requires an authenticated session and confirmation of the new unique address; the previous address remains active until confirmation.
+- [ ] Automated tests cover valid confirmation, expiry, reuse, invalid token, resend throttling, duplicate address and controlled email change.
+- [ ] Before READY: approve provider, sender domain, resend limits, unverified-account access policy, retention/privacy controls and add the requirement to the approved SRS baseline.
+
 ---
 
 # Phase 2 — Conversational AI / RAG
@@ -383,5 +437,5 @@ Every applicable story must preserve these constraints:
 
 ## Automation rule
 
-Automated development may select only stories with `Status: READY`, all dependencies resolved, and no active branch/PR already implementing the same story. Product scope must not be invented outside this backlog/SRS without moving the proposed work through product review first.
+`READY` is a refinement state, not automatic execution authority. Automated development may select a story only when it is `READY`, every dependency is `DONE`, no active branch/PR already implements it, and no documented gate blocks it. Product scope outside the SRS must remain `IDEA` with `TRACE-GAP` until product review and SRS-baseline approval.
 
