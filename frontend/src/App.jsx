@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { currentSession, login, logout, register } from './api/auth.js';
+import { changeUserRole, createUser, deleteUser, listUsers, setUserSuspended } from './api/users.js';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
+const ROLES = ['free', 'pro', 'premium', 'advanced', 'administrator', 'documentary_manager'];
 
 export default function App() {
   const [view, setView] = useState('home');
@@ -14,6 +16,10 @@ export default function App() {
   const [registration, setRegistration] = useState({ username: '', email: '', password: '', terms: false });
   const [credentials, setCredentials] = useState({ email: '', password: '' });
   const [newDoc, setNewDoc] = useState({ title: '', content: '', page: 1 });
+  const [users, setUsers] = useState([]);
+  const [userAdminError, setUserAdminError] = useState('');
+  const [userAdminBusy, setUserAdminBusy] = useState(false);
+  const [newUser, setNewUser] = useState({ username: '', email: '', password: '', role: 'free' });
 
   useEffect(() => {
     currentSession()
@@ -21,6 +27,16 @@ export default function App() {
       .catch(() => setUser(null))
       .finally(() => setSessionLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (view !== 'users' || user?.role !== 'administrator') return;
+    setUserAdminBusy(true);
+    setUserAdminError('');
+    listUsers()
+      .then(({ users: records }) => setUsers(records))
+      .catch((error) => setUserAdminError(error.message))
+      .finally(() => setUserAdminBusy(false));
+  }, [view, user]);
 
   const styles = {
     container: { backgroundColor: '#0a0a0a', color: '#fff', minHeight: '100vh', fontFamily: 'Montserrat, sans-serif', padding: '40px 20px' },
@@ -83,7 +99,26 @@ export default function App() {
     }
   };
 
-  const isAdmin = user && (user.role === 'admin' || user.role === 'gestor');
+  const isAdministrator = user?.role === 'administrator';
+  const canManageDocuments = isAdministrator || user?.role === 'documentary_manager';
+
+  const refreshUsers = async () => {
+    const result = await listUsers();
+    setUsers(result.users);
+  };
+
+  const runUserAdministration = async (operation) => {
+    setUserAdminBusy(true);
+    setUserAdminError('');
+    try {
+      await operation();
+      await refreshUsers();
+    } catch (error) {
+      setUserAdminError(error.message);
+    } finally {
+      setUserAdminBusy(false);
+    }
+  };
 
   return (
     <div style={styles.container}>
@@ -103,7 +138,8 @@ export default function App() {
         ) : null}
         {user ? (
           <>
-            {isAdmin ? <button style={styles.navBtn} onClick={() => setView('admin')}>Gestionar archivo</button> : null}
+            {canManageDocuments ? <button style={styles.navBtn} onClick={() => setView('admin')}>Gestionar archivo</button> : null}
+            {isAdministrator ? <button style={styles.navBtn} onClick={() => setView('users')}>Administrar usuarios</button> : null}
             <button style={{ ...styles.navBtn, color: '#ff7777' }} onClick={signOut}>Salir</button>
           </>
         ) : null}
@@ -159,7 +195,7 @@ export default function App() {
         </section>
       ) : null}
 
-      {view === 'admin' && isAdmin ? (
+      {view === 'admin' && canManageDocuments ? (
         <section style={styles.card}>
           <h2 style={styles.sectionTitle}>Panel de Gestión Documental</h2>
           <input style={styles.input} placeholder="Título del documento" value={newDoc.title} onChange={(event) => setNewDoc({ ...newDoc, title: event.target.value })} />
@@ -171,6 +207,57 @@ export default function App() {
           }}>Subir al archivo</button>
         </section>
       ) : null}
+
+      {view === 'users' && isAdministrator ? (
+        <section style={styles.card}>
+          <h2 style={styles.sectionTitle}>Administración de usuarios</h2>
+          {userAdminError ? <p role="alert" style={styles.error}>{userAdminError}</p> : null}
+          <form onSubmit={(event) => {
+            event.preventDefault();
+            runUserAdministration(async () => {
+              await createUser(newUser);
+              setNewUser({ username: '', email: '', password: '', role: 'free' });
+            });
+          }}>
+            <h3>Crear cuenta</h3>
+            <input required minLength="2" maxLength="80" style={styles.input} placeholder="Nombre" value={newUser.username} onChange={(event) => setNewUser({ ...newUser, username: event.target.value })} />
+            <input required type="email" style={styles.input} placeholder="Correo" value={newUser.email} onChange={(event) => setNewUser({ ...newUser, email: event.target.value })} />
+            <input required type="password" minLength="12" maxLength="128" style={styles.input} placeholder="Contraseña temporal" value={newUser.password} onChange={(event) => setNewUser({ ...newUser, password: event.target.value })} />
+            <select aria-label="Rol de la nueva cuenta" style={styles.input} value={newUser.role} onChange={(event) => setNewUser({ ...newUser, role: event.target.value })}>
+              {ROLES.map((role) => <option key={role} value={role}>{role}</option>)}
+            </select>
+            <button style={styles.btnPrimary} disabled={userAdminBusy} type="submit">Crear cuenta</button>
+          </form>
+
+          <h3 style={{ marginTop: '40px' }}>Cuentas existentes</h3>
+          {userAdminBusy && users.length === 0 ? <p>Cargando…</p> : null}
+          {users.map((record) => {
+            const self = Number(record.id) === Number(user.id);
+            return (
+              <article key={record.id} style={{ padding: '20px', background: '#1a1a2e', borderRadius: '20px', marginBottom: '12px' }}>
+                <strong>{record.username}</strong> <span>({record.email})</span>
+                <p>Estado: {record.suspended ? 'Suspendida' : 'Activa'}</p>
+                <select aria-label={`Rol de ${record.username}`} disabled={self || userAdminBusy} style={styles.input} value={record.role ?? ''} onChange={(event) => runUserAdministration(() => changeUserRole(record.id, event.target.value))}>
+                  {ROLES.map((role) => <option key={role} value={role}>{role}</option>)}
+                </select>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                  <button style={styles.btnPrimary} disabled={self || userAdminBusy} type="button" onClick={() => runUserAdministration(() => setUserSuspended(record.id, !record.suspended))}>
+                    {record.suspended ? 'Reactivar' : 'Suspender'}
+                  </button>
+                  <button style={{ ...styles.btnPrimary, backgroundColor: '#ff7777' }} disabled={self || userAdminBusy} type="button" onClick={() => {
+                    if (window.confirm(`¿Eliminar definitivamente la cuenta de ${record.username}?`)) {
+                      runUserAdministration(() => deleteUser(record.id));
+                    }
+                  }}>
+                    Eliminar
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      ) : null}
     </div>
   );
 }
+

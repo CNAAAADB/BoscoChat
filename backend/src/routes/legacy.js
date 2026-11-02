@@ -1,30 +1,6 @@
 import express from 'express';
-
-// These pre-existing MVP placeholders remain available until their owning stories
-// (BC-002, BC-003, BC-007 and BC-008) replace them with protected implementations.
-function readSessionCookie(header = '') {
-  const cookie = header.split(';').find((part) => part.trim().startsWith('boscochat_session='));
-  if (!cookie) return null;
-  try {
-    return decodeURIComponent(cookie.slice(cookie.indexOf('=') + 1).trim());
-  } catch {
-    return null;
-  }
-}
-
-function requireSession(authService, roles = null) {
-  return async (req, res, next) => {
-    try {
-      const user = await authService.session(readSessionCookie(req.get('cookie')));
-      if (!user) return res.status(401).json({ error: { code: 'AUTHENTICATION_REQUIRED', message: 'Inicia sesión para continuar.' } });
-      if (roles && !roles.has(user.role)) return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'No tienes permiso para realizar esta acción.' } });
-      req.user = user;
-      return next();
-    } catch (error) {
-      return next(error);
-    }
-  };
-}
+import { requireAuthorization } from '../middleware/authorization.js';
+import { ROLES } from '../users/roles.js';
 
 function setQuotaHeaders(res, quota) {
   res.set({
@@ -34,11 +10,11 @@ function setQuotaHeaders(res, quota) {
   });
 }
 
-export function createLegacyRouter(pool, authService, usageService) {
+export function createLegacyRouter(pool, authService, usageService, administrationService) {
   const router = express.Router();
-  const authenticated = requireSession(authService);
-  const documentaryManager = requireSession(authService, new Set(['admin', 'gestor']));
-  const administrator = requireSession(authService, new Set(['admin']));
+  const authenticated = requireAuthorization(authService);
+  const documentaryManager = requireAuthorization(authService, new Set([ROLES.ADMINISTRATOR, ROLES.DOCUMENTARY_MANAGER]));
+  const administrator = requireAuthorization(authService, new Set([ROLES.ADMINISTRATOR]));
 
   router.get('/search', authenticated, async (req, res, next) => {
     try {
@@ -85,11 +61,13 @@ export function createLegacyRouter(pool, authService, usageService) {
     }
   });
 
+  // Compatibility alias retained for the original MVP client. It delegates to
+  // the canonical BC-002 service so role validation and self-protection cannot
+  // be bypassed through the legacy path.
   router.post('/update-role', administrator, async (req, res, next) => {
     try {
-      const { userId, newRole } = req.body;
-      await pool.execute('UPDATE users SET role = ? WHERE id = ?', [newRole, userId]);
-      res.json({ success: true });
+      const user = await administrationService.changeRole(req.user.id, req.body?.userId, req.body?.newRole);
+      res.json({ user });
     } catch (error) {
       next(error);
     }
@@ -97,3 +75,4 @@ export function createLegacyRouter(pool, authService, usageService) {
 
   return router;
 }
+

@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { hashPassword, verifyPassword } from './password.js';
+import { normalizeRole, ROLES } from '../users/roles.js';
 
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -17,7 +18,6 @@ function normalizeRegistration(input) {
   const username = typeof input.username === 'string' ? input.username.trim() : '';
   const email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : '';
   const password = typeof input.password === 'string' ? input.password : '';
-
   if (username.length < 2 || username.length > 80) {
     throw new AuthError(400, 'INVALID_USERNAME', 'El nombre de usuario debe tener entre 2 y 80 caracteres.');
   }
@@ -31,7 +31,12 @@ function normalizeRegistration(input) {
 }
 
 function publicUser(user) {
-  return { id: user.id, username: user.username, email: user.email, role: user.role };
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    role: normalizeRole(user.role, { acceptLegacyAliases: true }),
+  };
 }
 
 export function tokenDigest(token) {
@@ -45,10 +50,18 @@ export class AuthService {
   }
 
   async register(input) {
+    return this.createAccount(input, ROLES.FREE);
+  }
+
+  async createAccount(input, role = ROLES.FREE, actorId = null) {
     const { username, email, password } = normalizeRegistration(input);
+    const normalizedRole = normalizeRole(role);
+    if (!normalizedRole) throw new AuthError(400, 'INVALID_ROLE', 'Selecciona un rol válido.');
     const passwordHash = await hashPassword(password);
     try {
-      return publicUser(await this.repository.createUser({ username, email, passwordHash }));
+      return publicUser(await this.repository.createUser({
+        username, email, passwordHash, role: normalizedRole, actorId,
+      }));
     } catch (error) {
       if (error?.code === 'ER_DUP_ENTRY') {
         throw new AuthError(409, 'EMAIL_ALREADY_REGISTERED', 'Ya existe una cuenta con ese correo electrónico.');
@@ -63,13 +76,14 @@ export class AuthService {
     if (!email || !password) {
       throw new AuthError(400, 'MISSING_CREDENTIALS', 'Correo electrónico y contraseña son obligatorios.');
     }
-
     const user = await this.repository.findUserByEmail(email);
     const valid = await verifyPassword(password, user?.passwordHash ?? await DUMMY_HASH_PROMISE);
     if (!user || !valid) {
       throw new AuthError(401, 'INVALID_CREDENTIALS', 'Credenciales no válidas.');
     }
-
+    if (user.suspendedAt) {
+      throw new AuthError(403, 'ACCOUNT_SUSPENDED', 'La cuenta está suspendida. Contacta con administración.');
+    }
     const token = randomBytes(32).toString('base64url');
     const expiresAt = new Date(this.now().getTime() + SESSION_TTL_MS);
     await this.repository.createSession({ tokenHash: tokenDigest(token), userId: user.id, expiresAt });

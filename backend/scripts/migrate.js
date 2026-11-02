@@ -42,6 +42,7 @@ async function migrate() {
       email VARCHAR(254) NOT NULL,
       password_hash VARCHAR(255) NOT NULL,
       role VARCHAR(32) NOT NULL DEFAULT 'free',
+      suspended_at TIMESTAMP NULL DEFAULT NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       PRIMARY KEY (id),
@@ -65,6 +66,12 @@ async function migrate() {
     if (!columns.has('password_hash')) {
       await connection.execute('ALTER TABLE users ADD COLUMN password_hash VARCHAR(255) NULL AFTER email');
     }
+    if (!columns.has('role')) {
+      await connection.execute("ALTER TABLE users ADD COLUMN role VARCHAR(32) NOT NULL DEFAULT 'free' AFTER password_hash");
+    }
+    if (!columns.has('suspended_at')) {
+      await connection.execute('ALTER TABLE users ADD COLUMN suspended_at TIMESTAMP NULL DEFAULT NULL AFTER role');
+    }
 
     columns = await columnNames(connection, 'users');
     if (columns.has('password')) {
@@ -79,6 +86,19 @@ async function migrate() {
     const [missingHashes] = await connection.execute('SELECT COUNT(*) AS count FROM users WHERE password_hash IS NULL');
     if (Number(missingHashes[0].count) !== 0) throw new Error('Migration stopped: users without a password hash remain');
     await connection.execute('ALTER TABLE users MODIFY password_hash VARCHAR(255) NOT NULL');
+
+    await connection.execute("UPDATE users SET role = 'administrator' WHERE LOWER(role) = 'admin'");
+    await connection.execute("UPDATE users SET role = 'documentary_manager' WHERE LOWER(role) IN ('gestor', 'gestor_documental')");
+    await connection.execute('UPDATE users SET role = LOWER(role)');
+    const [unsupportedRoles] = await connection.execute(
+      `SELECT DISTINCT role FROM users
+        WHERE role IS NULL OR role NOT IN ('free', 'pro', 'premium', 'advanced', 'administrator', 'documentary_manager')
+        LIMIT 1`,
+    );
+    if (unsupportedRoles.length > 0) {
+      throw new Error('Migration stopped: unsupported user roles must be resolved');
+    }
+    await connection.execute("ALTER TABLE users MODIFY role VARCHAR(32) NOT NULL DEFAULT 'free'");
 
     const indexes = await indexNames(connection, 'users');
     if (!indexes.has('ux_users_email')) {
@@ -95,6 +115,20 @@ async function migrate() {
       KEY ix_auth_sessions_user_id (user_id),
       KEY ix_auth_sessions_expires_at (expires_at),
       CONSTRAINT fk_auth_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+
+    await connection.execute(`CREATE TABLE IF NOT EXISTS admin_audit_logs (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      actor_user_id ${userIdType} NOT NULL,
+      target_user_id ${userIdType} NULL,
+      action VARCHAR(48) NOT NULL,
+      outcome VARCHAR(16) NOT NULL,
+      details_json JSON NOT NULL,
+      created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+      PRIMARY KEY (id),
+      KEY ix_admin_audit_actor_created (actor_user_id, created_at),
+      KEY ix_admin_audit_target_created (target_user_id, created_at),
+      KEY ix_admin_audit_action_created (action, created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
 
     await connection.execute(`CREATE TABLE IF NOT EXISTS query_logs (
@@ -122,7 +156,7 @@ async function migrate() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
 
     await connection.commit();
-    console.log('Authentication schema migration completed');
+    console.log('Authentication, authorization and usage schema migration completed');
   } catch (error) {
     await connection.rollback();
     throw error;
@@ -133,6 +167,8 @@ async function migrate() {
 }
 
 migrate().catch((error) => {
-  console.error('Authentication schema migration failed:', error.message);
+  console.error('Authentication, authorization and usage schema migration failed:', error.message);
   process.exitCode = 1;
 });
+
+
