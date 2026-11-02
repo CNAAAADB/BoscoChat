@@ -43,3 +43,12 @@ Record material product/architecture/security/privacy decisions here.
 - Consequences: Role changes are effective on the next authenticated request because sessions resolve the current database user. Documentary-manager permission remains distinct from paid tiers. Deployments must run the migration before using the new API, and independent authorization/security review remains mandatory before completion.
 - Related stories/PRs: BC-002; PR #13.
 
+
+### DEC-005 — Private S3 document storage with backend-authorized access
+- Date: 2026-10-30
+- Status: proposed
+- Context: BC-006 requires original documents to remain non-public, while the AWS MVP already runs the backend in Lambda. The project owner has authorized using identified *Don Bosco en España* issues for BoscoChat testing, but that authorization does not establish public redistribution or hosting rights.
+- Decision: Use a private Amazon S3 bucket with Block Public Access and bucket-owner-enforced object ownership. Encrypt objects with a customer-managed AWS KMS key and deny non-TLS requests. Grant only the backend runtime role the minimum required S3/KMS actions, scoped to approved object prefixes. The backend must authenticate and authorize every request before streaming an object or issuing a short-lived presigned URL; stable public object URLs and public ACLs are prohibited.
+- Consequences: BC-006 remains BLOCKED until the proposal is approved and the exact deployment is independently verified. Before implementation, approve the AWS region and KMS ownership/rotation, object prefixes and metadata model, retention/versioning/deletion, malware scanning, presigned-URL lifetime, rights/provenance scope, CloudTrail/S3 audit evidence and log retention. PR #14 may support isolated authorized testing but is not BC-006/007/008 delivery evidence.
+- Related stories/PRs: BC-006; PR #14 (test artifact only).
+
