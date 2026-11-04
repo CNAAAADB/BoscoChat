@@ -1,7 +1,7 @@
 # BoscoChat Progress
 
 ## Current focus
-- BC-002 — PR #13 merged to `main` on 2026-11-02. Orchestrator black-box privilege/suspension checks passed on materialized `a62f0dd`. PR #17 fixes HIGH `SEC-BC002-03 / CWE-400` within one process and passed build/test/package CI on exact SHA `e105577`; FULL review found HIGH `SEC-BC002-04 / CWE-400` because the buckets are not shared across the horizontally scaling Lambda runtime. BC-002 remains BLOCKED pending a distributed control, distinct independent FULL review, MySQL evidence and audit-log policy.
+- BC-002 — PR #13 merged to `main` on 2026-11-02. Orchestrator black-box privilege/suspension checks passed on materialized `a62f0dd`. PR #17 now remediates HIGH `SEC-BC002-03` and `SEC-BC002-04 / CWE-400` with aggregate HMAC-keyed buckets in a shared MySQL store plus fail-closed production configuration and a two-instance regression. Local 37/37 tests, lint, build and high-severity dependency audit pass; BC-002 remains BLOCKED pending exact-head CI, representative MySQL concurrency/load evidence, distinct independent FULL review and audit-log policy.
 - BC-003 — Query usage logging and quotas remains BLOCKED after merge pending independent gates and policy approval.
 - BC-006 — PR #14 merged test tooling and a private S3/SSE-KMS/IAM proposal on 2026-11-02. PR #17 adds a source-hash verifier, records and re-verifies all three authorized PDF hashes on exact SHA `e105577`, and closes the proposed delivery default to backend proxy with separated least-privilege roles; independent review and AWS implementation evidence remain pending.
 
@@ -9,7 +9,7 @@
 - None.
 
 ## Blocked
-- BC-002 — Required: close HIGH `SEC-BC002-03` through a distinct independent FULL review of PR #17; remediate HIGH `SEC-BC002-04` with a shared limiter or independently evidenced route-specific edge control plus distributed negative/load tests; representative MySQL migration/concurrency validation; approval of access/retention/deletion for `admin_audit_logs`.
+- BC-002 — Required: validate the PR #17 shared-MySQL remediation on the exact head; run representative migration and distributed concurrency/load checks; obtain distinct independent FULL security and functional review; provision a deployment HMAC secret; approve access/retention/deletion for `admin_audit_logs`.
 - BC-003 — Required: independent functional verification, independent FULL security confirmation of the CWE-400 remediation in `c74dce1`, and explicit approval or exception acceptance for production quota/reset values and query-log retention.
 - BC-006 — Required: approved cloud/privacy decisions, S3/KMS/IAM/backend integration and IaC, representative AWS verification, negative/positive access tests and independent FULL review. Catalog hashes are verified on PR #17 SHA `e105577`.
 - Production release/deployment only: rotate or revoke the database credential previously committed to Git history and validate backup/restore plus the authentication migration on representative staging data. Per project-owner direction on 2026-09-15, this operational action is deferred and does not block unrelated development stories.
