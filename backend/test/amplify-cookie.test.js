@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createApp } from '../src/app.js';
+import { MemoryAuthRateLimitStore } from '../src/middleware/auth-rate-limit.js';
 
 const authService = {
   async register() {
@@ -22,8 +23,10 @@ const authService = {
 test('Amplify/App Runner deployment can emit a cross-site secure session cookie', async (t) => {
   const app = createApp({
     authService,
+    authRateLimitStore: new MemoryAuthRateLimitStore(),
     environment: {
       NODE_ENV: 'production',
+      AUTH_RATE_LIMIT_HMAC_KEY: 'test-only-auth-rate-limit-key-32-bytes',
       CORS_ORIGINS: 'https://main.example.amplifyapp.com',
       SESSION_COOKIE_SAME_SITE: 'none',
     },
@@ -50,3 +53,22 @@ test('Amplify/App Runner deployment can emit a cross-site secure session cookie'
   assert.match(setCookie, /Secure/i);
   assert.match(setCookie, /SameSite=None/i);
 });
+
+test('production fails closed without a shared authentication limiter', () => {
+  assert.throws(
+    () => createApp({ authService, environment: { NODE_ENV: 'production' } }),
+    /AUTH_RATE_LIMIT_STORE_REQUIRED/,
+  );
+});
+
+test('production rejects a missing or weak limiter pseudonymization key', () => {
+  assert.throws(
+    () => createApp({
+      authService,
+      authRateLimitStore: new MemoryAuthRateLimitStore(),
+      environment: { NODE_ENV: 'production' },
+    }),
+    /AUTH_RATE_LIMIT_HMAC_KEY_REQUIRED/,
+  );
+});
+
