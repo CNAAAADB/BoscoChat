@@ -71,7 +71,7 @@ As the platform, I want role-based authorization so that users only access funct
 - [ ] Representative MySQL migration/concurrency validation.
 - [ ] Approve access, retention and deletion policy for personal identifiers in `admin_audit_logs`.
 - HIGH `SEC-BC002-03 / CWE-400`: rotating email values bypassed the original `IP|email` authentication limiter and could force unbounded password-hash work from one source IP. PR #17 retains an aggregate-IP regression and now uses opaque HMAC bucket keys; exact-head CI and distinct independent FULL verification remain required.
-- HIGH `SEC-BC002-04 / CWE-400`: PR #17 now implements a MySQL-backed fixed-window store shared across Lambda instances, fails closed in production without that store or a 32-byte HMAC key, and adds a two-instance regression. The remediation is not accepted yet: current-head CI, representative MySQL migration/concurrency/load evidence and a distinct independent FULL security review are `TRACE-GAP`.
+- HIGH `SEC-BC002-04 / CWE-400`: PR #17 now implements a MySQL-backed fixed-window store shared across Lambda instances, fails closed in production without that store or a 32-byte HMAC key, and adds a two-instance regression. CI now passes the migration and concurrent limiter/last-administrator/session-revocation tests on MySQL 8. The remediation is not accepted yet: representative staging/load evidence and a distinct independent FULL security review are `TRACE-GAP`.
 - A merged PR does not satisfy these gates; BC-002 remains `BLOCKED`.
 
 ### BC-003 — Query usage logging and quotas
