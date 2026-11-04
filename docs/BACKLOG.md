@@ -46,12 +46,12 @@ As a visitor, I want to register and authenticate securely so that I can access 
 
 ### BC-002 — Roles and authorization
 - Priority: P1
-- Status: IN_REVIEW
+- Status: BLOCKED
 - Owner role: Developer
 - Depends on: BC-001
 - SRS: RF-USER-04, RF-ADMIN-01, RNF-SEC-03
 - Design/mockup: TBD
-- PR: #13
+- PR: #13 (merged 2026-11-02; delivery gate remains BLOCKED)
 
 **Story**  
 As the platform, I want role-based authorization so that users only access functions permitted for their role.
@@ -61,7 +61,17 @@ As the platform, I want role-based authorization so that users only access funct
 - [x] Authorization is enforced by the backend, not only by the UI.
 - [x] Administrator can create accounts, modify roles, suspend accounts and delete accounts.
 - [x] Unauthorized operations return safe, consistent errors.
-- [x] Tests prove privilege boundaries for protected operations.
+- [x] Tests prove privilege boundaries for protected operations, including the concurrent last-active-administrator invariant.
+
+**Gate status**
+- Implementation is present on `main` through PR #13 and its producer CI passed on `a62f0dd`.
+- [x] Orchestrator rerun on 2026-11-04: independent black-box privilege and suspension/session-revocation checks PASS against materialized `a62f0dd`; this does not replace a distinct Verifier identity.
+- [ ] Independent verification by a distinct reviewer identity on the exact remediated SHA.
+- [ ] Independent FULL authorization/security review on the exact remediated SHA.
+- [ ] Representative MySQL migration/concurrency validation.
+- [ ] Approve access, retention and deletion policy for personal identifiers in `admin_audit_logs`.
+- HIGH `SEC-BC002-03 / CWE-400`: rotating email values bypassed the `IP|email` authentication limiter and could force unbounded password-hash work from one source IP. PR #17 contains an aggregate-IP remediation and regression test; the finding remains open until exact-SHA CI and independent review pass.
+- A merged PR does not satisfy these gates; BC-002 remains `BLOCKED`.
 
 ### BC-003 — Query usage logging and quotas
 - Priority: P1
@@ -132,8 +142,8 @@ As a paying user, I want subscription payments and renewals handled by an extern
 - Owner role: Developer
 - Depends on: -
 - SRS: RF-DOC-04, RF-DOCMGMT-01, RNF-SEC-02, RNF-SCALE-02, RNF-MAINT-01
-- Design/mockup: TBD
-- PR: -
+- Design/mockup: docs/proposals/BC-006-private-document-storage.md (proposed, not approved)
+- PR: #14 (merged 2026-11-02; test tooling/proposal only)
 
 **Story**  
 As the platform, I want a structured documentary data model and protected document storage so that historical publications can be ingested and served securely.
@@ -144,6 +154,13 @@ As the platform, I want a structured documentary data model and protected docume
 - [ ] Original documents are not publicly/directly accessible.
 - [ ] Backend authorizes access before serving document content.
 - [ ] Architecture supports adding new publications without redesigning the core data model.
+
+**Gate status**
+- PR #14 added owner-authorized private test-corpus tooling and a proposed S3/SSE-KMS/IAM/backend-authorized-access architecture.
+- The catalog SHA-256 fields for issues 766, 767 and 768 are blank; no PDF is accepted until approved hashes are populated and independently verified.
+- PR #17 adds a bounded non-persistent source-hash verifier and adopts S3 private, SSE-KMS, backend proxy and separated minimum-privilege roles as proposed defaults; hashes and exact-SHA review are still pending.
+- No S3 bucket, KMS key, IAM policy, backend document-access integration, IaC or representative AWS verification exists.
+- Cloud/privacy decisions and independent FULL review remain pending. BC-006 stays `BLOCKED`; PR #14 does not implement BC-006, BC-007 or BC-008.
 
 ### BC-007 — Document upload and ingestion pipeline
 - Priority: P1
@@ -383,5 +400,6 @@ Every applicable story must preserve these constraints:
 
 ## Automation rule
 
-Automated development may select only stories with `Status: READY`, all dependencies resolved, and no active branch/PR already implementing the same story. Product scope must not be invented outside this backlog/SRS without moving the proposed work through product review first.
+`READY` is a refinement state, not automatic execution authority. Automated development may select a story only when it is `READY`, every dependency is `DONE`, no active branch/PR already implements it, and no documented gate blocks it. Product scope outside the SRS must remain `IDEA` with `TRACE-GAP` until product review and SRS-baseline approval.
+
 
