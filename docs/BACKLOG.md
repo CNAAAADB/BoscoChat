@@ -71,6 +71,7 @@ As the platform, I want role-based authorization so that users only access funct
 - [ ] Representative MySQL migration/concurrency validation.
 - [ ] Approve access, retention and deletion policy for personal identifiers in `admin_audit_logs`.
 - HIGH `SEC-BC002-03 / CWE-400`: rotating email values bypassed the `IP|email` authentication limiter and could force unbounded password-hash work from one source IP. PR #17 contains an aggregate-IP remediation and regression test. Build/test/package CI passed on exact SHA `e105577`; the finding remains open until a distinct independent FULL security review verifies that remediation.
+- HIGH `SEC-BC002-04 / CWE-400`: the aggregate buckets remain process-local. `DEC-001` limits that design to a single instance, while the validated runtime uses horizontally scaling Lambda. Concurrent requests distributed across instances can bypass the count; no shared store, route-specific API Gateway/WAF control or representative distributed load evidence exists. The gate remains blocked until a distributed control and negative/load tests are independently verified.
 - A merged PR does not satisfy these gates; BC-002 remains `BLOCKED`.
 
 ### BC-003 — Query usage logging and quotas
