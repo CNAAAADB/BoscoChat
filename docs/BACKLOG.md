@@ -70,7 +70,7 @@ As the platform, I want role-based authorization so that users only access funct
 - [ ] Independent FULL authorization/security review on the exact remediated SHA.
 - [ ] Representative MySQL migration/concurrency validation.
 - [ ] Approve access, retention and deletion policy for personal identifiers in `admin_audit_logs`.
-- HIGH `SEC-BC002-03 / CWE-400`: rotating email values bypassed the `IP|email` authentication limiter and could force unbounded password-hash work from one source IP. PR #17 contains an aggregate-IP remediation and regression test; the finding remains open until exact-SHA CI and independent review pass.
+- HIGH `SEC-BC002-03 / CWE-400`: rotating email values bypassed the `IP|email` authentication limiter and could force unbounded password-hash work from one source IP. PR #17 contains an aggregate-IP remediation and regression test. Build/test/package CI passed on exact SHA `e105577`; the finding remains open until a distinct independent FULL security review verifies that remediation.
 - A merged PR does not satisfy these gates; BC-002 remains `BLOCKED`.
 
 ### BC-003 — Query usage logging and quotas
@@ -157,8 +157,8 @@ As the platform, I want a structured documentary data model and protected docume
 
 **Gate status**
 - PR #14 added owner-authorized private test-corpus tooling and a proposed S3/SSE-KMS/IAM/backend-authorized-access architecture.
-- The catalog SHA-256 fields for issues 766, 767 and 768 are blank; no PDF is accepted until approved hashes are populated and independently verified.
-- PR #17 adds a bounded non-persistent source-hash verifier and adopts S3 private, SSE-KMS, backend proxy and separated minimum-privilege roles as proposed defaults; hashes and exact-SHA review are still pending.
+- PR #17 retrieved the three owner-authorized originals without persisting or publishing them and verified the received bytes twice in CI. Recorded SHA-256 values are: issue 766 `bd3fb59f977e33ee1291f651393bcb07d8588408680bd9db03e19dbc8bc43b2f` (2,399,080 bytes), issue 767 `d054fba67c81e1c00e5dabfd4c78990e0de02b2ce145b8a002c53335fcdcd62f` (2,269,063 bytes), and issue 768 `a55356d0b23bba4be681877942a4e9db764418dd1f2661c2327210900fea8b8f` (3,003,344 bytes).
+- PR #17 adds the bounded non-persistent source-hash verifier and adopts S3 private, SSE-KMS, backend proxy and separated minimum-privilege roles as proposed defaults. Corpus CI passed on exact SHA `e105577`; distinct independent review is still pending.
 - No S3 bucket, KMS key, IAM policy, backend document-access integration, IaC or representative AWS verification exists.
 - Cloud/privacy decisions and independent FULL review remain pending. BC-006 stays `BLOCKED`; PR #14 does not implement BC-006, BC-007 or BC-008.
 
