@@ -5,8 +5,10 @@ on:
     paths:
       - 'data/test-corpus/**'
       - 'scripts/fetch-dbe-test-corpus.py'
+      - 'scripts/hash-dbe-authorized-sources.py'
       - 'scripts/index-dbe-test-corpus.py'
       - 'scripts/tests/test_corpus_tools.py'
+      - 'scripts/tests/test_source_hashes.py'
       - 'docs/proposals/BC-006-private-document-storage.md'
       - '.github/workflows/corpus-tools.yml'
   workflow_dispatch:
@@ -24,6 +26,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Compile scripts
-        run: python -m py_compile scripts/fetch-dbe-test-corpus.py scripts/index-dbe-test-corpus.py
+        run: python -m py_compile scripts/fetch-dbe-test-corpus.py scripts/hash-dbe-authorized-sources.py scripts/index-dbe-test-corpus.py
       - name: Run regression tests
-        run: python -m unittest discover -s scripts/tests -p 'test_corpus_tools.py' -v
+        run: python -m unittest discover -s scripts/tests -p 'test_*.py' -v
+      - name: Download originals and verify catalog hashes
+        run: python scripts/hash-dbe-authorized-sources.py --authorized
+
