@@ -5,6 +5,7 @@ import { databaseConfig } from '../src/config/database.js';
 import { AuthRepository } from '../src/db/auth-repository.js';
 import { MysqlAuthRateLimitStore } from '../src/db/auth-rate-limit-store.js';
 
+// This proves engine-level migration and locking semantics; staging configuration and load remain separate gates.
 test('MySQL 8 migration supports shared limits and concurrent administrator invariants', {
   skip: process.env.MYSQL_INTEGRATION !== '1',
   timeout: 30_000,
