@@ -21,8 +21,8 @@ Use `TRACE-GAP` where required evidence is missing. Do not infer links that are 
 | RF-SEARCH-10, RF-SEARCH-11, RF-SEARCH-12, RNF-USE-02 | BC-011 |
 | RF-DOC-01, RF-DOC-02, RF-DOC-03, RF-DOC-04, RNF-SEC-02 | BC-012 |
 | RF-ADMIN-03 | BC-013 |
-| TRACE-GAP — explicit product-owner mandate; SRS-baseline approval pending | BC-014 |
-| TRACE-GAP — explicit product-owner mandate; SRS-baseline approval pending | BC-015 |
+| TRACE-GAP — proposed scope; product-owner and SRS-baseline approval pending | BC-014 |
+| TRACE-GAP — proposed scope; product-owner and SRS-baseline approval pending | BC-015 |
 | RF-CHAT-01, RF-CHAT-02, RF-CHAT-03, RF-CHAT-06, RNF-USE-02 | BC-101 |
 | RF-RAG-01, RF-RAG-02, RF-RAG-05, RNF-PERF-02 | BC-102 |
 | RF-RAG-03, RF-RAG-04, RF-CHAT-07 | BC-103 |

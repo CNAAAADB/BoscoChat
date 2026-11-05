@@ -305,7 +305,7 @@ As an Administrator, I want usage and resource monitoring so that I can supervis
 - Status: IDEA
 - Owner role: Product / Developer
 - Depends on: BC-001
-- SRS: TRACE-GAP — explicit product-owner backlog mandate dated 2026-11-02; SRS baseline approval pending
+- SRS: TRACE-GAP — proposed backlog scope; explicit product-owner and SRS-baseline approval pending
 - Design/mockup: TBD
 - PR: -
 
@@ -325,7 +325,7 @@ As an authenticated user, I want to view and maintain my own profile so that my 
 - Status: IDEA
 - Owner role: Product / Developer
 - Depends on: BC-001
-- SRS: TRACE-GAP — explicit product-owner backlog mandate dated 2026-11-02; SRS baseline approval pending
+- SRS: TRACE-GAP — proposed backlog scope; explicit product-owner and SRS-baseline approval pending
 - Design/mockup: TBD
 - PR: -
 
