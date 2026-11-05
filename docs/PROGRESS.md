@@ -23,6 +23,10 @@
 ## In review
 - None. PR #13 and PR #14 are merged; their remaining gates keep BC-002 and BC-006 BLOCKED rather than IN_REVIEW or DONE.
 
+## Product review
+- BC-014 — User profile management and BC-015 — Email verification/controlled email change are separate `IDEA` stories with measurable criteria.
+- Both remain non-executable `TRACE-GAP` items until their requirements and privacy/security policies are approved in the SRS baseline.
+
 ## Recently merged artifacts
 - PR #13 — BC-002 implementation and producer checks; merged 2026-11-02 while independent gates remained open.
 - PR #14 — private corpus tooling and BC-006 architecture proposal; merged 2026-11-02 with blank catalog hashes and without AWS storage implementation.
