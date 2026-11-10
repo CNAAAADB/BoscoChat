@@ -5,6 +5,7 @@ import { changeUserRole, createUser, deleteUser, listUsers, setUserSuspended } f
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
 // Switch on only after RDS archive migration, real ingestion and API deployment.
 const ARCHIVE_SEARCH_ENABLED = import.meta.env.VITE_ARCHIVE_SEARCH === 'true';
+const ARCHIVE_PDF_VIEW_ENABLED = import.meta.env.VITE_ARCHIVE_PDF_VIEW === 'true';
 const ROLES = ['free', 'pro', 'premium', 'advanced', 'administrator', 'documentary_manager'];
 
 export default function App() {
@@ -265,8 +266,9 @@ export default function App() {
               <p>Página {selectedPage.pageNumber} del documento original.</p>
               {pageBusy ? <p>Cargando página…</p> : null}
               {pageError ? <p role="alert" style={styles.error}>{pageError}</p> : null}
-              {pagePreview ? <article style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, padding: 20, background: '#151525', borderRadius: 12 }}>{pagePreview.text_content}</article> : null}
-              <p>Vista de texto de la página. La visualización PDF original se activará tras incorporar el visor protegido.</p>
+              {ARCHIVE_PDF_VIEW_ENABLED && !pageError ? <iframe title={`PDF original ${selectedPage.title}, página ${selectedPage.pageNumber}`} src={`${API_URL}/archive/documents/${selectedPage.documentId}/pdf#page=${selectedPage.pageNumber}`} style={{ width: '100%', height: '75vh', border: 0 }} /> : null}
+              {!ARCHIVE_PDF_VIEW_ENABLED && pagePreview ? <article style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, padding: 20, background: '#151525', borderRadius: 12 }}>{pagePreview.text_content}</article> : null}
+              {!ARCHIVE_PDF_VIEW_ENABLED ? <p>Vista de texto de la página. El PDF original estará disponible cuando se habilite el visor protegido.</p> : null}
             </>
           )}
           <button style={{ ...styles.btnPrimary, marginTop: 20 }} onClick={() => setView('buscador')}>Volver a resultados</button>
