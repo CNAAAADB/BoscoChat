@@ -46,3 +46,11 @@ ACTUALIZACION - 2026-11-10
 - Nombre exacto, region, cifrado, versionado y bloqueo de acceso publico pendientes de comprobar; no hay acceso AWS directo en esta sesion.
 - Pendiente: comprobar configuracion del bucket y preparar primera carga controlada desde el disco duro.
 - Todavia no se ha comprobado que haya archivos subidos ni que sean indexables desde la web.
+
+ACTUALIZACION - 2026-11-10 (captura de consola S3 aportada por el propietario)
+- Bucket confirmado por captura: boscochat-archivo-pdfs.
+- ARN mostrado: arn:aws:s3:::boscochat-archivo-pdfs.
+- Region confirmada: us-east-1 (N. Virginia).
+- Versionado del bucket confirmado: habilitado.
+- Bloqueo de acceso publico y cifrado todavia no comprobados en captura.
+- No hay evidencia de PDFs cargados ni de configuracion de permisos IAM.
