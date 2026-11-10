@@ -78,3 +78,9 @@ ACTUALIZACION - 2026-11-10 (captura subred 1 y rutas)
 - La tabla de rutas en la captura solo contiene 172.31.0.0/16 -> local y 0.0.0.0/0 -> igw-0071af26ce755e497; NO se observa ruta pl-* hacia vpce-0deca68f74638c39a.
 - No se puede confirmar conectividad S3 por endpoint hasta revisar/actualizar tablas de rutas y comprobar asociacion efectiva en pagina del endpoint. No editar rutas manualmente ni realizar pruebas suponiendo que el endpoint enruta el trafico.
 - Pendiente segunda subred subnet-0d2254dde8a5232b3 y prueba efectiva S3 GetObject desde Lambda.
+
+ACTUALIZACION - 2026-11-10 (captura de detalle S3 Gateway Endpoint)
+- Captura confirma vpce-0deca68f74638c39a Disponible, tipo Gateway, servicio com.amazonaws.us-east-1.s3, region us-east-1, VPC vpc-02f28e9c3d2d0eab2.
+- La pestaña Tablas de enrutamiento confirma asociacion de rtb-0317651c58ed14c6c al endpoint.
+- Dado que en captura previa de esa misma tabla solo aparecian rutas local e Internet Gateway, se ha pedido abrir/refrescar directamente la tabla y verificar ruta de lista de prefijos pl-* -> vpce-0deca68f74638c39a.
+- No dar por probada conectividad de S3 ni tocar rutas antes de esa comprobacion y la segunda subred.
