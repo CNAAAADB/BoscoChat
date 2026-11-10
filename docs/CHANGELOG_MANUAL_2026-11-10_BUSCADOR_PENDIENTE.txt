@@ -46,3 +46,9 @@ ACTUALIZACION - 2026-11-10 (captura VPC Endpoints)
 - Captura de consola VPC > Puntos de conexion muestra 'No matching resource found' sin endpoints listados en la vista actual.
 - Se propone crear un Gateway VPC Endpoint para com.amazonaws.us-east-1.s3, en VPC documentada vpc-02f28e9c3d2d0eab2; pendiente de confirmar VPC y tablas de ruta de subredes de Lambda.
 - No consta creacion de endpoint ni conectividad S3 verificada. No seleccionar Interface (tiene costes por hora y datos) por error.
+
+ACTUALIZACION - 2026-11-10 (formulario de creacion del VPC endpoint)
+- Captura confirma nombre/tag boscochat-s3-endpoint y categoria Servicios de AWS seleccionada.
+- Servicio S3 Gateway aun no seleccionado; VPC deshabilitada hasta seleccionar servicio.
+- Se indica filtrar com.amazonaws.us-east-1.s3 y elegir Gateway, luego VPC vpc-02f28e9c3d2d0eab2; no crear antes de revisar tablas de rutas de las subredes Lambda y politica de endpoint.
+- No se ha creado ningun endpoint ni probado conectividad desde Lambda.
