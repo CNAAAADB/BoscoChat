@@ -29,6 +29,8 @@ async function main() {
     if (info.size < 1 || info.size > MAX_BYTES) throw new Error('PDF exceeds permitted size or is empty');
     await run('pdftotext', ['-enc', 'UTF-8', '-layout', pdf, txt],
       { timeout: 15 * 60 * 1000, maxBuffer: 1024 * 1024 });
+    const extracted = await stat(txt);
+    if (extracted.size > 150 * 1024 * 1024) throw new Error('Extracted text exceeds permitted size');
     const pages = splitExtractedPages(await readFile(txt, 'utf8'));
     if (pages.every((page) => page.text.length === 0)) throw new Error('No extractable text; OCR required');
     const db = await pool.getConnection();
