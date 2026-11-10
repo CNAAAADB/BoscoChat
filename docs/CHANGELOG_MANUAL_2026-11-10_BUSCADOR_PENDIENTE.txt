@@ -28,3 +28,9 @@ ACTUALIZACION - 2026-11-10 (capturas Lambda Configuracion > Permisos)
 - La vista suministrada no evidencia permisos de lectura S3 (no demuestra de manera definitiva que no existan otros permisos).
 - Siguiente accion solicitada: abrir IAM desde el nombre del rol y revisar sus politicas de identidad antes de agregar permiso minimo s3:GetObject sobre arn:aws:s3:::boscochat-archivo-pdfs/originals/*; no editar la politica de recursos de Lambda.
 - Se debe revisar acceso de red de Lambda en VPC a S3 via endpoint o egress antes de dar por operativa la conexion. No se ha cambiado configuracion AWS directamente.
+
+ACTUALIZACION - 2026-11-10 (captura IAM del rol de Lambda)
+- IAM confirma que el rol boscochat-backend-role-yvarjgvz tiene dos politicas de permisos asociadas: AWSLambdaBasicExecutionRole y AWSLambdaVPCAccessExecutionRole; no aparece una politica S3.
+- Se ha facilitado al propietario una politica inline de minimo privilegio llamada BoscoChatS3ArchiveReadOnly con Action s3:GetObject y Resource arn:aws:s3:::boscochat-archivo-pdfs/originals/*.
+- La creacion de la politica aun NO esta verificada; pendiente de que el propietario confirme la pantalla IAM.
+- Permiso S3 no garantiza conectividad de red: revisar endpoint Gateway S3 o egress VPC. No ejecutar indexacion ni habilitar feature flag hasta completar validaciones.
