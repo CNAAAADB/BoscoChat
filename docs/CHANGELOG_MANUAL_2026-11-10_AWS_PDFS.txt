@@ -83,3 +83,10 @@ ACTUALIZACION - 2026-11-10 (estado de texto OCR reportado por propietario)
 - Mantener originales intactos. Registrar por pagina metodo de extraccion, calidad, estado de revision y correspondencia exacta con pagina PDF.
 - Para una muestra de anos distantes, evaluar precision de extraccion con comprobaciones visuales y pruebas de busqueda antes de escalar al corpus completo.
 - No se ha ejecutado todavia extraccion, OCR, indexacion ni carga verificada.
+
+ACTUALIZACION - 2026-11-10 (captura de carga masiva)
+- El propietario ha iniciado subida de 92 PDFs (15,4 GB) desde su disco duro a s3://boscochat-archivo-pdfs/originals/.
+- Conserva nombres originales; ejemplos visibles: 'Don Bosco en Espana_1922.pdf', 'Don Bosco en Espana_1923.pdf' y anualidades siguientes. Los nombres visuales en la captura contienen acento en Espana; conservar las claves reales tal cual.
+- En el momento de la captura: 2 archivos completados (338,6 MB; 2,14%), cero errores; 90 pendientes o en curso. NO consta finalizacion de la carga.
+- La organizacion efectiva utilizada es originals/ directamente, no originals/don-bosco-en-espana/ como se habia propuesto. La futura ingestion debe descubrir las claves reales bajo originals/ sin asumir subcarpeta ni renombrado.
+- Siguiente hito: comprobar 92/92 archivos finalizados sin errores y validar inventario, paginas y texto seleccionable para comenzar indexacion.
