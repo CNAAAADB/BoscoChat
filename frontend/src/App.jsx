@@ -3,6 +3,9 @@ import { currentSession, login, logout, register } from './api/auth.js';
 import { changeUserRole, createUser, deleteUser, listUsers, setUserSuspended } from './api/users.js';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
+// Switch on only after RDS archive migration, real ingestion and API deployment.
+const ARCHIVE_SEARCH_ENABLED = import.meta.env.VITE_ARCHIVE_SEARCH === 'true';
+const ARCHIVE_PDF_VIEW_ENABLED = import.meta.env.VITE_ARCHIVE_PDF_VIEW === 'true';
 const ROLES = ['free', 'pro', 'premium', 'advanced', 'administrator', 'documentary_manager'];
 
 export default function App() {
@@ -13,6 +16,13 @@ export default function App() {
   const [authError, setAuthError] = useState('');
   const [search, setSearch] = useState('');
   const [results, setResults] = useState([]);
+  const [searchError, setSearchError] = useState('');
+  const [searchBusy, setSearchBusy] = useState(false);
+  const [searchYear, setSearchYear] = useState('');
+  const [selectedPage, setSelectedPage] = useState(null);
+  const [pagePreview, setPagePreview] = useState(null);
+  const [pageBusy, setPageBusy] = useState(false);
+  const [pageError, setPageError] = useState('');
   const [registration, setRegistration] = useState({ username: '', email: '', password: '', terms: false });
   const [credentials, setCredentials] = useState({ email: '', password: '' });
   const [newDoc, setNewDoc] = useState({ title: '', content: '', page: 1 });
@@ -80,7 +90,11 @@ export default function App() {
       const result = await login(credentials);
       setUser(result.user);
       setCredentials({ email: '', password: '' });
-      setView('home');
+      if (selectedPage && ARCHIVE_SEARCH_ENABLED) {
+        setView('documento');
+      } else {
+        setView('home');
+      }
     } catch (error) {
       setAuthError(error.message);
     } finally {
@@ -119,6 +133,32 @@ export default function App() {
       setUserAdminBusy(false);
     }
   };
+
+  const openSearchResult = (result) => {
+    if (!ARCHIVE_SEARCH_ENABLED) return;
+    setSelectedPage({ documentId: result.document_id, pageNumber: result.page_number, title: result.publication, year: result.publication_year });
+    setPagePreview(null);
+    setPageError('');
+    if (user) setView('documento');
+    else { setAuthError(''); setView('login'); }
+  };
+
+  useEffect(() => {
+    if (view !== 'documento' || !user || !selectedPage || !ARCHIVE_SEARCH_ENABLED) return;
+    let cancelled = false;
+    setPageBusy(true);
+    setPageError('');
+    fetch(`${API_URL}/archive/documents/${encodeURIComponent(selectedPage.documentId)}/pages/${encodeURIComponent(selectedPage.pageNumber)}`, { credentials: 'include' })
+      .then(async (response) => {
+        const data = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(data?.error?.message ?? 'No se ha podido abrir el documento.');
+        return data.page;
+      })
+      .then((page) => { if (!cancelled) setPagePreview(page); })
+      .catch((error) => { if (!cancelled) setPageError(error.message); })
+      .finally(() => { if (!cancelled) setPageBusy(false); });
+    return () => { cancelled = true; };
+  }, [view, selectedPage, user]);
 
   return (
     <div style={styles.container}>
@@ -179,19 +219,59 @@ export default function App() {
       {view === 'buscador' ? (
         <section style={styles.card}>
           <h2 style={styles.sectionTitle}>Buscador Histórico</h2>
-          <div style={{ display: 'flex', gap: '15px', marginBottom: '40px' }}>
-            <input style={styles.input} aria-label="Consulta" placeholder="Buscar..." value={search} onChange={(event) => setSearch(event.target.value)} />
-            <button style={styles.btnPrimary} onClick={async () => {
-              const response = await fetch(`${API_URL}/search?q=${encodeURIComponent(search)}&userId=${user?.id ?? ''}`, { credentials: 'include' });
-              setResults(response.ok ? await response.json() : []);
-            }}>Buscar</button>
-          </div>
+          <form style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '20px' }} onSubmit={async (event) => {
+            event.preventDefault();
+            setSearchBusy(true);
+            setSearchError('');
+            setResults([]);
+            try {
+              const query = new URLSearchParams({ q: search });
+              if (ARCHIVE_SEARCH_ENABLED && searchYear) query.set('year', searchYear);
+              const endpoint = ARCHIVE_SEARCH_ENABLED ? '/archive/search' : '/search';
+              const response = await fetch(`${API_URL}${endpoint}?${query}`, { credentials: 'include' });
+              const data = await response.json().catch(() => null);
+              if (!response.ok) throw new Error(data?.error?.message ?? 'No se ha podido ejecutar la búsqueda.');
+              setResults(ARCHIVE_SEARCH_ENABLED ? data.results : data);
+            } catch (error) { setSearchError(error.message); }
+            finally { setSearchBusy(false); }
+          }}>
+            <input required minLength="2" style={{ ...styles.input, flex: '1 1 260px', width: 'auto', marginBottom: 0 }} aria-label="Consulta" placeholder="Buscar..." value={search} onChange={(event) => setSearch(event.target.value)} />
+            {ARCHIVE_SEARCH_ENABLED ? <input style={{ ...styles.input, width: '130px', marginBottom: 0 }} aria-label="Filtrar por año" type="number" min="1922" max="2100" placeholder="Año" value={searchYear} onChange={(event) => setSearchYear(event.target.value)} /> : null}
+            <button style={styles.btnPrimary} disabled={searchBusy || (sessionLoading)} type="submit">{searchBusy ? 'Buscando…' : 'Buscar'}</button>
+          </form>
+          {ARCHIVE_SEARCH_ENABLED ? <p>La búsqueda es pública. Para consultar el documento original tendrás que iniciar sesión o registrarte.</p> : !user ? <p>Inicia sesión para buscar en el archivo.</p> : null}
+          {searchError ? <p role="alert" style={styles.error}>{searchError}</p> : null}
+          {ARCHIVE_SEARCH_ENABLED && results.length === 0 && !searchBusy && !searchError ? <p>Las búsquedas muestran un máximo de 10 coincidencias.</p> : null}
           {results.map((result) => (
-            <article key={`${result.title}-${result.page_number}`} style={{ padding: '20px', background: '#1a1a2e', borderRadius: '20px', marginBottom: '10px' }}>
-              <h3 style={{ color: '#E6D7AA' }}>{result.title} (Pág. {result.page_number})</h3>
+            <article key={`${result.document_id ?? result.title}-${result.page_number}`} style={{ padding: '20px', background: '#1a1a2e', borderRadius: '20px', marginBottom: '10px' }}>
+              <h3 style={{ color: '#E6D7AA' }}>{ARCHIVE_SEARCH_ENABLED ? `${result.publication} (${result.publication_year})` : result.title} (Pág. {result.page_number})</h3>
               <p>{result.text_content}</p>
+              {ARCHIVE_SEARCH_ENABLED ? <button style={styles.btnPrimary} type="button" onClick={() => openSearchResult(result)}>Consultar página {result.page_number}</button> : null}
             </article>
           ))}
+        </section>
+      ) : null}
+
+      {view === 'documento' && ARCHIVE_SEARCH_ENABLED && selectedPage ? (
+        <section style={styles.card}>
+          <h2 style={styles.sectionTitle}>{selectedPage.title} ({selectedPage.year})</h2>
+          {!user ? (
+            <>
+              <p>Inicia sesión o regístrate para consultar la página {selectedPage.pageNumber} del documento.</p>
+              <button style={styles.btnPrimary} onClick={() => setView('login')}>Entrar</button>{' '}
+              <button style={styles.btnPrimary} onClick={() => setView('registro')}>Registrarme</button>
+            </>
+          ) : (
+            <>
+              <p>Página {selectedPage.pageNumber} del documento original.</p>
+              {pageBusy ? <p>Cargando página…</p> : null}
+              {pageError ? <p role="alert" style={styles.error}>{pageError}</p> : null}
+              {ARCHIVE_PDF_VIEW_ENABLED && !pageError ? <iframe title={`PDF original ${selectedPage.title}, página ${selectedPage.pageNumber}`} src={`${API_URL}/archive/documents/${selectedPage.documentId}/pdf#page=${selectedPage.pageNumber}`} style={{ width: '100%', height: '75vh', border: 0 }} /> : null}
+              {!ARCHIVE_PDF_VIEW_ENABLED && pagePreview ? <article style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, padding: 20, background: '#151525', borderRadius: 12 }}>{pagePreview.text_content}</article> : null}
+              {!ARCHIVE_PDF_VIEW_ENABLED ? <p>Vista de texto de la página. El PDF original estará disponible cuando se habilite el visor protegido.</p> : null}
+            </>
+          )}
+          <button style={{ ...styles.btnPrimary, marginTop: 20 }} onClick={() => setView('buscador')}>Volver a resultados</button>
         </section>
       ) : null}
 
