@@ -15,7 +15,8 @@ test('BC-008 searches indexed pages with bound parameters and optional annual fi
   const pool = { async execute(sql, params) { statement = sql; values = params; return [[{ document_id: 1, publication_year: 1922, page_number: 8 }]]; } };
   const rows = await searchArchivePages(pool, 'Don Bosco', { year: '1922', limit: 500 });
   assert.equal(rows[0].page_number, 8);
+  assert.equal(rows.length, 1);
   assert.match(statement, /MATCH\(p.text_content\)/);
-  assert.deepEqual(values, ['+Don +Bosco', '+Don +Bosco', 1922, 1922, 50]);
+  assert.deepEqual(values, ['+Don +Bosco', '+Don +Bosco', 1922, 1922, 10]);
   await assert.rejects(searchArchivePages(pool, 'Don Bosco', { year: 'not-a-year' }), /año/);
 });
