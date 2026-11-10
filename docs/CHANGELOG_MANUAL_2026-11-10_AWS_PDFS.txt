@@ -1,0 +1,99 @@
+BOSCOCHAT - BITACORA DE CAMBIOS MANUALES
+Fecha: 2026-11-10
+Responsable de prioridad: decisiones del propietario en la conversacion.
+Tema: almacenamiento de PDFs historicos en AWS para busqueda real.
+
+ESTADO
+- Comprobado en docs/ARCHITECTURE.md que el despliegue actual documentado esta en us-east-1.
+- Arquitectura existente: Amplify -> API Gateway -> Lambda/Express -> RDS MySQL privado.
+- Decidida como propuesta tecnica la incorporacion de un bucket S3 privado para originales.
+- NO se ha creado ningun recurso en AWS desde esta conversacion: no hay acceso AWS conectado.
+- NO se han subido documentos: el disco duro del propietario no esta disponible en la sesion.
+- NO se ha conectado aun la busqueda web a los nuevos documentos.
+- Esta nota no implica que BC-006/007/008 esten completadas; mantener gates independientes.
+
+CONFIGURACION PROPUESTA PARA EJECUTAR EN AWS
+1. Region: us-east-1, igual que el backend desplegado.
+2. Bucket: nombre globalmente unico a determinar en la cuenta AWS (ej.: boscochat-archive-<account-id>-use1).
+3. Bloquear acceso publico en los cuatro ajustes del bucket; Object Ownership = Bucket owner enforced.
+4. Versionado activado; cifrado SSE-S3 por defecto (SSE-KMS solo si se aprueba el coste y gestion de claves).
+5. Permitir subida/listado al rol de ingestion y GetObject al rol de backend unicamente sobre prefijo autorizado, aplicando minimo privilegio.
+6. No servir PDFs con URLs publicas o prefirmadas directamente desde el navegador: el backend autenticado autoriza y media las lecturas.
+7. Organizacion: originals/<publicacion>/<ano>/<numero>/<nombre>.pdf, con claves estables y metadatos normalizados en MySQL; tratar nombres reales, caracteres especiales y colisiones.
+8. Guardar inventario con bucket/key, SHA-256, tamano, publicacion, numero, fecha, estado de ingesta y errores.
+9. Subida inicial desde el equipo del propietario con AWS CLI usando credenciales temporales SSO o un perfil de menor privilegio, nunca claves en repositorio:
+   aws s3 sync "/ruta/al/archivo" "s3://NOMBRE_BUCKET/originals/" --dryrun
+   aws s3 sync "/ruta/al/archivo" "s3://NOMBRE_BUCKET/originals/" 
+   NOTA: la sincronizacion simple no incorpora por si sola metadatos catalograficos; no asumir que el path local cumple el esquema de organizacion.
+10. Validar recuento, tamano y SHA-256 de cada PDF. Reintentos, logs e identificacion de duplicados.
+11. Extraer capa de texto/OCR por pagina, preparar indexacion y registrar relaciones documento/pagina/fragmento.
+12. Implementar endpoints autenticados para busqueda y visualizacion; probar que S3 deniega acceso anonimo y que el usuario no puede saltarse autorizaciones.
+13. Revisar coste de almacenamiento, peticiones, OCR, indices y transferencia; habilitar alertas de presupuesto.
+14. Evaluar retencion, recuperacion, backup y tratamiento de datos personales si los documentos o sus metadatos los contienen.
+
+DEPENDENCIAS
+- Conexion o acceso delegado a la cuenta AWS para provisionar S3 e IAM.
+- El propietario debe ejecutar la transferencia desde el disco duro o facilitar un canal de carga autorizado.
+- Verificar si los PDFs tienen texto OCR seleccionable; si son imagenes, sera necesario OCR posterior.
+- Revisar permisos de reproduccion y distribucion antes de habilitar visualizacion.
+- Actualizar docs/DECISIONS.md y docs/ARCHITECTURE.md al implementar la eleccion; sincronizar BACKLOG/PROGRESS/TRACEABILITY posteriormente por acuerdo actual.
+
+PROXIMO HITO VERIFICABLE
+Bucket S3 privado creado y comprobado, usuario/rol de subida de minimo privilegio operativo, primera muestra de PDFs subida con hashes verificados, sin acceso publico. Todavia NO logrado.
+
+ACTUALIZACION - 2026-11-10
+- El propietario confirma que ha creado un bucket en la consola AWS.
+- Nombre exacto, region, cifrado, versionado y bloqueo de acceso publico pendientes de comprobar; no hay acceso AWS directo en esta sesion.
+- Pendiente: comprobar configuracion del bucket y preparar primera carga controlada desde el disco duro.
+- Todavia no se ha comprobado que haya archivos subidos ni que sean indexables desde la web.
+
+ACTUALIZACION - 2026-11-10 (captura de consola S3 aportada por el propietario)
+- Bucket confirmado por captura: boscochat-archivo-pdfs.
+- ARN mostrado: arn:aws:s3:::boscochat-archivo-pdfs.
+- Region confirmada: us-east-1 (N. Virginia).
+- Versionado del bucket confirmado: habilitado.
+- Bloqueo de acceso publico y cifrado todavia no comprobados en captura.
+- No hay evidencia de PDFs cargados ni de configuracion de permisos IAM.
+
+ACTUALIZACION - 2026-11-10 (capturas de permisos del bucket)
+- Confirmado por captura: 'Bloquear todo el acceso publico' ACTIVADO.
+- Confirmado: Object Ownership = Bucket owner enforced ('Aplicada al propietario del bucket'), ACL deshabilitadas.
+- La tabla ACL muestra sin permisos para Everyone (AllUsers) y AuthenticatedUsers.
+- Queda pendiente comprobar el cifrado predeterminado y permisos IAM para roles de ingesta y backend.
+- No se ha configurado CORS ni acceso publico; no son necesarios para la carga inicial desde la consola.
+
+ACTUALIZACION - 2026-11-10 (captura de cifrado)
+- Confirmado en consola: cifrado predeterminado del bucket = SSE-S3 (claves administradas por Amazon S3).
+- Clave de bucket mostrada como activada; no cambia que el tipo de cifrado sea SSE-S3.
+- SSE-C figura como tipo de cifrado bloqueado.
+- Comprobaciones basicas para una primera carga manual completadas: region, versionado, bloqueo publico, ACL y cifrado.
+- Siguiente operacion indicada al propietario: crear prefijo originals/ y cargar muestra de 3-5 PDFs desde consola; carga aun NO verificada.
+- Pendiente: permisos IAM para backend, catalogacion e indexacion de PDFs, y seguridad de endpoints.
+
+ACTUALIZACION - 2026-11-10 (organizacion del corpus indicada por propietario)
+- El propietario indica que tiene un PDF por anualidad desde 1922; no se ha confirmado el ultimo ano ni el numero total de archivos.
+- Propuesta de prefijos: originals/don-bosco-en-espana/<AAAA>.pdf. Conservar nombres originales cuando sea necesario y asociar ano mediante catalogo/manifest; no renombrar masivamente sin comprobar contenido.
+- Cada PDF anual sera un documento fuente; la indexacion representara paginas y fragmentos. Los numeros concretos de la revista se catalogaran despues si pueden inferirse de metadatos/documento.
+- Prueba recomendada: unas tres anualidades distintas (p.ej. 1922, 1950, 1980 si existen) para examinar cobertura OCR y calidad de busqueda.
+- No se ha confirmado subida alguna ni OCR utilizable.
+
+ACTUALIZACION - 2026-11-10 (estado de texto OCR reportado por propietario)
+- El propietario confirma que los PDF anuales desde 1922 permiten seleccionar/copiar texto, aunque algunos tienen calidad de seleccion deficiente.
+- Estrategia propuesta: extraer directamente texto por pagina; medir calidad (densidad, caracteres invalidos, patrones sospechosos, idioma) y marcar paginas anomalas; OCR selectivo solo donde aporte mejora comprobable.
+- Mantener originales intactos. Registrar por pagina metodo de extraccion, calidad, estado de revision y correspondencia exacta con pagina PDF.
+- Para una muestra de anos distantes, evaluar precision de extraccion con comprobaciones visuales y pruebas de busqueda antes de escalar al corpus completo.
+- No se ha ejecutado todavia extraccion, OCR, indexacion ni carga verificada.
+
+ACTUALIZACION - 2026-11-10 (captura de carga masiva)
+- El propietario ha iniciado subida de 92 PDFs (15,4 GB) desde su disco duro a s3://boscochat-archivo-pdfs/originals/.
+- Conserva nombres originales; ejemplos visibles: 'Don Bosco en Espana_1922.pdf', 'Don Bosco en Espana_1923.pdf' y anualidades siguientes. Los nombres visuales en la captura contienen acento en Espana; conservar las claves reales tal cual.
+- En el momento de la captura: 2 archivos completados (338,6 MB; 2,14%), cero errores; 90 pendientes o en curso. NO consta finalizacion de la carga.
+- La organizacion efectiva utilizada es originals/ directamente, no originals/don-bosco-en-espana/ como se habia propuesto. La futura ingestion debe descubrir las claves reales bajo originals/ sin asumir subcarpeta ni renombrado.
+- Siguiente hito: comprobar 92/92 archivos finalizados sin errores y validar inventario, paginas y texto seleccionable para comenzar indexacion.
+
+ACTUALIZACION - 2026-11-10 (desarrollo mientras se completa la transferencia)
+- Inspeccionados backend/package.json, backend/src/app.js, backend/src/routes/legacy.js y backend/scripts/migrate.js: el buscador heredado consulta tablas MySQL pages/documents; no existe conexion documentada de ingestion desde S3.
+- Se ha creado PR #19: https://github.com/CNAAAADB/BoscoChat/pull/19 (rama feature/BC-006-archive-key-parser).
+- PR #19 agrega backend/src/documents/archive-keys.js y backend/test/archive-keys.test.js para reconocer nombres anuales bajo originals/ y detectar duplicados/anomalias, conservando nombre original y año.
+- No se ha desplegado ni fusionado PR #19; las pruebas automatizadas estan pendientes de verificacion CI/independiente.
+- Falta inventario S3 real, permisos IAM limitados, pipeline de extraccion y persistencia/indexacion, API de consulta y visor.
