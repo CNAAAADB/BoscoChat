@@ -2,7 +2,7 @@
 export function splitExtractedPages(text, { maxPageChars = 2_000_000, maxPages = 5000 } = {}) {
   if (typeof text !== 'string') throw new TypeError('Extracted PDF text must be a string');
   const raw = text.split('\f');
-  if (raw.at(-1) === '') raw.pop(); // pdftotext appends a final page delimiter
+  if (raw.length > 1 && raw.at(-1).trim() === '') raw.pop(); // pdftotext may append a trailing form feed and whitespace
   if (raw.length < 1 || raw.length > maxPages) throw new RangeError('Invalid PDF page count');
   return raw.map((pageText, index) => {
     if (pageText.length > maxPageChars) throw new RangeError('PDF page exceeds size limit');
