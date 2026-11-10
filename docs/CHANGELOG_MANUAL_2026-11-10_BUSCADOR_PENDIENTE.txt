@@ -34,3 +34,10 @@ ACTUALIZACION - 2026-11-10 (captura IAM del rol de Lambda)
 - Se ha facilitado al propietario una politica inline de minimo privilegio llamada BoscoChatS3ArchiveReadOnly con Action s3:GetObject y Resource arn:aws:s3:::boscochat-archivo-pdfs/originals/*.
 - La creacion de la politica aun NO esta verificada; pendiente de que el propietario confirme la pantalla IAM.
 - Permiso S3 no garantiza conectividad de red: revisar endpoint Gateway S3 o egress VPC. No ejecutar indexacion ni habilitar feature flag hasta completar validaciones.
+
+ACTUALIZACION - 2026-11-10 (captura IAM politica insertada)
+- Captura confirma politica inline BoscoChatS3ArchiveReadOnly asociada al rol Lambda.
+- JSON visualizado: Effect Allow, Action s3:GetObject, Resource arn:aws:s3:::boscochat-archivo-pdfs/originals/*.
+- La politica aplica solo lectura de objetos del prefijo y no incorpora permisos de escritura, borrado ni acceso publico.
+- Pendiente verificar conectividad real desde Lambda en VPC a S3, preferiblemente revisando primero los VPC Endpoints existentes.
+- No se ha probado la descarga real desde Lambda ni la indexacion del corpus.
