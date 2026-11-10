@@ -106,3 +106,14 @@ ACTUALIZACION - 2026-11-10 (segunda subred Lambda confirmada)
 - Ambas subredes de boscochat-backend ya se han comprobado contra la tabla de rutas del endpoint S3.
 - Estado: configuracion de rutas e IAM preparada; NO hay aun prueba de GetObject ejecutada bajo el rol real Lambda, ni despliegue o indexacion confirmados.
 - Proximo hito: prueba de lectura desde Lambda mediante codigo de prueba revisado/desplegado, sin revelar PDF, y despues primera ingesta real en un entorno con acceso RDS privado.
+
+ACTUALIZACION - 2026-11-10 (cambio funcional solicitado por propietario)
+- El propietario confirma que originals/Don Bosco en España_1922.pdf ya existe, y que la carga masiva sigue al ~70%, sin comprobacion AWS programatica.
+- Cambio respecto al SRS anterior: BUSQUEDA PUBLICA sin autenticacion, mostrar hasta 10 coincidencias con publicacion, año, pagina y fragmento corto.
+- Al seleccionar resultado sin sesion, llevar a pantalla de login/registro conservando documento y pagina elegidos. Con sesion, consultar directamente la pagina correspondiente.
+- Nuevo codigo en esta rama: GET /api/archive/search publico con limite 10 y 220 caracteres de texto; GET /api/archive/documents/:id/pages/:page autenticado, UI con seleccion/login/registro y vuelta a resultado tras login; pruebas de acceso anonimo y protegido.
+- Se agrega prototipo opcional de proxy autenticado de PDF via peticiones HTTP Range al S3 privado; controla por documentId, no expone la clave, respuestas parciales de hasta 1 MiB, bloqueado por ARCHIVE_PDF_VIEW_ENABLED=false por defecto. Frontend opt-in VITE_ARCHIVE_PDF_VIEW=true.
+- Pendientes de prueba real: comportamiento de iframe del navegador con cookies cruzadas, proxy binary/streaming a traves de API Gateway/Lambda Web Adapter, cabeceras CSP, limites de API Gateway y marcacion de agua requerida por version previa del SRS. NO habilitar el visor en produccion hasta verificarlos.
+- Riesgo nuevo: endpoint de busqueda publico susceptible de abuso; se requiere rate limiting distribuido (AWS WAF/API Gateway), monitoreo, limites y evaluacion de fragmentos permitidos antes de lanzamiento. Las cuotas de consulta documental anteriores deben revisarse pues el usuario anonimo no tiene plan.
+- PR #20 continua ABIERTO y NO FUSIONABLE (rebase/conflicto pendiente), sin despliegue ni ingesta real confirmada. El codigo de la rama NO equivale a funcionamiento en la web.
+- Al estabilizar la implementacion, sincronizar SRS, BACKLOG, PROGRESS, TRACEABILITY y automatizaciones segun el acuerdo de control manual actual.
