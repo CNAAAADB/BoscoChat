@@ -11,6 +11,8 @@ import { createAuthRateLimiter } from './middleware/auth-rate-limit.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createAdminUsersRouter } from './routes/admin-users.js';
 import { createLegacyRouter } from './routes/legacy.js';
+import { createArchiveSearchRouter } from './routes/archive-search.js';
+import { createArchiveDocumentRouter } from './routes/archive-documents.js';
 
 export function createApp({
   pool,
@@ -81,7 +83,11 @@ export function createApp({
   app.use('/api/auth', authRouter);
   app.use('/api', authRouter);
   app.use('/api/admin/users', createAdminUsersRouter(service, administration));
-  if (pool) app.use('/api', createLegacyRouter(pool, service, usage, administration));
+  if (pool) {
+    app.use('/api/archive', createArchiveSearchRouter(pool));
+    app.use('/api/archive/documents', createArchiveDocumentRouter(pool, service, { pdfViewerEnabled: environment.ARCHIVE_PDF_VIEW_ENABLED === 'true', allowedOrigins: [...allowedOrigins] }));
+    app.use('/api', createLegacyRouter(pool, service, usage, administration));
+  }
 
   app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
