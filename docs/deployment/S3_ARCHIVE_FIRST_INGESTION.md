@@ -45,3 +45,9 @@ Componentes:
 **Advertencias:** El importador tiene limite de archivo de 350 MiB y de 5.000 paginas; el limite puede ajustarse tras medir el corpus. Cada PDF se descarga a almacenamiento temporal y se elimina. Los errores no destruyen un indice previo porque la sustitucion se hace en una transaccion MySQL. No crear permisos publicos S3 ni URLs prefirmadas para el navegador. El texto de PDFs con OCR deficiente requiere revision/OCR selectivo. No lanzar la ingesta sobre los 92 PDF sin pasar primero la prueba de muestra y medir tiempos, memoria y coste.
 
 **Pendientes para producto:** frontend de resultados, extractos centrados en coincidencias, vista PDF autorizada por backend, procesamiento en segundo plano con estado/reintento, indice mejorado (frases, AND/OR) y OCR selectivo automatizado.
+
+### Activación de la interfaz
+
+El frontend incluye la interfaz de consulta por palabras y filtro de año, protegida tras una **feature flag**. Solo una vez migrada la base, indexada la muestra, desplegada la API y validadas las pruebas, establecer `VITE_ARCHIVE_SEARCH=true` en el build de Amplify. En ausencia de esa variable continúa usando la ruta histórica `/api/search`. No activar la flag por adelantado: mostraría un buscador sin documentos indexados.
+
+El buscador inicial de FULLTEXT MySQL no implementa todavía frases exactas ni operadores combinados AND/OR personalizados, ni el visor PDF. Las páginas con bajo contenido o anomalías se marcan para revisión manual y eventual OCR posterior.
