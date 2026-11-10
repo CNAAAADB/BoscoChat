@@ -41,3 +41,8 @@ ACTUALIZACION - 2026-11-10 (captura IAM politica insertada)
 - La politica aplica solo lectura de objetos del prefijo y no incorpora permisos de escritura, borrado ni acceso publico.
 - Pendiente verificar conectividad real desde Lambda en VPC a S3, preferiblemente revisando primero los VPC Endpoints existentes.
 - No se ha probado la descarga real desde Lambda ni la indexacion del corpus.
+
+ACTUALIZACION - 2026-11-10 (captura VPC Endpoints)
+- Captura de consola VPC > Puntos de conexion muestra 'No matching resource found' sin endpoints listados en la vista actual.
+- Se propone crear un Gateway VPC Endpoint para com.amazonaws.us-east-1.s3, en VPC documentada vpc-02f28e9c3d2d0eab2; pendiente de confirmar VPC y tablas de ruta de subredes de Lambda.
+- No consta creacion de endpoint ni conectividad S3 verificada. No seleccionar Interface (tiene costes por hora y datos) por error.
