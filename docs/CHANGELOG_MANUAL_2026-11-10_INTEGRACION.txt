@@ -11,3 +11,5 @@ Aun faltan tests del visor de PDFs grandes por API Gateway, cookies cross-site y
 El objetivo del producto es: busqueda anonima max 10, login/registro al seleccionar, documento en pagina tras autenticacion.
 
 2026-11-10 - Extraccion real de PDF 1922 en CloudShell VPC: S3 descarga correcta; pdfinfo 56 paginas; pdftotext -enc UTF-8 -layout extrajo 257792 bytes de texto; grep -ic bosco dio 94 lineas. Todavia no se ha importado a MySQL. Siguiente comprobacion: conexion autenticada no destructiva con mysql client (sin compartir credenciales).
+
+2026-11-10 - Inventario S3 verificado mediante salida CloudShell: 93 objetos totales, de los cuales 1 es marcador vacio originals/ y 92 son PDF de Don Bosco en Espana. Anualidades presentes: 1922-1931 y 1944-2025, sin anualidades 1932-1943. 1922 ya tiene 56 paginas registradas, 4 sin texto extraible y marcadas needs_review; prueba FULLTEXT 'Bosco' devolvio 10 filas. Usuario prioriza indexacion de todos los PDF, dejando OCR avanzado para una fase posterior. Antes de iniciar lote, comprobar capacidad temporal CloudShell y procesar uno por uno con registro de errores, sin descargar los 15.4 GiB simultaneamente.
