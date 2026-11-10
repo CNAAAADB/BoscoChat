@@ -72,3 +72,9 @@ ACTUALIZACION - 2026-11-10 (captura Lambda > Configuracion > VPC)
 - Grupo de seguridad Lambda confirmado sg-0c280487ace7bd7b5 (boscochat-lambda-sg), referenciado por la regla de entrada en RDS.
 - Es necesario verificar si ambas subredes usan efectivamente la tabla principal rtb-0317651c58ed14c6c o una tabla asociada de forma explicita. La coincidencia de VPC por si sola no acredita ruta S3.
 - Proxima comprobacion: tabla de enrutamiento del endpoint -> Asociaciones (subredes/tablas) y confirmar ruta de S3; despues ejecutar lectura real desde un entorno Lambda con IAM.
+
+ACTUALIZACION - 2026-11-10 (captura subred 1 y rutas)
+- Captura confirma subnet-0a69aa33f2a5c48e4 usa tabla rtb-0317651c58ed14c6c, la asociada durante la configuracion del S3 Gateway Endpoint.
+- La tabla de rutas en la captura solo contiene 172.31.0.0/16 -> local y 0.0.0.0/0 -> igw-0071af26ce755e497; NO se observa ruta pl-* hacia vpce-0deca68f74638c39a.
+- No se puede confirmar conectividad S3 por endpoint hasta revisar/actualizar tablas de rutas y comprobar asociacion efectiva en pagina del endpoint. No editar rutas manualmente ni realizar pruebas suponiendo que el endpoint enruta el trafico.
+- Pendiente segunda subred subnet-0d2254dde8a5232b3 y prueba efectiva S3 GetObject desde Lambda.
