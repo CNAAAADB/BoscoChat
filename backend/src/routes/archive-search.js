@@ -1,29 +1,18 @@
 import express from 'express';
-import { requireAuthorization } from '../middleware/authorization.js';
 import { searchArchivePages } from '../documents/archive-search.js';
 
-export function createArchiveSearchRouter(pool, authService, usageService) {
+export function createArchiveSearchRouter(pool) {
   const router = express.Router();
-  router.get('/search', requireAuthorization(authService), async (req, res, next) => {
+  // Public discovery, with no PDF download or direct object keys exposed.
+  // Apply WAF/API Gateway rate limits before opening this endpoint to the Internet.
+  router.get('/search', async (req, res, next) => {
+    res.set('Cache-Control', 'public, max-age=30');
     try {
-      const q = req.query.q;
-      // Validate before consuming quota or querying storage.
-      if (typeof q !== 'string') {
-        return res.status(400).json({ error: { code: 'INVALID_SEARCH_QUERY', message: 'Indica una consulta válida.' } });
-      }
-      // Validation is also repeated in the search repository.
-      const year = req.query.year;
-      // Keep resource usage bounded: authorize and account for the query before SQL search.
-      const quota = await usageService.consume({ user: req.user, type: 'search', parameters: { query: q, year: year ?? null } });
-      const result = await searchArchivePages(pool, q, { year });
-      res.set({
-        'RateLimit-Limit': String(quota.limit),
-        'RateLimit-Remaining': String(quota.remaining),
-        'RateLimit-Reset': String(Math.ceil(new Date(quota.resetsAt).getTime() / 1000)),
-        'Cache-Control': 'no-store',
-      });
+      const result = await searchArchivePages(pool, req.query.q, { year: req.query.year });
       return res.json({ results: result });
-    } catch (error) { return next(error); }
+    } catch (error) {
+      return next(error);
+    }
   });
   return router;
 }
