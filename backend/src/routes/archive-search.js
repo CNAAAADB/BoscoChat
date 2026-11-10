@@ -13,8 +13,9 @@ export function createArchiveSearchRouter(pool, authService, usageService) {
       }
       // Validation is also repeated in the search repository.
       const year = req.query.year;
-      const result = await searchArchivePages(pool, q, { year });
+      // Keep resource usage bounded: authorize and account for the query before SQL search.
       const quota = await usageService.consume({ user: req.user, type: 'search', parameters: { query: q, year: year ?? null } });
+      const result = await searchArchivePages(pool, q, { year });
       res.set({
         'RateLimit-Limit': String(quota.limit),
         'RateLimit-Remaining': String(quota.remaining),
