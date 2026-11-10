@@ -19,7 +19,7 @@ export function booleanSearchExpression(query) {
   return terms.map((word) => '+' + word).join(' ');
 }
 
-export async function searchArchivePages(pool, rawQuery, { year = null, limit = 20 } = {}) {
+export async function searchArchivePages(pool, rawQuery, { year = null, limit = 10 } = {}) {
   const expression = booleanSearchExpression(rawQuery);
   const parsedYear = year == null || year === '' ? null : Number(year);
   if (parsedYear !== null && (!Number.isInteger(parsedYear) || parsedYear < 1922 || parsedYear > 2100)) {
@@ -28,10 +28,10 @@ export async function searchArchivePages(pool, rawQuery, { year = null, limit = 
     error.code = 'INVALID_SEARCH_YEAR';
     throw error;
   }
-  const safeLimit = Number.isInteger(limit) ? Math.max(1, Math.min(limit, 50)) : 20;
+  const safeLimit = 10; // Public preview has a fixed maximum of ten results.
   const [rows] = await pool.execute(
     `SELECT d.id AS document_id, d.publication, d.publication_year,
-            p.page_number, LEFT(p.text_content, 420) AS text_content,
+            p.page_number, LEFT(p.text_content, 220) AS text_content,
             MATCH(p.text_content) AGAINST (? IN BOOLEAN MODE) AS relevance
        FROM archive_pages p JOIN archive_documents d ON d.id = p.document_id
       WHERE d.indexed_at IS NOT NULL
@@ -41,5 +41,5 @@ export async function searchArchivePages(pool, rawQuery, { year = null, limit = 
       LIMIT ?`,
     [expression, expression, parsedYear, parsedYear, safeLimit],
   );
-  return rows;
+  return rows.map((row) => ({ document_id: row.document_id, publication: row.publication, publication_year: row.publication_year, page_number: row.page_number, text_content: row.text_content }));
 }
