@@ -97,3 +97,12 @@ ACTUALIZACION - 2026-11-10 (desarrollo mientras se completa la transferencia)
 - PR #19 agrega backend/src/documents/archive-keys.js y backend/test/archive-keys.test.js para reconocer nombres anuales bajo originals/ y detectar duplicados/anomalias, conservando nombre original y año.
 - No se ha desplegado ni fusionado PR #19; las pruebas automatizadas estan pendientes de verificacion CI/independiente.
 - Falta inventario S3 real, permisos IAM limitados, pipeline de extraccion y persistencia/indexacion, API de consulta y visor.
+
+ACTUALIZACION - 2026-11-10 (propietario confirma 20 PDF cargados; avance del buscador)
+- Confirmacion verbal del propietario: hay 20 PDF subidos en el bucket; NO se ha verificado mediante acceso AWS directo. La carga general continua.
+- Se ha ampliado PR #19 en rama feature/BC-006-archive-key-parser con validacion de inventario S3, CLI para informe y guia docs/deployment/S3_ARCHIVE_FIRST_INGESTION.md.
+- Incorporados esquema MySQL archive_documents/archive_pages con indice FULLTEXT, importador de PDF anual mediante AWS CLI + pdftotext (requiere worker con acceso privado a RDS) y API GET /api/archive/search con control de sesion y cuotas.
+- Incorporada interfaz de busqueda con filtro anual y bandera VITE_ARCHIVE_SEARCH=true, desactivada por defecto para no sustituir el buscador legacy antes de pruebas y despliegue.
+- Incluidas pruebas unitarias del inventario, extraccion de paginas y consulta SQL. Comprobacion CI/independiente todavia pendiente.
+- Nada de este PR se ha ejecutado en AWS ni en RDS de produccion y no esta desplegado: faltan credenciales temporales IAM para el worker, conectividad RDS, migracion validada, ingesta real, revisiones de seguridad, pruebas finales y merge.
+- En una primera prueba verificar un PDF de 1922 (si esta cargado), cotejar numero de paginas y resultados con el original, revisar paginas con texto deficiente.
