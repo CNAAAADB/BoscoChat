@@ -10,6 +10,7 @@ import { createAuthRouter } from './routes/auth.js';
 import { createAdminUsersRouter } from './routes/admin-users.js';
 import { createLegacyRouter } from './routes/legacy.js';
 import { createArchiveSearchRouter } from './routes/archive-search.js';
+import { createArchiveDocumentRouter } from './routes/archive-documents.js';
 
 export function createApp({ pool, environment = process.env, authService, usageService, administrationService } = {}) {
   if (!authService && !pool) throw new Error('pool or authService is required');
@@ -54,7 +55,8 @@ export function createApp({ pool, environment = process.env, authService, usageS
   app.use('/api', authRouter);
   app.use('/api/admin/users', createAdminUsersRouter(service, administration));
   if (pool) {
-    app.use('/api/archive', createArchiveSearchRouter(pool, service, usage));
+    app.use('/api/archive', createArchiveSearchRouter(pool));
+    app.use('/api/archive/documents', createArchiveDocumentRouter(pool, service));
     app.use('/api', createLegacyRouter(pool, service, usage, administration));
   }
 
