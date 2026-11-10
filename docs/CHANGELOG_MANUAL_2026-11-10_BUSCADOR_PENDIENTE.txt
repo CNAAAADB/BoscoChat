@@ -58,3 +58,10 @@ ACTUALIZACION - 2026-11-10 (captura de tabla de rutas del endpoint S3)
 - En el formulario aparece politica del endpoint en Acceso completo; los permisos efectivos de Lambda siguen limitados por IAM, pero el endpoint no limita otras identidades de la VPC. Revisar endurecimiento tras validar.
 - Antes de crear: confirmar servicio com.amazonaws.us-east-1.s3, tipo Gateway y VPC vpc-02f28e9c3d2d0eab2. La captura actual no muestra esos tres campos, por lo que estan pendientes de confirmacion.
 - Aun no hay evidencia de endpoint creado o disponible. Siguiente hito: comprobar estado Disponible y probar lectura S3 desde contexto de Lambda.
+
+ACTUALIZACION - 2026-11-10 (captura: endpoint de S3 creado)
+- Captura confirma creacion de S3 Gateway VPC Endpoint boscochat-s3-endpoint, ID vpce-0deca68f74638c39a.
+- VPC confirmada: vpc-02f28e9c3d2d0eab2; tipo Gateway; estado Disponible.
+- Este estado acredita provisionamiento y disponibilidad del endpoint, NO prueba una lectura efectiva de PDF desde Lambda ni que todas las subredes usen la tabla de rutas asociada.
+- PR #20 sigue abierto y no fusionable en la consulta realizada; desarrollo y despliegue todavia pendientes de validaciones.
+- Proximo paso: verificar que tabla de rutas del endpoint corresponde a las subredes de Lambda y realizar prueba de lectura limitada desde una identidad Lambda autenticada sin exponer el bucket. Despues, ejecutar ingesta de prueba desde worker autorizado hacia RDS privado.
