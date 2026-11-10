@@ -8,3 +8,8 @@ BOSCOCHAT - REGISTRO DE CONTINUACION (2026-11-10)
 - No se ha ejecutado ninguna migracion ni indexacion en RDS real. No habilitar VITE_ARCHIVE_SEARCH antes de importar y verificar una muestra.
 - Para primera prueba se necesita un worker confiable con acceso IAM s3:GetObject al prefijo originals/ y conectividad de red a RDS privado, instalacion de Poppler pdftotext y credenciales BD fuera de Git.
 - Validar primero una anualidad, conteo de paginas, calidad OCR y resultados de busqueda. Luego ampliar al corpus completo.
+
+ACTUALIZACION - 2026-11-10 (captura RDS)
+- Captura AWS confirma instancia RDS boscochat-db con estado Disponible.
+- La captura no prueba conectividad de un worker de ingesta con RDS, ni esquema/migraciones aplicadas.
+- Siguiente verificacion solicitada: pestaña Conectividad y seguridad para VPC, accesibilidad publica y grupos de seguridad; sin cambios en AWS por el asistente.
