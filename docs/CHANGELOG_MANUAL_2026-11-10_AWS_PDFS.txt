@@ -76,3 +76,10 @@ ACTUALIZACION - 2026-11-10 (organizacion del corpus indicada por propietario)
 - Cada PDF anual sera un documento fuente; la indexacion representara paginas y fragmentos. Los numeros concretos de la revista se catalogaran despues si pueden inferirse de metadatos/documento.
 - Prueba recomendada: unas tres anualidades distintas (p.ej. 1922, 1950, 1980 si existen) para examinar cobertura OCR y calidad de busqueda.
 - No se ha confirmado subida alguna ni OCR utilizable.
+
+ACTUALIZACION - 2026-11-10 (estado de texto OCR reportado por propietario)
+- El propietario confirma que los PDF anuales desde 1922 permiten seleccionar/copiar texto, aunque algunos tienen calidad de seleccion deficiente.
+- Estrategia propuesta: extraer directamente texto por pagina; medir calidad (densidad, caracteres invalidos, patrones sospechosos, idioma) y marcar paginas anomalas; OCR selectivo solo donde aporte mejora comprobable.
+- Mantener originales intactos. Registrar por pagina metodo de extraccion, calidad, estado de revision y correspondencia exacta con pagina PDF.
+- Para una muestra de anos distantes, evaluar precision de extraccion con comprobaciones visuales y pruebas de busqueda antes de escalar al corpus completo.
+- No se ha ejecutado todavia extraccion, OCR, indexacion ni carga verificada.
