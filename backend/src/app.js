@@ -6,13 +6,22 @@ import { UserAdministrationService } from './users/administration-service.js';
 import { UsageRepository } from './db/usage-repository.js';
 import { queryQuotaConfig } from './usage/quota-config.js';
 import { UsageService } from './usage/service.js';
+import { MysqlAuthRateLimitStore } from './db/auth-rate-limit-store.js';
+import { createAuthRateLimiter } from './middleware/auth-rate-limit.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createAdminUsersRouter } from './routes/admin-users.js';
 import { createLegacyRouter } from './routes/legacy.js';
 import { createArchiveSearchRouter } from './routes/archive-search.js';
 import { createArchiveDocumentRouter } from './routes/archive-documents.js';
 
-export function createApp({ pool, environment = process.env, authService, usageService, administrationService } = {}) {
+export function createApp({
+  pool,
+  environment = process.env,
+  authService,
+  usageService,
+  administrationService,
+  authRateLimitStore,
+} = {}) {
   if (!authService && !pool) throw new Error('pool or authService is required');
 
   const app = express();
@@ -21,9 +30,29 @@ export function createApp({ pool, environment = process.env, authService, usageS
   const service = authService ?? new AuthService(repository);
   const administration = administrationService ?? new UserAdministrationService(repository, service);
   const usage = usageService ?? (pool ? new UsageService(new UsageRepository(pool), { quotas: queryQuotaConfig(environment) }) : null);
+  const sharedAuthRateLimitStore = authRateLimitStore ?? (!authService && pool ? new MysqlAuthRateLimitStore(pool) : null);
+  const authRateLimitHashKey = environment.AUTH_RATE_LIMIT_HMAC_KEY;
+  if (environment.NODE_ENV === 'production' && !sharedAuthRateLimitStore) {
+    throw new Error('AUTH_RATE_LIMIT_STORE_REQUIRED');
+  }
+  if (environment.NODE_ENV === 'production' && Buffer.byteLength(authRateLimitHashKey ?? '') < 32) {
+    throw new Error('AUTH_RATE_LIMIT_HMAC_KEY_REQUIRED');
+  }
   const authRouter = createAuthRouter(service, {
     production: environment.NODE_ENV === 'production',
     cookieSameSite: environment.SESSION_COOKIE_SAME_SITE ?? 'lax',
+    loginRateLimiter: createAuthRateLimiter({
+      scope: 'login',
+      store: sharedAuthRateLimitStore ?? undefined,
+      hashKey: authRateLimitHashKey,
+    }),
+    registrationRateLimiter: createAuthRateLimiter({
+      scope: 'register',
+      limit: 10,
+      windowMs: 60 * 60 * 1000,
+      store: sharedAuthRateLimitStore ?? undefined,
+      hashKey: authRateLimitHashKey,
+    }),
   });
 
   app.disable('x-powered-by');
@@ -87,4 +116,5 @@ export function createApp({ pool, environment = process.env, authService, usageS
 
   return app;
 }
+
 

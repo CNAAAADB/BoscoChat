@@ -23,8 +23,8 @@ function cookieOptions(production, sameSite = 'lax') {
 export function createAuthRouter(authService, {
   production = false,
   cookieSameSite = 'lax',
-  loginRateLimiter = createAuthRateLimiter(),
-  registrationRateLimiter = createAuthRateLimiter({ limit: 10, windowMs: 60 * 60 * 1000 }),
+  loginRateLimiter = createAuthRateLimiter({ scope: 'login' }),
+  registrationRateLimiter = createAuthRateLimiter({ scope: 'register', limit: 10, windowMs: 60 * 60 * 1000 }),
 } = {}) {
   const router = express.Router();
   const sessionCookieOptions = cookieOptions(production, cookieSameSite);
@@ -41,7 +41,7 @@ export function createAuthRouter(authService, {
   router.post('/login', loginRateLimiter, async (req, res, next) => {
     try {
       const result = await authService.login(req.body ?? {});
-      loginRateLimiter.clear(res.locals.authRateLimitKey);
+      await loginRateLimiter.clear(res.locals.authRateLimitKey);
       res.cookie(SESSION_COOKIE_NAME, result.token, sessionCookieOptions);
       res.json({ user: result.user, expiresAt: result.expiresAt.toISOString() });
     } catch (error) {
@@ -78,4 +78,5 @@ export function createAuthRouter(authService, {
 
   return router;
 }
+
 
