@@ -21,3 +21,10 @@ ACTUALIZACION - 2026-11-10 (capturas de RDS Conectividad y seguridad)
 - 'Recursos de computacion conectados (0)' no demuestra ausencia de conexion Lambda configurada manualmente.
 - La captura no contiene el valor de Accesibilidad publica ni VPC/subred; queda pendiente confirmar.
 - No se deben modificar las reglas ni pulsar configurar conexion automatica Lambda antes de revisar el despliegue.
+
+ACTUALIZACION - 2026-11-10 (capturas Lambda Configuracion > Permisos)
+- El rol de ejecucion Lambda mostrado es boscochat-backend-role-yvarjgvz.
+- Se observan politicas AWSLambdaBasicExecutionRole y AWSLambdaVPCAccessExecutionRole, ademas de politica de recurso para invocacion desde API Gateway.
+- La vista suministrada no evidencia permisos de lectura S3 (no demuestra de manera definitiva que no existan otros permisos).
+- Siguiente accion solicitada: abrir IAM desde el nombre del rol y revisar sus politicas de identidad antes de agregar permiso minimo s3:GetObject sobre arn:aws:s3:::boscochat-archivo-pdfs/originals/*; no editar la politica de recursos de Lambda.
+- Se debe revisar acceso de red de Lambda en VPC a S3 via endpoint o egress antes de dar por operativa la conexion. No se ha cambiado configuracion AWS directamente.
