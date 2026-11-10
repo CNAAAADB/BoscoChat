@@ -95,3 +95,8 @@ ACTUALIZACION - 2026-11-10 (captura administrar tablas de enrutamiento del S3 Ga
 - Persiste discrepancia con captura anterior: no figura ruta gestionada pl-* -> vpce-0deca68f74638c39a en la tabla.
 - Se propone guardar la asociacion sin cambios y volver a refrescar la tabla. Si persiste, no editar rutas a mano; diagnosticar con AWS CLI describe-vpc-endpoints/describe-route-tables o soporte.
 - No se ha verificado acceso real S3 desde Lambda ni ninguna ingesta.
+
+ACTUALIZACION - 2026-11-10 (ruta S3 activa confirmada)
+- La captura de la tabla rtb-0317651c58ed14c6c muestra ya 3 rutas activas: pl-63a5400a -> endpoint S3 vpce-0deca68f74638c39a (ID truncado visualmente), 0.0.0.0/0 -> IGW y 172.31.0.0/16 -> local.
+- Resuelta la incidencia de ausencia de ruta; no se requieren cambios manuales adicionales en esta tabla.
+- Pendiente verificar que la segunda subred Lambda subnet-0d2254dde8a5232b3 usa esta tabla principal y probar lectura real de S3 por Lambda con rol de ejecucion; aun no se ha realizado una prueba GetObject.
