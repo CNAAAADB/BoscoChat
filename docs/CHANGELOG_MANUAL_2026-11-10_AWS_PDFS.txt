@@ -90,3 +90,10 @@ ACTUALIZACION - 2026-11-10 (captura de carga masiva)
 - En el momento de la captura: 2 archivos completados (338,6 MB; 2,14%), cero errores; 90 pendientes o en curso. NO consta finalizacion de la carga.
 - La organizacion efectiva utilizada es originals/ directamente, no originals/don-bosco-en-espana/ como se habia propuesto. La futura ingestion debe descubrir las claves reales bajo originals/ sin asumir subcarpeta ni renombrado.
 - Siguiente hito: comprobar 92/92 archivos finalizados sin errores y validar inventario, paginas y texto seleccionable para comenzar indexacion.
+
+ACTUALIZACION - 2026-11-10 (desarrollo mientras se completa la transferencia)
+- Inspeccionados backend/package.json, backend/src/app.js, backend/src/routes/legacy.js y backend/scripts/migrate.js: el buscador heredado consulta tablas MySQL pages/documents; no existe conexion documentada de ingestion desde S3.
+- Se ha creado PR #19: https://github.com/CNAAAADB/BoscoChat/pull/19 (rama feature/BC-006-archive-key-parser).
+- PR #19 agrega backend/src/documents/archive-keys.js y backend/test/archive-keys.test.js para reconocer nombres anuales bajo originals/ y detectar duplicados/anomalias, conservando nombre original y año.
+- No se ha desplegado ni fusionado PR #19; las pruebas automatizadas estan pendientes de verificacion CI/independiente.
+- Falta inventario S3 real, permisos IAM limitados, pipeline de extraccion y persistencia/indexacion, API de consulta y visor.
