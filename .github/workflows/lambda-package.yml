@@ -104,3 +104,54 @@ jobs:
         working-directory: frontend
         run: npm audit --audit-level=high
 
+
+  mysql-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: test-only-root-password
+          MYSQL_DATABASE: boscochat
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -ptest-only-root-password"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: '3306'
+      DB_USER: root
+      DB_PASSWORD: test-only-root-password
+      DB_NAME: boscochat
+      DB_SSL_MODE: disable
+      DB_CONNECTION_LIMIT: '10'
+      MYSQL_INTEGRATION: '1'
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run schema migration on MySQL 8
+        working-directory: backend
+        run: npm run migrate
+
+      - name: Test shared limiter and concurrent administration
+        working-directory: backend
+        run: node --test test/mysql.integration.test.js
