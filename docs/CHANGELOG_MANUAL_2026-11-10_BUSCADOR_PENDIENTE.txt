@@ -117,3 +117,11 @@ ACTUALIZACION - 2026-11-10 (cambio funcional solicitado por propietario)
 - Riesgo nuevo: endpoint de busqueda publico susceptible de abuso; se requiere rate limiting distribuido (AWS WAF/API Gateway), monitoreo, limites y evaluacion de fragmentos permitidos antes de lanzamiento. Las cuotas de consulta documental anteriores deben revisarse pues el usuario anonimo no tiene plan.
 - PR #20 continua ABIERTO y NO FUSIONABLE (rebase/conflicto pendiente), sin despliegue ni ingesta real confirmada. El codigo de la rama NO equivale a funcionamiento en la web.
 - Al estabilizar la implementacion, sincronizar SRS, BACKLOG, PROGRESS, TRACEABILITY y automatizaciones segun el acuerdo de control manual actual.
+
+ACTUALIZACION - 2026-11-10 (PR LIMPIO CON CAMBIO DE PRODUCTO)
+- Por divergencia y conflictos del PR #20, nueva rama feature/BC-public-search-clean-20261110 basada en main y PR #22: https://github.com/CNAAAADB/BoscoChat/pull/22.
+- Se conserva el limitador de autenticacion y la infraestructura de roles existente en main. Portados codigo y tests de inventario, ingesta, busqueda publica, consulta autenticada por pagina, visor PDF por rangos opcional y UI con login/registro preservando la pagina.
+- Flag backend ARCHIVE_PUBLIC_SEARCH_ENABLED=true requerida para activar busqueda publica; frontend VITE_ARCHIVE_SEARCH=true. Ambas desactivadas por defecto.
+- Visor PDF protegido experimental requiere ARCHIVE_PDF_VIEW_ENABLED=true y VITE_ARCHIVE_PDF_VIEW=true, con validacion extrema de cookies, cabeceras CSP, peticiones Range y capacidad Lambda/API Gateway antes de activar.
+- No hay pruebas AWS end-to-end ni migracion/ingesta confirmada. No activar flags en produccion sin rate limiting global, revision de privacidad, test de acceso al PDF y validacion de seguridad.
+- PR #20 anterior no debe fusionarse junto con #22 sin resolver duplicaciones; mantenerlo como referencia de historial.
