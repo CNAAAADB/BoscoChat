@@ -1,0 +1,31 @@
+BOSCOCHAT - PRUEBA CONTROLADA DE LECTURA S3
+Fecha: 2026-11-10
+Origen: confirmacion del propietario de carga parcial de PDF (aprox. 70%; 30% pendiente).
+No se necesita terminar la carga para probar los objetos ya presentes.
+
+Entorno verificado con capturas del propietario:
+- Bucket S3 privado: boscochat-archivo-pdfs, us-east-1; prefijo originals/.
+- Rol de Lambda: boscochat-backend-role-yvarjgvz.
+- Politica inline: BoscoChatS3ArchiveReadOnly, s3:GetObject exclusivamente sobre arn:aws:s3:::boscochat-archivo-pdfs/originals/*.
+- Gateway endpoint de S3: vpce-0deca68f74638c39a, Disponible.
+- VPC: vpc-02f28e9c3d2d0eab2; rutas S3 pl-63a5400a presentes en rtb-0317651c58ed14c6c para las dos subredes Lambda.
+- No existe aun evidencia de que Lambda haya leido realmente un objeto.
+
+Implementacion de esta rama:
+- GET /api/admin/archive/s3-check?year=1922, solo administradores autenticados y SOLO cuando ARCHIVE_S3_PROBE_ENABLED=true.
+- Deriva internamente originals/Don Bosco en España_1922.pdf y lee mediante S3 GetObject Range bytes=0-4.
+- Devuelve solo year, readable y validPdfHeader. No devuelve contenido del PDF, clave interna ni errores de AWS.
+- Ausente por defecto en la API. Incluye pruebas unitarias con proveedor S3 simulado.
+- Usa AWS SDK v3 ofrecido por runtime Lambda Node.js 22; no asumir que el SDK esta disponible en un host local fuera de Lambda.
+- Antes de habilitarlo, revisar seguridad y pruebas CI; realizar despliegue coordinado con otras variables existentes del backend.
+
+Pasos siguientes:
+1. Comprobar en la consola S3 que ya existe 'Don Bosco en España_1922.pdf' en originals/ o escoger una anualidad realmente subida.
+2. Revisar/validar PR y CI. No fusionar sin resolver revisiones de seguridad y regresion.
+3. Desplegar backend validado, habilitar temporalmente ARCHIVE_S3_PROBE_ENABLED=true en Lambda y ejecutar la ruta iniciando sesion como administrador en BoscoChat.
+4. Comprobar respuesta HTTP 200 con validPdfHeader:true; confirmar que no devuelve bytes del PDF. En caso de 502 revisar logs sanitizados y permisos S3/red.
+5. Deshabilitar ARCHIVE_S3_PROBE_ENABLED despues de la prueba. La flag no debe quedar activa de forma innecesaria.
+6. El PR #20 de importacion/indexacion sigue independiente y NO desplegado; resolver conflictos antes de cualquier migracion.
+7. El importador real requerira acceso a RDS privado, Poppler y un rol de procesamiento con IAM minimo. Probar una anualidad y contrastar texto con el original.
+
+AVISO: no se ha invocado AWS desde esta conversacion; todas las comprobaciones de red e IAM provienen de capturas de consola y no prueban todavia operatividad extremo a extremo.
