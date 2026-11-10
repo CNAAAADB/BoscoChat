@@ -84,3 +84,8 @@ ACTUALIZACION - 2026-11-10 (captura de detalle S3 Gateway Endpoint)
 - La pestaña Tablas de enrutamiento confirma asociacion de rtb-0317651c58ed14c6c al endpoint.
 - Dado que en captura previa de esa misma tabla solo aparecian rutas local e Internet Gateway, se ha pedido abrir/refrescar directamente la tabla y verificar ruta de lista de prefijos pl-* -> vpce-0deca68f74638c39a.
 - No dar por probada conectividad de S3 ni tocar rutas antes de esa comprobacion y la segunda subred.
+
+ACTUALIZACION - 2026-11-10 (captura completa de tabla de rutas)
+- Confirmado desde detalle de rtb-0317651c58ed14c6c: tabla principal de VPC vpc-02f28e9c3d2d0eab2, sin asociaciones explicitas, muestra solo 2 rutas activas: 0.0.0.0/0 -> Internet Gateway y 172.31.0.0/16 -> local.
+- No aparece ruta gestionada por endpoint pl-* -> vpce-0deca68f74638c39a, aunque el endpoint se mostro Disponible y asociado a esa tabla. AWS indica que esta ruta deberia generarse automaticamente al asociar la tabla; discrepancia a investigar.
+- Siguiente paso: AWS VPC > Endpoints > boscochat-s3-endpoint > Acciones > Administrar tablas de enrutamiento, comprobar estado de seleccion sin modificar. Evitar agregar rutas manuales y no confirmar S3 funcional todavia.
