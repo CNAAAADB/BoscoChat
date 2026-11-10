@@ -1,0 +1,42 @@
+BOSCOCHAT - BITACORA DE CAMBIOS MANUALES
+Fecha: 2026-11-10
+Responsable de prioridad: decisiones del propietario en la conversacion.
+Tema: almacenamiento de PDFs historicos en AWS para busqueda real.
+
+ESTADO
+- Comprobado en docs/ARCHITECTURE.md que el despliegue actual documentado esta en us-east-1.
+- Arquitectura existente: Amplify -> API Gateway -> Lambda/Express -> RDS MySQL privado.
+- Decidida como propuesta tecnica la incorporacion de un bucket S3 privado para originales.
+- NO se ha creado ningun recurso en AWS desde esta conversacion: no hay acceso AWS conectado.
+- NO se han subido documentos: el disco duro del propietario no esta disponible en la sesion.
+- NO se ha conectado aun la busqueda web a los nuevos documentos.
+- Esta nota no implica que BC-006/007/008 esten completadas; mantener gates independientes.
+
+CONFIGURACION PROPUESTA PARA EJECUTAR EN AWS
+1. Region: us-east-1, igual que el backend desplegado.
+2. Bucket: nombre globalmente unico a determinar en la cuenta AWS (ej.: boscochat-archive-<account-id>-use1).
+3. Bloquear acceso publico en los cuatro ajustes del bucket; Object Ownership = Bucket owner enforced.
+4. Versionado activado; cifrado SSE-S3 por defecto (SSE-KMS solo si se aprueba el coste y gestion de claves).
+5. Permitir subida/listado al rol de ingestion y GetObject al rol de backend unicamente sobre prefijo autorizado, aplicando minimo privilegio.
+6. No servir PDFs con URLs publicas o prefirmadas directamente desde el navegador: el backend autenticado autoriza y media las lecturas.
+7. Organizacion: originals/<publicacion>/<ano>/<numero>/<nombre>.pdf, con claves estables y metadatos normalizados en MySQL; tratar nombres reales, caracteres especiales y colisiones.
+8. Guardar inventario con bucket/key, SHA-256, tamano, publicacion, numero, fecha, estado de ingesta y errores.
+9. Subida inicial desde el equipo del propietario con AWS CLI usando credenciales temporales SSO o un perfil de menor privilegio, nunca claves en repositorio:
+   aws s3 sync "/ruta/al/archivo" "s3://NOMBRE_BUCKET/originals/" --dryrun
+   aws s3 sync "/ruta/al/archivo" "s3://NOMBRE_BUCKET/originals/" 
+   NOTA: la sincronizacion simple no incorpora por si sola metadatos catalograficos; no asumir que el path local cumple el esquema de organizacion.
+10. Validar recuento, tamano y SHA-256 de cada PDF. Reintentos, logs e identificacion de duplicados.
+11. Extraer capa de texto/OCR por pagina, preparar indexacion y registrar relaciones documento/pagina/fragmento.
+12. Implementar endpoints autenticados para busqueda y visualizacion; probar que S3 deniega acceso anonimo y que el usuario no puede saltarse autorizaciones.
+13. Revisar coste de almacenamiento, peticiones, OCR, indices y transferencia; habilitar alertas de presupuesto.
+14. Evaluar retencion, recuperacion, backup y tratamiento de datos personales si los documentos o sus metadatos los contienen.
+
+DEPENDENCIAS
+- Conexion o acceso delegado a la cuenta AWS para provisionar S3 e IAM.
+- El propietario debe ejecutar la transferencia desde el disco duro o facilitar un canal de carga autorizado.
+- Verificar si los PDFs tienen texto OCR seleccionable; si son imagenes, sera necesario OCR posterior.
+- Revisar permisos de reproduccion y distribucion antes de habilitar visualizacion.
+- Actualizar docs/DECISIONS.md y docs/ARCHITECTURE.md al implementar la eleccion; sincronizar BACKLOG/PROGRESS/TRACEABILITY posteriormente por acuerdo actual.
+
+PROXIMO HITO VERIFICABLE
+Bucket S3 privado creado y comprobado, usuario/rol de subida de minimo privilegio operativo, primera muestra de PDFs subida con hashes verificados, sin acceso publico. Todavia NO logrado.
