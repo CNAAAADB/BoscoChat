@@ -52,3 +52,9 @@ ACTUALIZACION - 2026-11-10 (formulario de creacion del VPC endpoint)
 - Servicio S3 Gateway aun no seleccionado; VPC deshabilitada hasta seleccionar servicio.
 - Se indica filtrar com.amazonaws.us-east-1.s3 y elegir Gateway, luego VPC vpc-02f28e9c3d2d0eab2; no crear antes de revisar tablas de rutas de las subredes Lambda y politica de endpoint.
 - No se ha creado ningun endpoint ni probado conectividad desde Lambda.
+
+ACTUALIZACION - 2026-11-10 (captura de tabla de rutas del endpoint S3)
+- Captura del formulario de Gateway Endpoint: 1/1 tabla de enrutamiento seleccionada, rtb-0317651c58ed14c6c, marcada como principal.
+- En el formulario aparece politica del endpoint en Acceso completo; los permisos efectivos de Lambda siguen limitados por IAM, pero el endpoint no limita otras identidades de la VPC. Revisar endurecimiento tras validar.
+- Antes de crear: confirmar servicio com.amazonaws.us-east-1.s3, tipo Gateway y VPC vpc-02f28e9c3d2d0eab2. La captura actual no muestra esos tres campos, por lo que estan pendientes de confirmacion.
+- Aun no hay evidencia de endpoint creado o disponible. Siguiente hito: comprobar estado Disponible y probar lectura S3 desde contexto de Lambda.
