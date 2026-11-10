@@ -11,6 +11,7 @@ import { createAuthRateLimiter } from './middleware/auth-rate-limit.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createAdminUsersRouter } from './routes/admin-users.js';
 import { createLegacyRouter } from './routes/legacy.js';
+import { createArchiveDiagnosticRouter } from './routes/archive-diagnostics.js';
 
 export function createApp({
   pool,
@@ -81,6 +82,7 @@ export function createApp({
   app.use('/api/auth', authRouter);
   app.use('/api', authRouter);
   app.use('/api/admin/users', createAdminUsersRouter(service, administration));
+  app.use('/api/admin/archive', createArchiveDiagnosticRouter(service, { enabled: environment.ARCHIVE_S3_PROBE_ENABLED === 'true' }));
   if (pool) app.use('/api', createLegacyRouter(pool, service, usage, administration));
 
   app.get('/health', (req, res) => res.json({ status: 'ok' }));
