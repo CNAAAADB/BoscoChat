@@ -3,6 +3,8 @@ import { currentSession, login, logout, register } from './api/auth.js';
 import { changeUserRole, createUser, deleteUser, listUsers, setUserSuspended } from './api/users.js';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
+// Switch on only after RDS archive migration, real ingestion and API deployment.
+const ARCHIVE_SEARCH_ENABLED = import.meta.env.VITE_ARCHIVE_SEARCH === 'true';
 const ROLES = ['free', 'pro', 'premium', 'advanced', 'administrator', 'documentary_manager'];
 
 export default function App() {
@@ -13,6 +15,9 @@ export default function App() {
   const [authError, setAuthError] = useState('');
   const [search, setSearch] = useState('');
   const [results, setResults] = useState([]);
+  const [searchError, setSearchError] = useState('');
+  const [searchBusy, setSearchBusy] = useState(false);
+  const [searchYear, setSearchYear] = useState('');
   const [registration, setRegistration] = useState({ username: '', email: '', password: '', terms: false });
   const [credentials, setCredentials] = useState({ email: '', password: '' });
   const [newDoc, setNewDoc] = useState({ title: '', content: '', page: 1 });
@@ -179,16 +184,31 @@ export default function App() {
       {view === 'buscador' ? (
         <section style={styles.card}>
           <h2 style={styles.sectionTitle}>Buscador Histórico</h2>
-          <div style={{ display: 'flex', gap: '15px', marginBottom: '40px' }}>
-            <input style={styles.input} aria-label="Consulta" placeholder="Buscar..." value={search} onChange={(event) => setSearch(event.target.value)} />
-            <button style={styles.btnPrimary} onClick={async () => {
-              const response = await fetch(`${API_URL}/search?q=${encodeURIComponent(search)}&userId=${user?.id ?? ''}`, { credentials: 'include' });
-              setResults(response.ok ? await response.json() : []);
-            }}>Buscar</button>
-          </div>
+          <form style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '20px' }} onSubmit={async (event) => {
+            event.preventDefault();
+            setSearchBusy(true);
+            setSearchError('');
+            setResults([]);
+            try {
+              const query = new URLSearchParams({ q: search });
+              if (ARCHIVE_SEARCH_ENABLED && searchYear) query.set('year', searchYear);
+              const endpoint = ARCHIVE_SEARCH_ENABLED ? '/archive/search' : '/search';
+              const response = await fetch(`${API_URL}${endpoint}?${query}`, { credentials: 'include' });
+              const data = await response.json().catch(() => null);
+              if (!response.ok) throw new Error(data?.error?.message ?? 'No se ha podido ejecutar la búsqueda.');
+              setResults(ARCHIVE_SEARCH_ENABLED ? data.results : data);
+            } catch (error) { setSearchError(error.message); }
+            finally { setSearchBusy(false); }
+          }}>
+            <input required minLength="2" style={{ ...styles.input, flex: '1 1 260px', width: 'auto', marginBottom: 0 }} aria-label="Consulta" placeholder="Buscar..." value={search} onChange={(event) => setSearch(event.target.value)} />
+            {ARCHIVE_SEARCH_ENABLED ? <input style={{ ...styles.input, width: '130px', marginBottom: 0 }} aria-label="Filtrar por año" type="number" min="1922" max="2100" placeholder="Año" value={searchYear} onChange={(event) => setSearchYear(event.target.value)} /> : null}
+            <button style={styles.btnPrimary} disabled={searchBusy || !user} type="submit">{searchBusy ? 'Buscando…' : 'Buscar'}</button>
+          </form>
+          {!user ? <p>Inicia sesión para buscar en el archivo.</p> : null}
+          {searchError ? <p role="alert" style={styles.error}>{searchError}</p> : null}
           {results.map((result) => (
-            <article key={`${result.title}-${result.page_number}`} style={{ padding: '20px', background: '#1a1a2e', borderRadius: '20px', marginBottom: '10px' }}>
-              <h3 style={{ color: '#E6D7AA' }}>{result.title} (Pág. {result.page_number})</h3>
+            <article key={`${result.document_id ?? result.title}-${result.page_number}`} style={{ padding: '20px', background: '#1a1a2e', borderRadius: '20px', marginBottom: '10px' }}>
+              <h3 style={{ color: '#E6D7AA' }}>{ARCHIVE_SEARCH_ENABLED ? `${result.publication} (${result.publication_year})` : result.title} (Pág. {result.page_number})</h3>
               <p>{result.text_content}</p>
             </article>
           ))}
