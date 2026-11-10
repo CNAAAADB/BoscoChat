@@ -69,3 +69,10 @@ ACTUALIZACION - 2026-11-10 (captura de cifrado)
 - Comprobaciones basicas para una primera carga manual completadas: region, versionado, bloqueo publico, ACL y cifrado.
 - Siguiente operacion indicada al propietario: crear prefijo originals/ y cargar muestra de 3-5 PDFs desde consola; carga aun NO verificada.
 - Pendiente: permisos IAM para backend, catalogacion e indexacion de PDFs, y seguridad de endpoints.
+
+ACTUALIZACION - 2026-11-10 (organizacion del corpus indicada por propietario)
+- El propietario indica que tiene un PDF por anualidad desde 1922; no se ha confirmado el ultimo ano ni el numero total de archivos.
+- Propuesta de prefijos: originals/don-bosco-en-espana/<AAAA>.pdf. Conservar nombres originales cuando sea necesario y asociar ano mediante catalogo/manifest; no renombrar masivamente sin comprobar contenido.
+- Cada PDF anual sera un documento fuente; la indexacion representara paginas y fragmentos. Los numeros concretos de la revista se catalogaran despues si pueden inferirse de metadatos/documento.
+- Prueba recomendada: unas tres anualidades distintas (p.ej. 1922, 1950, 1980 si existen) para examinar cobertura OCR y calidad de busqueda.
+- No se ha confirmado subida alguna ni OCR utilizable.
