@@ -54,3 +54,10 @@ ACTUALIZACION - 2026-11-10 (captura de consola S3 aportada por el propietario)
 - Versionado del bucket confirmado: habilitado.
 - Bloqueo de acceso publico y cifrado todavia no comprobados en captura.
 - No hay evidencia de PDFs cargados ni de configuracion de permisos IAM.
+
+ACTUALIZACION - 2026-11-10 (capturas de permisos del bucket)
+- Confirmado por captura: 'Bloquear todo el acceso publico' ACTIVADO.
+- Confirmado: Object Ownership = Bucket owner enforced ('Aplicada al propietario del bucket'), ACL deshabilitadas.
+- La tabla ACL muestra sin permisos para Everyone (AllUsers) y AuthenticatedUsers.
+- Queda pendiente comprobar el cifrado predeterminado y permisos IAM para roles de ingesta y backend.
+- No se ha configurado CORS ni acceso publico; no son necesarios para la carga inicial desde la consola.
