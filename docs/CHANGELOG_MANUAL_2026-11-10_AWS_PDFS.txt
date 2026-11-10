@@ -40,3 +40,9 @@ DEPENDENCIAS
 
 PROXIMO HITO VERIFICABLE
 Bucket S3 privado creado y comprobado, usuario/rol de subida de minimo privilegio operativo, primera muestra de PDFs subida con hashes verificados, sin acceso publico. Todavia NO logrado.
+
+ACTUALIZACION - 2026-11-10
+- El propietario confirma que ha creado un bucket en la consola AWS.
+- Nombre exacto, region, cifrado, versionado y bloqueo de acceso publico pendientes de comprobar; no hay acceso AWS directo en esta sesion.
+- Pendiente: comprobar configuracion del bucket y preparar primera carga controlada desde el disco duro.
+- Todavia no se ha comprobado que haya archivos subidos ni que sean indexables desde la web.
