@@ -56,7 +56,7 @@ export function createApp({ pool, environment = process.env, authService, usageS
   app.use('/api/admin/users', createAdminUsersRouter(service, administration));
   if (pool) {
     app.use('/api/archive', createArchiveSearchRouter(pool));
-    app.use('/api/archive/documents', createArchiveDocumentRouter(pool, service));
+    app.use('/api/archive/documents', createArchiveDocumentRouter(pool, service, { pdfViewerEnabled: environment.ARCHIVE_PDF_VIEW_ENABLED === 'true', allowedOrigins: [...allowedOrigins] }));
     app.use('/api', createLegacyRouter(pool, service, usage, administration));
   }
 
