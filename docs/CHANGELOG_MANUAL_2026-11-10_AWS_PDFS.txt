@@ -61,3 +61,11 @@ ACTUALIZACION - 2026-11-10 (capturas de permisos del bucket)
 - La tabla ACL muestra sin permisos para Everyone (AllUsers) y AuthenticatedUsers.
 - Queda pendiente comprobar el cifrado predeterminado y permisos IAM para roles de ingesta y backend.
 - No se ha configurado CORS ni acceso publico; no son necesarios para la carga inicial desde la consola.
+
+ACTUALIZACION - 2026-11-10 (captura de cifrado)
+- Confirmado en consola: cifrado predeterminado del bucket = SSE-S3 (claves administradas por Amazon S3).
+- Clave de bucket mostrada como activada; no cambia que el tipo de cifrado sea SSE-S3.
+- SSE-C figura como tipo de cifrado bloqueado.
+- Comprobaciones basicas para una primera carga manual completadas: region, versionado, bloqueo publico, ACL y cifrado.
+- Siguiente operacion indicada al propietario: crear prefijo originals/ y cargar muestra de 3-5 PDFs desde consola; carga aun NO verificada.
+- Pendiente: permisos IAM para backend, catalogacion e indexacion de PDFs, y seguridad de endpoints.
