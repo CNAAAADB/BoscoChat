@@ -1,0 +1,11 @@
+BOSCOCHAT - REGISTRO DE INTEGRACION 2026-11-10
+Problema resuelto: PR #20 y PR #21 ya estaban fusionados en main, de modo que PR #22 repetia archivos y presentaba conflictos.
+El codigo de archive-search.js, archive-documents.js, frontend/src/App.jsx, scripts de ingestion y tests ya existia en main.
+Accion aplicada: rama limpia desde main, integracion de createArchiveSearchRouter y createArchiveDocumentRouter en backend/src/app.js preservando el limitador de autenticacion y el diagnostico del PR #21.
+Se mantiene ARCHIVE_PUBLIC_SEARCH_ENABLED=false por defecto para evitar consultas anonimas antes de configurar control de tasa y validar ingesta.
+El visor S3 de documentos se mantiene ARCHIVE_PDF_VIEW_ENABLED=false por defecto.
+Actualizado backend/package.json para comprobacion de sintaxis de nuevos modulos y comando migrate:archive.
+Aun NO se han ejecutado migraciones de MySQL ni ingestas en la cuenta AWS, ni se ha verificado lectura GetObject desde Lambda.
+Pruebas CI pendientes de observacion. Antes de activar flag de busqueda publica, asegurar limitacion de tasa distribuida, controles de abuso, pruebas de consultas y catalogo real.
+Aun faltan tests del visor de PDFs grandes por API Gateway, cookies cross-site y marca de agua.
+El objetivo del producto es: busqueda anonima max 10, login/registro al seleccionar, documento en pagina tras autenticacion.
