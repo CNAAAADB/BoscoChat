@@ -9,3 +9,5 @@ Aun NO se han ejecutado migraciones de MySQL ni ingestas en la cuenta AWS, ni se
 Pruebas CI pendientes de observacion. Antes de activar flag de busqueda publica, asegurar limitacion de tasa distribuida, controles de abuso, pruebas de consultas y catalogo real.
 Aun faltan tests del visor de PDFs grandes por API Gateway, cookies cross-site y marca de agua.
 El objetivo del producto es: busqueda anonima max 10, login/registro al seleccionar, documento en pagina tras autenticacion.
+
+2026-11-10 - Extraccion real de PDF 1922 en CloudShell VPC: S3 descarga correcta; pdfinfo 56 paginas; pdftotext -enc UTF-8 -layout extrajo 257792 bytes de texto; grep -ic bosco dio 94 lineas. Todavia no se ha importado a MySQL. Siguiente comprobacion: conexion autenticada no destructiva con mysql client (sin compartir credenciales).
