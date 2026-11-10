@@ -13,3 +13,11 @@ ACTUALIZACION - 2026-11-10 (captura RDS)
 - Captura AWS confirma instancia RDS boscochat-db con estado Disponible.
 - La captura no prueba conectividad de un worker de ingesta con RDS, ni esquema/migraciones aplicadas.
 - Siguiente verificacion solicitada: pestaña Conectividad y seguridad para VPC, accesibilidad publica y grupos de seguridad; sin cambios en AWS por el asistente.
+
+ACTUALIZACION - 2026-11-10 (capturas de RDS Conectividad y seguridad)
+- Captura muestra motor MySQL/puerto 3306 y grupo de seguridad boscochat-rds-sg (sg-03cc39ee8b10af87a).
+- Aparece regla de entrada desde grupo sg-0c280487ace7bd7b5, coincidente con el grupo documentado de Lambda boscochat-backend.
+- Aparece regla de entrada desde IP 165.225.92.249/32: revisar necesidad y puerto exacto antes de cambiarla; no asumir que esta regla hace publica la base.
+- 'Recursos de computacion conectados (0)' no demuestra ausencia de conexion Lambda configurada manualmente.
+- La captura no contiene el valor de Accesibilidad publica ni VPC/subred; queda pendiente confirmar.
+- No se deben modificar las reglas ni pulsar configurar conexion automatica Lambda antes de revisar el despliegue.
