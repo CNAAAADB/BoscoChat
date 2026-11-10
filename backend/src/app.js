@@ -84,7 +84,9 @@ export function createApp({
   app.use('/api', authRouter);
   app.use('/api/admin/users', createAdminUsersRouter(service, administration));
   if (pool) {
-    app.use('/api/archive', createArchiveSearchRouter(pool));
+    if (environment.ARCHIVE_PUBLIC_SEARCH_ENABLED === 'true') {
+      app.use('/api/archive', createArchiveSearchRouter(pool));
+    }
     app.use('/api/archive/documents', createArchiveDocumentRouter(pool, service, { pdfViewerEnabled: environment.ARCHIVE_PDF_VIEW_ENABLED === 'true', allowedOrigins: [...allowedOrigins] }));
     app.use('/api', createLegacyRouter(pool, service, usage, administration));
   }
