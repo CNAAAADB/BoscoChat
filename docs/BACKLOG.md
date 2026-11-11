@@ -68,7 +68,8 @@ As the platform, I want role-based authorization so that users only access funct
 - [x] Orchestrator rerun on 2026-11-04: independent black-box privilege and suspension/session-revocation checks PASS against materialized `a62f0dd`; this does not replace a distinct Verifier identity.
 - [ ] Independent verification by a distinct reviewer identity on the exact remediated SHA.
 - [ ] Independent FULL authorization/security review on the exact remediated SHA.
-- [ ] Representative MySQL migration/concurrency validation.
+- [x] MySQL 8 engine-level CI migration/concurrency validation.
+- [ ] Representative staging migration and distributed-load validation.
 - [ ] Approve access, retention and deletion policy for personal identifiers in `admin_audit_logs`.
 - HIGH `SEC-BC002-03 / CWE-400`: rotating email values bypassed the original `IP|email` authentication limiter and could force unbounded password-hash work from one source IP. PR #17 retains an aggregate-IP regression and now uses opaque HMAC bucket keys; exact-head CI and distinct independent FULL verification remain required.
 - HIGH `SEC-BC002-04 / CWE-400`: PR #17 now implements a MySQL-backed fixed-window store shared across Lambda instances, fails closed in production without that store or a 32-byte HMAC key, and adds a two-instance regression. CI now passes the migration and concurrent limiter/last-administrator/session-revocation tests on MySQL 8. The remediation is not accepted yet: representative staging/load evidence and a distinct independent FULL security review are `TRACE-GAP`.
@@ -304,7 +305,7 @@ As a registered user, I want to view original documents inside BoscoChat on the 
 **Gate status**
 - Authenticated page-text retrieval and a bounded S3 byte-range PDF proxy prototype are present on `main`.
 - `ARCHIVE_PDF_VIEW_ENABLED` / `VITE_ARCHIVE_PDF_VIEW` remain disabled by default.
-- No successful real S3 read, API Gateway/Lambda binary-range test, cross-site cookie/CSP validation, large-PDF test, source-page end-to-end validation or watermark evidence exists.
+- No successful real S3 read, API Gateway/Lambda binary-range test, cross-site cookie/CSP validation, large-PDF test, source-page end-to-end validation, per-user range-request abuse/cost control or watermark evidence exists.
 - BC-006 and BC-011 are not `DONE`; independent functional/security review is missing.
 
 ### BC-013 — Administration monitoring
