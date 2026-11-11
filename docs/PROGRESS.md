@@ -16,7 +16,7 @@
 - BC-007 — Parser, schema and one-PDF importer exist, but archive migration/ingestion has not run in a representative AWS/RDS environment. Upload authorization, retry/diagnostics, OCR correction and correction audit trail remain unevidenced.
 - BC-008 — Word-search/annual-filter preview code exists behind disabled flags, but no real indexed corpus, performance proof, exact-phrase/AND/OR coverage, public anti-abuse control or independent review exists. Anonymous execution conflicts with RF-USER-03.
 - BC-009 — The merged flow retains a selected document/page through login, not the entered query required by RF-USER-03; anonymous execution conflicts with the approved baseline.
-- BC-012 — Page-text retrieval and a PDF range-proxy prototype exist behind disabled flags; real S3/API Gateway behavior, cookies/CSP, large-PDF handling, source-page navigation and watermarking remain unverified.
+- BC-012 — Page-text retrieval and a PDF range-proxy prototype exist behind disabled flags; real S3/API Gateway behavior, cookies/CSP, large-PDF handling, per-user range-request abuse/cost controls, source-page navigation and watermarking remain unverified.
 - Production release/deployment only: rotate or revoke the database credential previously committed to Git history and validate backup/restore plus the authentication migration on representative staging data. Per project-owner direction on 2026-09-15, this operational action is deferred and does not block unrelated development stories.
 
 ## Ready but not executable
