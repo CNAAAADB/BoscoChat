@@ -7,7 +7,7 @@
 - BC-007, BC-008, BC-009 and BC-012 — Partial product artifacts were merged in PR #20/#23 but remain disabled by default or unexecuted. Their completion and activation are blocked by dependencies, representative environment evidence, independent review and, for anonymous search, an SRS baseline conflict.
 
 ## In progress
-- None. No pull request is currently open.
+- PR #24 is open as a draft documentation-only reconciliation of the externally merged PR #17–#21 and #23 artifacts. It is mergeable and conflict-free, but remains `BLOCKED / TRACE-GAP` until an independent reviewer verifies the exact head.
 
 ## Blocked
 - BC-002 — Required: representative staging/distributed-load validation; distinct independent FULL security and functional review; deployment provisioning for `AUTH_RATE_LIMIT_HMAC_KEY`; approved access/retention/deletion policy for `admin_audit_logs`.
@@ -26,7 +26,7 @@
 - No `READY` story is currently executable.
 
 ## In review
-- None. No PR is open; merged artifacts with unsatisfied gates remain `BLOCKED`, not `IN_REVIEW` or `DONE`.
+- PR #24 — Draft documentation reconciliation. No workflow applies to its documentation-only diff; independent review on the exact head is pending. Merged artifacts with unsatisfied gates remain `BLOCKED`, not `DONE`.
 
 ## Product / requirements review
 - PR #20 records an owner-conversation claim that archive discovery should be anonymous and return at most ten previews. This conflicts with RF-USER-03 and BC-008/BC-009, which prohibit unauthenticated search execution. Treat the behavior as `TRACE-GAP` and keep it disabled until the approved SRS/backlog baseline is reconciled.
