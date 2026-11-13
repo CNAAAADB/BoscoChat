@@ -1,5 +1,5 @@
 // SQS envelope for S3 EventBridge notifications. Strict allowlist: annual PDFs only.
-import { parseArchiveKey } from '../../src/documents/archive-keys.js';
+import { parseArchiveKey } from '../src/documents/archive-keys.js';
 
 export function objectsFromQueueEvent(event) {
   if (!Array.isArray(event?.Records)) throw new TypeError('Expected SQS records');
