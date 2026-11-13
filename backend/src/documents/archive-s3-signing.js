@@ -96,7 +96,7 @@ export function signedArchiveDownload({ key, now, credentials = credentialsFromE
     'X-Amz-Date': timestamp,
     'X-Amz-Expires': '60',
     'X-Amz-SignedHeaders': 'host',
-    'response-content-disposition': 'attachment; filename="BoscoChat_Original.pdf"',
+    'response-content-disposition': 'attachment; filename="' + key.slice('originals/'.length).replace(/[^\x20-\x7E]/g, '_') + '"; filename*=UTF-8\'\'' + encodeURIComponent(key.slice('originals/'.length)),
     ...(credentials.token ? { 'X-Amz-Security-Token': credentials.token } : {}),
   };
   const canonicalQuery = Object.entries(query).map(([k, v]) => [encode(k), encode(v)])
