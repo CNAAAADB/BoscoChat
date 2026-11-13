@@ -1,3 +1,7 @@
+## BC-002 three-profile RBAC and admin-issued password reset (2026-11-13)
+- Product owner defined three visible profiles: Administrador de plataforma, Historiador and Usuario. Branch implements admin-only account management and password reset, historian-only archive management, normal-user search, role assignment limited to three, with legacy paid-plan roles preserved for existing accounts.
+- Password reset has 20-minute one-time hashed token, authenticated admin issuance and transactional session revocation. Schema migration and PASSWORD_RESET_ENABLED/VITE_PASSWORD_RESET flags are gated OFF pending MySQL migration and independent FULL security verification. BC-002 remains BLOCKED.
+
 # BoscoChat Progress
 
 ## BC-012 visual page 15-second timeout remediation — 2026-11-13
