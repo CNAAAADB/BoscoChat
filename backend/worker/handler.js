@@ -5,7 +5,8 @@ import { join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { execFile as callbackExecFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { createDatabasePool } from '../src/db/connection.js';
+import mysql from 'mysql2/promise';
+import { databaseConfig } from '../src/config/database.js';
 import { parseArchiveKey } from '../src/documents/archive-keys.js';
 import { splitExtractedPages } from '../src/documents/extracted-pages.js';
 import { objectsFromQueueEvent } from './ingestion-events.js';
@@ -92,7 +93,7 @@ export async function handler(event) {
   try {
     const { S3Client, GetObjectCommand, HeadObjectCommand } = await import('@aws-sdk/client-s3');
     s3 = new S3Client({ region: 'us-east-1', maxAttempts: 3 });
-    pool = createDatabasePool({ ...process.env, DB_CONNECTION_LIMIT: '1' });
+    pool = mysql.createPool(databaseConfig({ ...process.env, DB_CONNECTION_LIMIT: '1' }));
     const failures = [];
     for (const record of event.Records ?? []) {
       try {
