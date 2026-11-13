@@ -53,6 +53,11 @@ These are not considered complete from a single story and must be evidenced acro
 - Owner-supplied AWS console observations record SSE-S3, while `docs/proposals/BC-006-private-document-storage.md` proposes mandatory SSE-KMS. No approved decision reconciles the two.
 - No merged artifact supplies independent review, real archive ingestion, a successful Lambda S3 read, representative end-to-end search/view evidence or watermark verification.
 
+## BC-012 AWS deployment evidence (2026-11-13)
+- **Code:** PR #35; `backend/worker/page-preview.js`, `backend/src/routes/archive-documents.js`, `backend/src/documents/jpeg-watermark.js`, `frontend/src/App.jsx`, `infra/archive-page-renderer.yaml`; IAM correction PR #36.
+- **Tests:** producer CI passed for PR #35. Isolated Lambda successfully rendered original archive pages 1923 p18/p92, 2025 p1 and 1994 p1 as JPEG. Private S3 image cache and immutable ECR image verified. Anonymous/invalid-session image HTTP 401; public search HTTP 200. Amplify release job #33 succeeded with `VITE_ARCHIVE_PAGE_IMAGE=true`; backend `ARCHIVE_PAGE_IMAGE_ENABLED=true`; raw PDF proxy remains disabled.
+- **TRACE-GAP:** no authenticated positive browser test, independent FULL cybersecurity review, robust invisible watermark (JPEG COM marker can be stripped), or concurrent-load/abuse evidence. Status: **deployed for validation**, not DONE.
+
 ## Delivery evidence
 
 | Story | Design / Mockup | Code / Components | Tests | PR | Verification | Security | Status |
