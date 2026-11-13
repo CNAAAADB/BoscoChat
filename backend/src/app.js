@@ -15,7 +15,7 @@ import { createLegacyRouter } from './routes/legacy.js';
 import { createArchiveDiagnosticRouter } from './routes/archive-diagnostics.js';
 import { createArchiveSearchRouter } from './routes/archive-search.js';
 import { createArchiveDocumentRouter } from './routes/archive-documents.js';
-import { PasswordResetService } from './auth/password-reset-service.js';
+import { createHistoricalManagementRouter } from './routes/historical-management.js';
 
 export function createApp({
   pool,
@@ -99,6 +99,9 @@ export function createApp({
     }
     if (environment.ARCHIVE_PAGE_IMAGE_ENABLED === 'true' && Buffer.byteLength(environment.ARCHIVE_WATERMARK_HMAC_KEY ?? '') < 32) {
       throw new Error('ARCHIVE_WATERMARK_HMAC_KEY_REQUIRED');
+    }
+    if (environment.HISTORICAL_MANAGEMENT_ENABLED === 'true') {
+      app.use('/api/admin/historical', createHistoricalManagementRouter(pool, service));
     }
     app.use('/api/archive/documents', createArchiveDocumentRouter(pool, service, {
       pdfViewerEnabled: environment.ARCHIVE_PDF_VIEW_ENABLED === 'true',

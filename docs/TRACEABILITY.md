@@ -58,10 +58,11 @@ These are not considered complete from a single story and must be evidenced acro
 - **Tests:** producer CI passed for PR #35. Isolated Lambda successfully rendered original archive pages 1923 p18/p92, 2025 p1 and 1994 p1 as JPEG. Private S3 image cache and immutable ECR image verified. Anonymous/invalid-session image HTTP 401; public search HTTP 200. Amplify release job #33 succeeded with `VITE_ARCHIVE_PAGE_IMAGE=true`; backend `ARCHIVE_PAGE_IMAGE_ENABLED=true`; raw PDF proxy remains disabled.
 - **TRACE-GAP:** no authenticated positive browser test, independent FULL cybersecurity review, robust invisible watermark (JPEG COM marker can be stripped), or concurrent-load/abuse evidence. Status: **deployed for validation**, not DONE.
 
-## BC-002 product roles and password reset (2026-11-13)
-- RF-USER-04 / RF-ADMIN-01 and RNF-SEC-03: three assignable profiles; legacy billing roles preserved for backwards compatibility and SRS reconciliation required (`TRACE-GAP`).
-- Code: `backend/src/users/roles.js`, `backend/src/users/administration-service.js`, `backend/src/auth/password-reset-service.js`, `backend/src/db/auth-repository.js`, `backend/src/routes/admin-users.js`, `backend/src/routes/auth.js`, `backend/scripts/migrate.js`, `frontend/src/App.jsx`.
-- Tests: `backend/test/password-reset.test.js` and `backend/test/three-profile-admin.test.js` (CI pending); independent review, MySQL production schema migration and release disabled pending.
+## BC-017 Gestión histórica (2026-11-13)
+- **Alcance aprobado por propietario:** nombre «Gestión histórica», acceso solo administradores y gestores documentales. `frontend/src/HistoricalManagement.jsx`, `frontend/src/api/historical.js`, `backend/src/routes/historical-management.js`, `backend/src/documents/archive-s3-signing.js`.
+- **RF-DOCMGMT-01/02:** listado y consulta RDS, subida directa de PDF anuales autorizada por PUT SigV4 con `If-None-Match`, ingesta automática S3→EventBridge→SQS→Lambda; descarga original separada del visor lector.
+- **Pruebas:** `backend/test/historical-management.test.js` cubre control de roles, validación y enlaces firmados. Pendiente CI y pruebas positivas en AWS.
+- **TRACE-GAP:** otras publicaciones y metadatos de catalogación, edición OCR/auditoría RF-DOCMGMT-04, anti-malware, simultaneidad al evitar sobrescrituras, revisión de IAM y CORS e independiente FULL de seguridad. BC-017 no DONE.
 
 ## Delivery evidence
 

@@ -4,6 +4,12 @@
 
 # BoscoChat Progress
 
+## BC-017 Gestión histórica — implementación en revisión (2026-11-13)
+- El propietario define el nombre visible «Gestión histórica». Rama `feat/bc-017-gestion-historica-20261113`: acceso exclusivo para `documentary_manager` (Historiador), inventario privado S3 con filtro y estado RDS, subida PUT condicionada firmada de PDF anuales hasta 350 MiB con indexación S3→EventBridge→SQS, y descarga original mediante enlace firmado de 60 s. Se sustituye el formulario antiguo de OCR de prueba.
+- Limitación de alcance: por ahora solo anualidades `Don Bosco en España_YYYY.pdf`, dado que el worker actual no reconoce otras publicaciones. Catalogación de otras revistas, campos de autor/sección y corrección OCR quedan `TRACE-GAP`.
+- No marcar DONE ni desplegar IAM/CORS sin CI e independiente revisión de seguridad, prueba real de S3 y comprobación de sobrescrituras/riesgos de concurrencia.
+
+
 ## BC-012 visual page 15-second timeout remediation — 2026-11-13
 - Owner browser screenshot showed original-page image fetch failure on 2025 p12 after login. Backend CloudWatch confirmed a 15000 ms Lambda timeout during the page-image path.
 - Root cause: `boscochat-backend` VPC had S3 gateway endpoint but no NAT or Lambda API interface endpoint. The backend's `lambda:InvokeFunction` SDK call to private image renderer could not reach Lambda API. This was **not** a failure of `pdftoppm` (direct renderer tests had succeeded).

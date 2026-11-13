@@ -1,0 +1,15 @@
+{
+  "CORSRules": [
+    {
+      "AllowedOrigins": [
+        "https://boscochat.com",
+        "https://www.boscochat.com",
+        "https://main.dyqpe5eifx600.amplifyapp.com"
+      ],
+      "AllowedMethods": ["PUT"],
+      "AllowedHeaders": ["Content-Type", "If-None-Match", "x-amz-server-side-encryption", "Content-Length"],
+      "ExposeHeaders": ["ETag"],
+      "MaxAgeSeconds": 300
+    }
+  ]
+}
