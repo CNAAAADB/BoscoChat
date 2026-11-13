@@ -1,0 +1,72 @@
+name: Deploy BoscoChat backend Lambda
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend-lambda.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend-lambda.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: boscochat-backend-lambda-main
+  cancel-in-progress: false
+
+jobs:
+  package-and-deploy:
+    name: Test, package and deploy the reviewed backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Test backend
+        run: npm test
+      - name: Lint and syntax check
+        run: npm run build
+      - name: Package production backend
+        run: |
+          set -euo pipefail
+          rm -rf node_modules
+          npm ci --omit=dev
+          chmod +x run.sh
+          zip -qr ../boscochat-backend-lambda.zip . -x 'test/*' '.env' '*.env'
+          unzip -tq ../boscochat-backend-lambda.zip
+      - name: Configure temporary AWS deployment credentials
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::909186483504:role/BoscoChat-GitHub-Backend-Deployer
+          role-session-name: BoscoChatBackendDeploy
+      - name: Deploy backend code without changing environment settings
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          aws lambda update-function-code --region us-east-1 --function-name boscochat-backend --zip-file fileb://../boscochat-backend-lambda.zip --query '{FunctionName:FunctionName,LastModified:LastModified,CodeSha256:CodeSha256}' --output json
+          aws lambda wait function-updated --region us-east-1 --function-name boscochat-backend
+      - name: Smoke-test real archive search
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error --retry 2 --get 'https://i40yd4xj1k.execute-api.us-east-1.amazonaws.com/api/archive/search' --data-urlencode 'q=Bosco' --data-urlencode 'year=1923' -o /tmp/boscochat-archive-search-response.json
+          node --input-type=module -e "import fs from 'node:fs'; const result=JSON.parse(fs.readFileSync('/tmp/boscochat-archive-search-response.json','utf8')); if(!Array.isArray(result.results) || result.results.length>10) process.exit(1); console.log('Archive search smoke test: PASS', result.results.length, 'results');"
