@@ -345,27 +345,32 @@ As a visitor, I want to access BoscoChat using its official domain securely and 
 - [ ] Verify registration, login, session persistence, public search and protected PDF viewer from the final domain, including mobile browsers.
 - [ ] Preserve existing links or document redirects; provide rollback and document DNS changes without committing credentials.
 
-### BC-017 — Private archive management through the website
+### BC-017 — Gestión histórica: private archive management
 - Priority: P1
-- Status: IDEA
+- Status: IN_REVIEW
 - Owner role: Product / Developer
 - Depends on: BC-002, BC-006, BC-007
 - SRS: RF-DOCMGMT-01, RF-DOCMGMT-02, RF-DOCMGMT-04; TRACE-GAP for exact upload/download authorization policy
 - Design/mockup: TBD
-- PR: -
+- PR: #41 (in review; flags default off)
 
 **Story**
 As an authorized archive administrator or documentary manager, I want to upload files, list available documents, filter by filename and download original files from an authenticated website area.
 
 **Acceptance criteria**
-- [ ] Provide a protected archive-management route in the React web application, restricted server-side to administrator and documentary_manager roles.
+- [x] Provide a protected archive-management route in the React web application, restricted server-side to administrator and documentary_manager roles.
 - [ ] List existing objects under private S3 originals/ with filename, size, year, ingestion status and pagination; exclude folder markers.
-- [ ] Support case-insensitive filename filtering and safe handling of Unicode, special characters and missing metadata.
+- [x] Support case-insensitive filename filtering and safe handling of Unicode, special characters and missing metadata.
 - [ ] Upload PDF files using a private short-lived upload mechanism or streaming proxy with content-type/size validation, overwrite policy, checksum and failure states.
 - [ ] Successful upload triggers the automatic ingestion pipeline; show pending/processed/failed state and retry for authorized managers.
-- [ ] Authorize original-PDF downloads via a controlled private mechanism; never expose a public bucket.
+- [x] Authorize original-PDF downloads via a controlled private mechanism; never expose a public bucket.
 - [ ] Audit operations, prevent IDOR/path traversal, enforce limits and test permissions, failures and concurrency.
-- [ ] Separate public search, authenticated reading and privileged upload/download access.
+- [x] Separate public search, authenticated reading and privileged upload/download access.
+
+**Implementation/release evidence (2026-11-13)**
+- Owner-approved label: **Gestión histórica**. PR #41 adds protected React area, S3 annual inventory, case-insensitive filename filter, MySQL indexing status, conditional signed PUT for uploads (with `If-None-Match: *` preventing overwrites), and signed original download.
+- Restricted to administrator/documentary_manager at backend. Frontend and backend feature flags remain OFF until security review and AWS IAM/CORS/real-archive tests pass.
+- Pending: full metadata schema for other publications, checksum/antimalware, documented upload audit trail, pagination UX, retry/failure tracking, independent FULL security review, SRS baseline reconciliation and approved admin download policy. Dependencies are not yet all DONE. Do not mark story DONE.
 
 ### BC-014 — User profile management
 - Priority: P2
