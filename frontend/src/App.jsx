@@ -7,6 +7,7 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
 // Switch on only after RDS archive migration, real ingestion and API deployment.
 const ARCHIVE_SEARCH_ENABLED = import.meta.env.VITE_ARCHIVE_SEARCH === 'true';
 const ARCHIVE_PDF_VIEW_ENABLED = import.meta.env.VITE_ARCHIVE_PDF_VIEW === 'true';
+const HISTORICAL_MANAGEMENT_ENABLED = import.meta.env.VITE_HISTORICAL_MANAGEMENT === 'true';
 const ARCHIVE_PAGE_IMAGE_ENABLED = import.meta.env.VITE_ARCHIVE_PAGE_IMAGE === 'true';
 const SEARCH_MODES = [
   { value: 'relevance', label: 'Más relevantes' },
@@ -230,7 +231,7 @@ export default function App() {
         ) : null}
         {user ? (
           <>
-            {canManageDocuments ? <button style={styles.navBtn} onClick={() => setView('admin')}>Gestión histórica</button> : null}
+            {canManageDocuments && HISTORICAL_MANAGEMENT_ENABLED ? <button style={styles.navBtn} onClick={() => setView('admin')}>Gestión histórica</button> : null}
             {isAdministrator ? <button style={styles.navBtn} onClick={() => setView('users')}>Administrar usuarios</button> : null}
             <button style={{ ...styles.navBtn, color: '#ff7777' }} onClick={signOut}>Salir</button>
           </>
@@ -361,7 +362,7 @@ export default function App() {
         </section>
       ) : null}
 
-      {view === 'admin' && canManageDocuments ? <HistoricalManagement /> : null}
+      {view === 'admin' && canManageDocuments && HISTORICAL_MANAGEMENT_ENABLED ? <HistoricalManagement /> : null}
 
       {view === 'users' && isAdministrator ? (
         <section style={styles.card}>
