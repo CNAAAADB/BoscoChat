@@ -23,7 +23,10 @@ Use `TRACE-GAP` where required evidence is missing. Do not infer links that are 
 | RF-ADMIN-03 | BC-013 |
 | TRACE-GAP — proposed scope; product-owner and SRS-baseline approval pending | BC-014 |
 | TRACE-GAP — proposed scope; product-owner and SRS-baseline approval pending | BC-015 |
-| RF-CHAT-01, RF-CHAT-02, RF-CHAT-03, RF-CHAT-06, RNF-USE-02 | BC-101 |
+| RF-CHAT-01, RF-CHAT-02, RF-CHAT-03, RF-CHAT-06, RNF-USE-02 
+| BC-016 | TRACE-GAP: official domain request, hostname/DNS pending | DNS/Amplify/API custom hostname planned | TRACE-GAP | - | TRACE-GAP | TRACE-GAP | IDEA |
+| BC-017 | RF-DOCMGMT-01/02/04; TRACE-GAP on exact permissions | Authorized S3 management UI/API planned | TRACE-GAP | - | TRACE-GAP | TRACE-GAP | IDEA |
+| BC-101 |
 | RF-RAG-01, RF-RAG-02, RF-RAG-05, RNF-PERF-02 | BC-102 |
 | RF-RAG-03, RF-RAG-04, RF-CHAT-07 | BC-103 |
 | RF-CHAT-04, RF-CHAT-05 | BC-104 |
