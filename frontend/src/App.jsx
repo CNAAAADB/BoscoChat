@@ -14,9 +14,16 @@ const SEARCH_MODES = [
 ];
 
 function highlightSearchTerms(text, search) {
-  const words = [...new Set((search.match(/[\\p{L}\\p{N}]{2,}/gu) ?? []).map((word) => word.toLocaleLowerCase('es')))];
+  const words = [...new Set((search.match(/[\p{L}\p{N}]{2,}/gu) ?? []).map((word) => word.toLocaleLowerCase('es')))];
   if (!words.length || !text) return text;
-  const escaped = words.map((word) => word.replace(/[.*+?^${}()|[\\]\\]/g, '\\\\const ROLES = ['free''));
+  // Words only contain letters/numbers: safe to use as regex alternatives.
+  const parts = String(text).split(new RegExp('(' + words.join('|') + ')', 'giu'));
+  return parts.map((part, index) => words.includes(part.toLocaleLowerCase('es'))
+    ? <mark key={index} style={{ background: '#E6D7AA', color: '#121212', borderRadius: 2 }}>{part}</mark>
+    : part);
+}
+
+const ROLES = ['free''));
   const parts = String(text).split(new RegExp('(' + escaped.join('|') + ')', 'giu'));
   return parts.map((part, index) => words.includes(part.toLocaleLowerCase('es'))
     ? <mark key={index} style={{ background: '#E6D7AA', color: '#121212', borderRadius: 2 }}>{part}</mark>
