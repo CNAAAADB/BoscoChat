@@ -36,7 +36,7 @@ test('BC-007 worker preserves empty physical pages and commits only after verify
     S3GetCommand: class { constructor(input) { this.input = input; } },
     pool: { async getConnection() { return connection; } },
     pdfinfo: async () => ({ stdout: 'Pages:          3\n' }),
-    pdftotext: async (_cmd, args) => { await writeFile(args.at(-1), 'Texto primera página\f\fTexto tercera página\f', 'utf8'); },
+    pdftotext: async (_cmd, args) => { await writeFile(args.at(-1), 'Texto de la primera página con contenido histórico suficiente y legible para superar el umbral de calidad normal.'.repeat(2) + '\f\f' + 'Texto de la tercera página con contenido histórico suficiente y legible para superar el umbral de calidad normal.'.repeat(2) + '\f', 'utf8'); },
   });
   assert.equal(result.pages, 3);
   assert.equal(result.needsReview, 1);
