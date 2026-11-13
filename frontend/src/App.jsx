@@ -6,6 +6,7 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
 // Switch on only after RDS archive migration, real ingestion and API deployment.
 const ARCHIVE_SEARCH_ENABLED = import.meta.env.VITE_ARCHIVE_SEARCH === 'true';
 const ARCHIVE_PDF_VIEW_ENABLED = import.meta.env.VITE_ARCHIVE_PDF_VIEW === 'true';
+const ARCHIVE_PAGE_IMAGE_ENABLED = import.meta.env.VITE_ARCHIVE_PAGE_IMAGE === 'true';
 const SEARCH_MODES = [
   { value: 'relevance', label: 'Más relevantes' },
   { value: 'all', label: 'Todas las palabras' },
@@ -42,6 +43,9 @@ export default function App() {
   const [pageBusy, setPageBusy] = useState(false);
   const [pageError, setPageError] = useState('');
   const [pdfZoom, setPdfZoom] = useState(100);
+  const [visualPageUrl, setVisualPageUrl] = useState(null);
+  const [visualPageError, setVisualPageError] = useState('');
+  const [visualPageBusy, setVisualPageBusy] = useState(false);
   const [registration, setRegistration] = useState({ username: '', email: '', password: '', terms: false });
   const [credentials, setCredentials] = useState({ email: '', password: '' });
   const [newDoc, setNewDoc] = useState({ title: '', content: '', page: 1 });
@@ -179,6 +183,35 @@ export default function App() {
     return () => { cancelled = true; };
   }, [view, selectedPage, user]);
 
+  useEffect(() => {
+    if (view !== 'documento' || !user || !selectedPage || !ARCHIVE_PAGE_IMAGE_ENABLED) return;
+    let cancelled = false;
+    let objectUrl = null;
+    setVisualPageUrl(null);
+    setVisualPageError('');
+    setVisualPageBusy(true);
+    const imageUrl = API_URL + '/archive/documents/' + encodeURIComponent(selectedPage.documentId) + '/pages/' + encodeURIComponent(selectedPage.pageNumber) + '/image';
+    fetch(imageUrl, { credentials: 'include' })
+      .then(async (response) => {
+        if (!response.ok) {
+          const data = await response.json().catch(() => null);
+          throw new Error(data?.error?.message ?? 'No se ha podido cargar la imagen de la página.');
+        }
+        if (!(response.headers.get('content-type') ?? '').includes('image/jpeg')) {
+          throw new Error('El servidor no ha devuelto una imagen de la página.');
+        }
+        return response.blob();
+      })
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setVisualPageUrl(objectUrl);
+      })
+      .catch((error) => { if (!cancelled) setVisualPageError(error.message); })
+      .finally(() => { if (!cancelled) setVisualPageBusy(false); });
+    return () => { cancelled = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [view, selectedPage?.documentId, selectedPage?.pageNumber, user?.id]);
+
   return (
     <div style={styles.container}>
       <header style={styles.header}>
@@ -287,7 +320,27 @@ export default function App() {
               <p>Página {selectedPage.pageNumber} del documento original.</p>
               {pageBusy ? <p>Cargando página…</p> : null}
               {pageError ? <p role="alert" style={styles.error}>{pageError}</p> : null}
-              {ARCHIVE_PDF_VIEW_ENABLED && !pageError ? (
+              {ARCHIVE_PAGE_IMAGE_ENABLED ? (
+                <>
+                  <div aria-label="Controles de la página visual" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 15 }}>
+                    <button style={styles.btnPrimary} type="button" disabled={selectedPage.pageNumber <= 1} onClick={() => setSelectedPage((p) => ({ ...p, pageNumber: p.pageNumber - 1 }))}>Anterior</button>
+                    <strong>Página {selectedPage.pageNumber}</strong>
+                    <button style={styles.btnPrimary} type="button" onClick={() => setSelectedPage((p) => ({ ...p, pageNumber: p.pageNumber + 1 }))}>Siguiente</button>
+                    <label>Zoom <select aria-label="Zoom de la página" style={{ ...styles.input, width: 110, margin: 0, padding: 8 }} value={pdfZoom} onChange={(e) => setPdfZoom(Number(e.target.value))}>
+                      {[75, 100, 125, 150, 200].map((percent) => <option key={percent} value={percent}>{percent}%</option>)}
+                    </select></label>
+                  </div>
+                  {visualPageBusy ? <p role="status">Preparando imagen de la página…</p> : null}
+                  {visualPageError ? <p role="alert" style={styles.error}>{visualPageError}</p> : null}
+                  {visualPageUrl ? (
+                    <div style={{ overflow: 'auto', maxHeight: '80vh', background: '#111', borderRadius: 12 }}>
+                      <img src={visualPageUrl} alt={'Vista visual de ' + selectedPage.title + ', página ' + selectedPage.pageNumber} style={{ display: 'block', width: pdfZoom + '%', minWidth: 300, height: 'auto', margin: '0 auto' }} />
+                      <p style={{ textAlign: 'center', color: '#aaa' }}>Vista protegida del original · {user.username}</p>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+              {ARCHIVE_PDF_VIEW_ENABLED && !ARCHIVE_PAGE_IMAGE_ENABLED && !pageError ? (
                 <>
                   <div aria-label="Navegación del documento original" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 15 }}>
                     <button style={styles.btnPrimary} type="button" disabled={selectedPage.pageNumber <= 1} onClick={() => setSelectedPage((page) => ({ ...page, pageNumber: page.pageNumber - 1 }))}>Página anterior</button>
@@ -300,8 +353,8 @@ export default function App() {
                   <iframe title={`PDF original ${selectedPage.title}, página ${selectedPage.pageNumber}`} src={`${API_URL}/archive/documents/${selectedPage.documentId}/pdf#page=${selectedPage.pageNumber}&zoom=${pdfZoom}&toolbar=0&navpanes=0`} style={{ width: '100%', height: '75vh', border: 0 }} />
                 </>
               ) : null}
-              {!ARCHIVE_PDF_VIEW_ENABLED && pagePreview ? <article style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, padding: 20, background: '#151525', borderRadius: 12 }}>{pagePreview.text_content}</article> : null}
-              {!ARCHIVE_PDF_VIEW_ENABLED ? <p>Vista de texto de la página. El PDF original estará disponible cuando se habilite el visor protegido.</p> : null}
+              {!ARCHIVE_PAGE_IMAGE_ENABLED && !ARCHIVE_PDF_VIEW_ENABLED && pagePreview ? <article style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, padding: 20, background: '#151525', borderRadius: 12 }}>{pagePreview.text_content}</article> : null}
+              {!ARCHIVE_PAGE_IMAGE_ENABLED && !ARCHIVE_PDF_VIEW_ENABLED ? <p>Vista de texto de la página. El PDF original estará disponible cuando se habilite el visor protegido.</p> : null}
             </>
           )}
           <button style={{ ...styles.btnPrimary, marginTop: 20 }} onClick={() => setView('buscador')}>Volver a resultados</button>
