@@ -195,4 +195,55 @@ export class AuthRepository {
       connection.release();
     }
   }
+  // BC-002 password reset: issue exactly one pending reset per target user.
+  async createPasswordReset({ actorId, targetId, digest, expiresAt }) {
+    const connection = await this.pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [rows] = await connection.execute('SELECT id FROM users WHERE id = ? FOR UPDATE', [targetId]);
+      if (!rows.length) {
+        await connection.rollback();
+        return false;
+      }
+      await connection.execute('DELETE FROM password_reset_tokens WHERE user_id = ?', [targetId]);
+      await connection.execute(
+        'INSERT INTO password_reset_tokens (token_hash, user_id, expires_at) VALUES (?, ?, ?)',
+        [digest, targetId, expiresAt],
+      );
+      await this.writeAdminAudit(connection, {
+        actorId, targetId, action: 'user.password.reset.issue', outcome: 'success',
+      });
+      await connection.commit();
+      return true;
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally { connection.release(); }
+  }
+
+  async consumePasswordReset({ digest, passwordHash, now }) {
+    const connection = await this.pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [tokens] = await connection.execute(
+        'SELECT user_id, expires_at FROM password_reset_tokens WHERE token_hash = ? FOR UPDATE',
+        [digest],
+      );
+      const token = tokens[0];
+      if (!token || new Date(token.expires_at).getTime() <= now.getTime()) {
+        await connection.rollback();
+        return false;
+      }
+      // Invalidate all sessions and outstanding links on successful password change.
+      await connection.execute('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, token.user_id]);
+      await connection.execute('DELETE FROM auth_sessions WHERE user_id = ?', [token.user_id]);
+      await connection.execute('DELETE FROM password_reset_tokens WHERE user_id = ?', [token.user_id]);
+      await connection.commit();
+      return true;
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally { connection.release(); }
+  }
+
 }

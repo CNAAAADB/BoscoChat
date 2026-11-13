@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { currentSession, login, logout, register } from './api/auth.js';
-import { changeUserRole, createUser, deleteUser, listUsers, setUserSuspended } from './api/users.js';
+import { changeUserRole, createUser, deleteUser, listUsers, setUserSuspended, issuePasswordReset, redeemPasswordReset } from './api/users.js';
 import HistoricalManagement from './HistoricalManagement.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
@@ -9,6 +9,7 @@ const ARCHIVE_SEARCH_ENABLED = import.meta.env.VITE_ARCHIVE_SEARCH === 'true';
 const ARCHIVE_PDF_VIEW_ENABLED = import.meta.env.VITE_ARCHIVE_PDF_VIEW === 'true';
 const HISTORICAL_MANAGEMENT_ENABLED = import.meta.env.VITE_HISTORICAL_MANAGEMENT === 'true';
 const ARCHIVE_PAGE_IMAGE_ENABLED = import.meta.env.VITE_ARCHIVE_PAGE_IMAGE === 'true';
+const PASSWORD_RESET_ENABLED = import.meta.env.VITE_PASSWORD_RESET === 'true';
 const SEARCH_MODES = [
   { value: 'relevance', label: 'Más relevantes' },
   { value: 'all', label: 'Todas las palabras' },
@@ -26,7 +27,8 @@ function highlightSearchTerms(text, search) {
     : part);
 }
 
-const ROLES = ['free', 'pro', 'premium', 'advanced', 'administrator', 'documentary_manager'];
+const ROLES = [{ value: 'free', label: 'Usuario' }, { value: 'documentary_manager', label: 'Historiador' }, { value: 'administrator', label: 'Administrador de plataforma' }];
+const ROLE_LABELS = { free: 'Usuario', pro: 'Usuario', premium: 'Usuario', advanced: 'Usuario', documentary_manager: 'Historiador', administrator: 'Administrador de plataforma' };
 
 export default function App() {
   const [view, setView] = useState('home');
@@ -50,10 +52,21 @@ export default function App() {
   const [visualPageBusy, setVisualPageBusy] = useState(false);
   const [registration, setRegistration] = useState({ username: '', email: '', password: '', terms: false });
   const [credentials, setCredentials] = useState({ email: '', password: '' });
+  const [resetLink, setResetLink] = useState('');
+  const [resetToken, setResetToken] = useState(() => new URLSearchParams(window.location.hash.slice(1)).get('reset') ?? '');
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetMessage, setResetMessage] = useState('');
   const [users, setUsers] = useState([]);
   const [userAdminError, setUserAdminError] = useState('');
   const [userAdminBusy, setUserAdminBusy] = useState(false);
   const [newUser, setNewUser] = useState({ username: '', email: '', password: '', role: 'free' });
+
+  useEffect(() => {
+    if (resetToken) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      setView('password-reset');
+    }
+  }, [resetToken]);
 
   useEffect(() => {
     currentSession()
@@ -242,7 +255,7 @@ export default function App() {
         <section style={styles.card}>
           <h2 style={styles.sectionTitle}>Identidad Salesiana</h2>
           <p style={{ lineHeight: 1.9, fontSize: '1.2rem' }}>Los antiguos alumnos salesianos somos personas basadas en el Sistema Preventivo: <strong>razón, religión y amorevolezza.</strong></p>
-          {user ? <p>Sesión iniciada como <strong>{user.username}</strong> ({user.role}).</p> : null}
+          {user ? <p>Sesión iniciada como <strong>{user.username}</strong> ({ROLE_LABELS[user.role] ?? 'Usuario'}).</p> : null}
         </section>
       ) : null}
 
@@ -364,9 +377,44 @@ export default function App() {
 
       {view === 'admin' && canManageDocuments && HISTORICAL_MANAGEMENT_ENABLED ? <HistoricalManagement /> : null}
 
+      {view === 'password-reset' ? (
+        <form style={{ ...styles.card, maxWidth: 550 }} onSubmit={async (event) => {
+          event.preventDefault();
+          setResetMessage('');
+          setAuthBusy(true);
+          try {
+            await redeemPasswordReset(resetToken, resetPassword);
+            setResetToken('');
+            setResetPassword('');
+            setResetMessage('Contraseña actualizada. Ya puedes iniciar sesión.');
+          } catch (error) {
+            setResetMessage(error.message);
+          } finally {
+            setAuthBusy(false);
+          }
+        }}>
+          <h2 style={styles.sectionTitle}>Restablecer contraseña</h2>
+          {resetMessage ? <p role="status">{resetMessage}</p> : null}
+          {resetToken ? <>
+            <label>Nueva contraseña
+              <input required type="password" autoComplete="new-password" minLength="12" maxLength="128" style={styles.input} value={resetPassword} onChange={(event) => setResetPassword(event.target.value)} />
+            </label>
+            <button type="submit" disabled={authBusy} style={styles.btnPrimary}>Cambiar contraseña</button>
+          </> : <button type="button" style={styles.btnPrimary} onClick={() => setView('login')}>Ir a iniciar sesión</button>}
+        </form>
+      ) : null}
+
       {view === 'users' && isAdministrator ? (
         <section style={styles.card}>
           <h2 style={styles.sectionTitle}>Administración de usuarios</h2>
+          <p>Perfiles disponibles: <strong>Administrador de plataforma</strong>, <strong>Historiador</strong> y <strong>Usuario</strong>. Las cuentas con planes anteriores se conservan como usuarios de consulta.</p>
+          {resetLink ? <section style={{ background: '#28283d', padding: 16, borderRadius: 12, marginBottom: 18 }}>
+            <strong>Enlace temporal de recuperación (20 minutos, un solo uso)</strong>
+            <p>Compártelo por un canal seguro con el titular. No permite consultar su contraseña actual ni debe publicarse.</p>
+            <input aria-label="Enlace temporal de recuperación" style={styles.input} readOnly value={resetLink} />
+            <button type="button" style={styles.btnPrimary} onClick={() => { navigator.clipboard.writeText(resetLink); }}>Copiar enlace</button>
+            <button type="button" style={{ ...styles.btnPrimary, marginLeft: 10 }} onClick={() => setResetLink('')}>Ocultar</button>
+          </section> : null}
           {userAdminError ? <p role="alert" style={styles.error}>{userAdminError}</p> : null}
           <form onSubmit={(event) => {
             event.preventDefault();
@@ -380,7 +428,7 @@ export default function App() {
             <input required type="email" style={styles.input} placeholder="Correo" value={newUser.email} onChange={(event) => setNewUser({ ...newUser, email: event.target.value })} />
             <input required type="password" minLength="12" maxLength="128" style={styles.input} placeholder="Contraseña temporal" value={newUser.password} onChange={(event) => setNewUser({ ...newUser, password: event.target.value })} />
             <select aria-label="Rol de la nueva cuenta" style={styles.input} value={newUser.role} onChange={(event) => setNewUser({ ...newUser, role: event.target.value })}>
-              {ROLES.map((role) => <option key={role} value={role}>{role}</option>)}
+              {ROLES.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
             </select>
             <button style={styles.btnPrimary} disabled={userAdminBusy} type="submit">Crear cuenta</button>
           </form>
@@ -392,14 +440,18 @@ export default function App() {
             return (
               <article key={record.id} style={{ padding: '20px', background: '#1a1a2e', borderRadius: '20px', marginBottom: '12px' }}>
                 <strong>{record.username}</strong> <span>({record.email})</span>
-                <p>Estado: {record.suspended ? 'Suspendida' : 'Activa'}</p>
-                <select aria-label={`Rol de ${record.username}`} disabled={self || userAdminBusy} style={styles.input} value={record.role ?? ''} onChange={(event) => runUserAdministration(() => changeUserRole(record.id, event.target.value))}>
+                <p>Perfil: {ROLE_LABELS[record.role] ?? 'Usuario'} · Estado: {record.suspended ? 'Suspendida' : 'Activa'}</p>
+                <select aria-label={`Rol de ${record.username}`} disabled={self || userAdminBusy} style={styles.input} value={ROLES.some((role) => role.value === record.role) ? record.role : 'free'} onChange={(event) => runUserAdministration(() => changeUserRole(record.id, event.target.value))}>
                   {ROLES.map((role) => <option key={role} value={role}>{role}</option>)}
                 </select>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                   <button style={styles.btnPrimary} disabled={self || userAdminBusy} type="button" onClick={() => runUserAdministration(() => setUserSuspended(record.id, !record.suspended))}>
                     {record.suspended ? 'Reactivar' : 'Suspender'}
                   </button>
+                  {PASSWORD_RESET_ENABLED ? <button type="button" style={styles.btnPrimary} disabled={self || userAdminBusy} onClick={() => runUserAdministration(async () => {
+                    const { reset } = await issuePasswordReset(record.id);
+                    setResetLink(window.location.origin + window.location.pathname + '#reset=' + encodeURIComponent(reset.token));
+                  })}>Restablecer contraseña</button> : null}
                   <button style={{ ...styles.btnPrimary, backgroundColor: '#ff7777' }} disabled={self || userAdminBusy} type="button" onClick={() => {
                     if (window.confirm(`¿Eliminar definitivamente la cuenta de ${record.username}?`)) {
                       runUserAdministration(() => deleteUser(record.id));

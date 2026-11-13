@@ -51,7 +51,7 @@ As a visitor, I want to register and authenticate securely so that I can access 
 - Depends on: BC-001
 - SRS: RF-USER-04, RF-ADMIN-01, RNF-SEC-03
 - Design/mockup: TBD
-- PR: #13 (merged 2026-11-02; delivery gate remains BLOCKED)
+- PR: #13 (merged), follow-up three-profile and password reset PR pending
 
 **Story**  
 As the platform, I want role-based authorization so that users only access functions permitted for their role.
@@ -74,6 +74,8 @@ As the platform, I want role-based authorization so that users only access funct
 - HIGH `SEC-BC002-03 / CWE-400`: rotating email values bypassed the original `IP|email` authentication limiter and could force unbounded password-hash work from one source IP. PR #17 retains an aggregate-IP regression and now uses opaque HMAC bucket keys; exact-head CI and distinct independent FULL verification remain required.
 - HIGH `SEC-BC002-04 / CWE-400`: PR #17 now implements a MySQL-backed fixed-window store shared across Lambda instances, fails closed in production without that store or a 32-byte HMAC key, and adds a two-instance regression. CI now passes the migration and concurrent limiter/last-administrator/session-revocation tests on MySQL 8. The remediation is not accepted yet: representative staging/load evidence and a distinct independent FULL security review are `TRACE-GAP`.
 - A merged PR does not satisfy these gates; BC-002 remains `BLOCKED`.
+
+**2026-11-13 product-owner role refinement (in review):** Only three visible/assignable access profiles: administrator, historian (`documentary_manager`), normal user (`free`); existing `pro/premium/advanced` roles preserved as ordinary read-only-search accounts. Admin can create/delete/suspend, assign these three roles and issue an expiring one-use password reset link. Historians alone can access BC-017 Gestión histórica. The reset schema migration, audit/privacy review, staging tests and independent FULL security review are outstanding, therefore BC-002 stays BLOCKED. Details: `docs/design/BC-002_THREE_PROFILES_AND_PASSWORD_RESET.md`. SRS RF-USER-04 reconciliation is TRACE-GAP.
 
 ### BC-003 — Query usage logging and quotas
 - Priority: P1

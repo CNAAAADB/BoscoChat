@@ -3,7 +3,7 @@ import { after, before, describe, test } from 'node:test';
 import { createApp } from '../src/app.js';
 import { AuthService } from '../src/auth/service.js';
 import { UserAdministrationService } from '../src/users/administration-service.js';
-import { ROLE_VALUES, ROLES } from '../src/users/roles.js';
+import { ROLE_VALUES, ROLES, ASSIGNABLE_ROLES } from '../src/users/roles.js';
 
 class MemoryUserRepository {
   constructor() {
@@ -171,6 +171,9 @@ describe('BC-002 / RF-USER-04 / RF-ADMIN-01 role authorization', () => {
       ROLES.ADMINISTRATOR,
     );
     await authService.register({ username: 'Free user', email: 'free@example.com', password: 'free-user-password' });
+    for (const role of [ROLES.PRO, ROLES.PREMIUM, ROLES.ADVANCED]) {
+      await authService.createAccount({ username: 'Legacy ' + role, email: 'legacy-' + role + '@example.com', password: 'created-by-administrator' }, role);
+    }
     server = await new Promise((resolve) => {
       const listener = app.listen(0, '127.0.0.1', () => resolve(listener));
     });
@@ -198,8 +201,8 @@ describe('BC-002 / RF-USER-04 / RF-ADMIN-01 role authorization', () => {
     assert.equal(repository.users.some(({ email }) => email === 'blocked@example.com'), false);
   });
 
-  test('administrator can create accounts for every supported role and list only safe records', async () => {
-    for (const [index, role] of ROLE_VALUES.entries()) {
+  test('administrator can create only three product profiles while retaining legacy billing roles', async () => {
+    for (const [index, role] of ASSIGNABLE_ROLES.entries()) {
       const created = await jsonRequest(baseUrl, '/api/admin/users', {
         method: 'POST', cookie: adminCookie,
         body: { username: `Role ${role}`, email: `role-${index}@example.com`, password: 'created-by-administrator', role },
@@ -214,6 +217,12 @@ describe('BC-002 / RF-USER-04 / RF-ADMIN-01 role authorization', () => {
     assert.equal(users.response.status, 200);
     assert.deepEqual(new Set(users.data.users.map(({ role }) => role)), new Set(ROLE_VALUES));
     assert.equal(users.data.users.some((record) => 'passwordHash' in record), false);
+
+    const paidPlan = await jsonRequest(baseUrl, '/api/admin/users', {
+      method: 'POST', cookie: adminCookie,
+      body: { username: 'No new plans', email: 'new-pro@example.com', password: 'created-by-administrator', role: ROLES.PRO },
+    });
+    assert.equal(paidPlan.response.status, 400);
 
     const invalid = await jsonRequest(baseUrl, '/api/admin/users', {
       method: 'POST', cookie: adminCookie,
