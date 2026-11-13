@@ -31,7 +31,7 @@ jobs:
       - name: Build Lambda container without AWS credentials
         run: docker build --pull -f backend/worker/Dockerfile -t boscochat-pdf-worker:ci backend
       - name: Verify installed PDF tooling
-        run: docker run --rm --entrypoint /bin/sh boscochat-pdf-worker:ci -c 'command -v pdfinfo && command -v pdftotext'
+        run: docker run --rm --entrypoint /bin/sh boscochat-pdf-worker:ci -c 'command -v pdfinfo && command -v pdftotext && command -v pdftoppm'
 
   publish:
     name: Publish reviewed container to private ECR
