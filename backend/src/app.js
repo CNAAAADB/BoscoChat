@@ -15,6 +15,7 @@ import { createLegacyRouter } from './routes/legacy.js';
 import { createArchiveDiagnosticRouter } from './routes/archive-diagnostics.js';
 import { createArchiveSearchRouter } from './routes/archive-search.js';
 import { createArchiveDocumentRouter } from './routes/archive-documents.js';
+import { PasswordResetService } from './auth/password-reset-service.js';
 
 export function createApp({
   pool,
@@ -40,7 +41,10 @@ export function createApp({
   if (environment.NODE_ENV === 'production' && Buffer.byteLength(authRateLimitHashKey ?? '') < 32) {
     throw new Error('AUTH_RATE_LIMIT_HMAC_KEY_REQUIRED');
   }
+  const passwordResets = pool && environment.PASSWORD_RESET_ENABLED === 'true' ? new PasswordResetService(repository) : null;
   const authRouter = createAuthRouter(service, {
+    passwordResets,
+    resetRateLimiter: createAuthRateLimiter({ scope: 'password-reset', limit: 5, windowMs: 60 * 60 * 1000, store: sharedAuthRateLimitStore ?? undefined, hashKey: authRateLimitHashKey }),
     production: environment.NODE_ENV === 'production',
     cookieSameSite: environment.SESSION_COOKIE_SAME_SITE ?? 'lax',
     loginRateLimiter: createAuthRateLimiter({
@@ -84,7 +88,7 @@ export function createApp({
   app.use(express.json({ limit: '16kb', type: 'application/json' }));
   app.use('/api/auth', authRouter);
   app.use('/api', authRouter);
-  app.use('/api/admin/users', createAdminUsersRouter(service, administration));
+  app.use('/api/admin/users', createAdminUsersRouter(service, administration, { passwordResets }));
   app.use('/api/admin/archive', createArchiveDiagnosticRouter(service, { enabled: environment.ARCHIVE_S3_PROBE_ENABLED === 'true' }));
   if (pool) {
     if (environment.ARCHIVE_PUBLIC_SEARCH_ENABLED === 'true') {
