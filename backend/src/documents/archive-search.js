@@ -31,7 +31,7 @@ export function searchPlan(rawQuery, rawMode = 'relevance') {
   }
   if (mode === 'relevance') {
     // MySQL natural-language search ranks matching pages even when only some terms match.
-    return { mode, expression: normalized.replace(/["'+~*<>()[\]{}]/g, ' '), sqlMode: 'NATURAL LANGUAGE', words };
+    return { mode, expression: words.join(' '), sqlMode: 'NATURAL LANGUAGE', words };
   }
   if (mode === 'exact') {
     // Build the phrase from normalized words: user-supplied Boolean syntax is never forwarded.
