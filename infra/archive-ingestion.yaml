@@ -61,7 +61,7 @@ Resources:
               - boscochat-archivo-pdfs
           object:
             key:
-              - wildcard: originals/*.pdf
+              - prefix: originals/
       Targets:
         - Id: ArchiveQueue
           Arn: !GetAtt IngestionQueue.Arn
