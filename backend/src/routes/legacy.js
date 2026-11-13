@@ -13,7 +13,7 @@ function setQuotaHeaders(res, quota) {
 export function createLegacyRouter(pool, authService, usageService, administrationService) {
   const router = express.Router();
   const authenticated = requireAuthorization(authService);
-  const documentaryManager = requireAuthorization(authService, new Set([ROLES.ADMINISTRATOR, ROLES.DOCUMENTARY_MANAGER]));
+  const documentaryManager = requireAuthorization(authService, new Set([ROLES.DOCUMENTARY_MANAGER]));
   const administrator = requireAuthorization(authService, new Set([ROLES.ADMINISTRATOR]));
 
   router.get('/search', authenticated, async (req, res, next) => {
