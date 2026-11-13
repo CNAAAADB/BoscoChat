@@ -28,6 +28,7 @@ test('BC-017 signed download is limited to a matching original with 60-second to
   const { url, expiresIn } = signedArchiveDownload({ key: 'originals/Don Bosco en España_2025.pdf', now, credentials });
   assert.equal(expiresIn, 60);
   assert.match(url, /X-Amz-Expires=60/);
+  assert.match(url, /response-content-disposition=attachment%3B%20filename%3D%22Don_Bosco_en_Espana_2025.pdf%22/);
   assert.match(url, /X-Amz-Signature=[a-f0-9]{64}/);
   assert.match(url, /Don%20Bosco%20en%20Espa%C3%B1a_2025\.pdf/);
   assert.throws(() => signedArchiveDownload({ key: 'previews/2025/a.jpg', now, credentials }), /INVALID_ARCHIVE_DOWNLOAD/);
