@@ -138,7 +138,7 @@ export default function App() {
   };
 
   const isAdministrator = user?.role === 'administrator';
-  const canManageDocuments = isAdministrator || user?.role === 'documentary_manager';
+  const canManageDocuments = user?.role === 'documentary_manager';
 
   const refreshUsers = async () => {
     const result = await listUsers();
