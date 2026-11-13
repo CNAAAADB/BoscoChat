@@ -28,10 +28,14 @@ export async function historicalUpload(file, onProgress) {
     body: JSON.stringify({ filename: file.name, sizeBytes: file.size }),
   });
   if (typeof onProgress === 'function') onProgress('Subiendo PDF al archivo privado…');
-  const form = new FormData();
-  for (const [key, value] of Object.entries(prepared.upload.fields)) form.append(key, value);
-  form.append('file', file, file.name);
-  const uploaded = await fetch(prepared.upload.url, { method: 'POST', body: form });
+  const uploaded = await fetch(prepared.upload.url, {
+    method: 'PUT',
+    headers: prepared.upload.headers,
+    body: file,
+  });
+  if (uploaded.status === 412 || uploaded.status === 409) {
+    throw new Error('Ya existe un original de ese año. No se sobrescriben documentos.');
+  }
   if (!uploaded.ok) {
     throw new Error('La subida a S3 ha fallado (' + uploaded.status + '). Comprueba la conexión e inténtalo de nuevo.');
   }
