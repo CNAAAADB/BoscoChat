@@ -2,6 +2,7 @@ import express from 'express';
 import { requireAuthorization } from '../middleware/authorization.js';
 import { ROLES } from '../users/roles.js';
 import { parseArchiveKey } from '../documents/archive-keys.js';
+import { safeArchivePdfKey } from '../documents/archive-filenames.js';
 import { signedArchiveUpload, signedArchiveDownload, MAX_PDF_BYTES } from '../documents/archive-s3-signing.js';
 
 const BUCKET = 'boscochat-archivo-pdfs';
@@ -50,7 +51,8 @@ export function createHistoricalManagementRouter(pool, authService, {
             ...(token ? { ContinuationToken: token } : {}),
           }));
           for (const item of page.Contents ?? []) {
-            if (parseArchiveKey(item.Key).status === 'recognized' && item.Size > 0) found.push(item);
+            if (typeof item.Key === 'string' && item.Key.startsWith('originals/')
+              && safeArchivePdfKey(item.Key.slice('originals/'.length)) === item.Key && item.Size > 0) found.push(item);
           }
           token = page.IsTruncated ? page.NextContinuationToken : null;
           if (page.IsTruncated && !token) throw new Error('ARCHIVE_LIST_PAGINATION_FAILED');
@@ -69,16 +71,16 @@ export function createHistoricalManagementRouter(pool, authService, {
           const meta = parseArchiveKey(o.Key);
           const db = indexed.get(o.Key);
           return {
-            filename: meta.originalFilename,
-            year: meta.year,
+            filename: o.Key.slice('originals/'.length),
+            year: meta.status === 'recognized' ? meta.year : null,
             sizeBytes: o.Size,
             lastModified: o.LastModified ? new Date(o.LastModified).toISOString() : null,
-            status: db?.indexed_at && Number(db.pages) > 0 ? 'indexed' : 'pending',
+            status: db?.indexed_at && Number(db.pages) > 0 ? 'indexed' : meta.status === 'recognized' ? 'pending' : 'stored',
             pages: Number(db?.pages ?? 0),
             indexedAt: db?.indexed_at ? new Date(db.indexed_at).toISOString() : null,
           };
         })
-        .sort((a, b) => b.year - a.year);
+        .sort((a, b) => b.year === null ? -1 : a.year === null ? 1 : b.year - a.year);
       res.set('Cache-Control', 'private, no-store');
       return res.json({ documents, total: documents.length });
     } catch (error) { return next(error); }
@@ -87,14 +89,15 @@ export function createHistoricalManagementRouter(pool, authService, {
   router.post('/uploads', async (req, res, next) => {
     const filename = typeof req.body?.filename === 'string' ? req.body.filename.trim().normalize('NFC') : '';
     const bytes = req.body?.sizeBytes;
-    const meta = parseArchiveKey('originals/' + filename);
-    if (meta.status !== 'recognized' || !Number.isSafeInteger(bytes) || bytes < 1 || bytes > MAX_PDF_BYTES) {
-      return replyError(res, 400, 'INVALID_ARCHIVE_UPLOAD', 'Selecciona un PDF anual de Don Bosco en España (máximo 350 MB).');
+    const key = safeArchivePdfKey(filename);
+    const meta = key ? parseArchiveKey(key) : null;
+    if (!key || !Number.isSafeInteger(bytes) || bytes < 1 || bytes > MAX_PDF_BYTES) {
+      return replyError(res, 400, 'INVALID_ARCHIVE_UPLOAD', 'Selecciona un PDF con nombre seguro (máximo 350 MB).');
     }
     try {
       const exists = await withS3(async (client, { HeadObjectCommand }) => {
         try {
-          await client.send(new HeadObjectCommand({ Bucket: BUCKET, Key: meta.key }));
+          await client.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }));
           return true;
         } catch (error) {
           if (isAbsentObject(error)) return false;
@@ -102,9 +105,29 @@ export function createHistoricalManagementRouter(pool, authService, {
         }
       });
       if (exists) return replyError(res, 409, 'DOCUMENT_ALREADY_EXISTS', 'Ya hay un PDF de ese año. No se sobrescriben originales.');
-      const upload = signer.upload({ key: meta.key, fileSize: bytes, now: new Date() });
+      const upload = signer.upload({ key, fileSize: bytes, now: new Date() });
       res.set('Cache-Control', 'private, no-store');
-      return res.status(201).json({ upload, year: meta.year, filename: meta.originalFilename });
+      return res.status(201).json({ upload, year: meta?.status === 'recognized' ? meta.year : null, filename, willIndexAutomatically: meta?.status === 'recognized' });
+    } catch (error) { return next(error); }
+  });
+
+  router.get('/documents/download', async (req, res, next) => {
+    const filename = typeof req.query.filename === 'string' ? req.query.filename : '';
+    const key = safeArchivePdfKey(filename);
+    if (!key) return replyError(res, 400, 'INVALID_DOCUMENT_FILENAME', 'Nombre de documento no válido.');
+    try {
+      const exists = await withS3(async (client, { HeadObjectCommand }) => {
+        try {
+          await client.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }));
+          return true;
+        } catch (error) {
+          if (isAbsentObject(error)) return false;
+          throw error;
+        }
+      });
+      if (!exists) return replyError(res, 404, 'DOCUMENT_NOT_FOUND', 'Documento no encontrado.');
+      res.set('Cache-Control', 'private, no-store');
+      return res.json({ download: signer.download({ key, now: new Date() }) });
     } catch (error) { return next(error); }
   });
 
