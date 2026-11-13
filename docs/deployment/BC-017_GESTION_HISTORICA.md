@@ -18,8 +18,8 @@ This iteration supports the 92 known annual volumes of **Don Bosco en España** 
 
 - Each endpoint independently uses `requireAuthorization(authService, {administrator, documentary_manager})`. A Free/Pro/Premium account gets 403, anonymous 401.
 - No S3 objects are made public; Block Public Access remains enabled. Download links expire, but an authorized recipient can pass a live signed URL to another party until expiry. Do not log URLs.
-- Exact filename validation prevents arbitrary S3 keys or path traversal; 350-MiB POST size is verified by S3 policy. Worker verifies PDF format with Poppler on indexing.
-- The API rejects issuing an upload permission for a year that already exists. **Concurrency TRACE-GAP:** a second simultaneous permission may be issued before the first completes; a strict no-overwrite guarantee needs an object-lock/conditional-upload mechanism or dedicated durable reservation. Do not describe this check as an atomic uniqueness constraint.
+- Exact filename validation prevents arbitrary S3 keys or path traversal; 350-MiB maximum is checked by the backend and the precise body Content-Length is signed. Worker verifies PDF format with Poppler on indexing.
+- The API rejects issuing an upload permission for a year that already exists. S3 enforces atomic no-overwrite through the signed `If-None-Match: *` PUT request. Simultaneous writes to the same year must return HTTP 412 or 409 for one party; test this against real S3 before release.
 - **Security release gate:** verify AWS-signed POST/GET on real S3 with a small synthetic PDF in a designated non-conflicting year; upload/delete test object only with appropriate approval and avoid overwriting historical originals. Confirm S3 CORS, IAM, audit/retention and anti-malware scanning policy. Independent FULL security review must be recorded before treating BC-017 as DONE.
 - Existing originals remain private and untouched by this feature. No new schema migration is needed.
 
@@ -32,7 +32,7 @@ Backend execution role `boscochat-backend-role-yvarjgvz`:
 - Existing access to the RDS archive status tables.
 - The Lambda execution environment already supplies temporary IAM credentials for signing; no static AWS key is required.
 
-S3 CORS must allow the three actual hosting origins (`boscochat.com`, `www.boscochat.com`, default Amplify hostname), `POST` uploads and `ETag` exposure. The bucket must remain blocked from public access. Confirm EventBridge notification is enabled.
+S3 CORS must allow the three actual hosting origins (`boscochat.com`, `www.boscochat.com`, default Amplify hostname), `PUT` uploads and `ETag` exposure. The bucket must remain blocked from public access. Confirm EventBridge notification is enabled.
 
 No new frontend flag is necessary: the navigation is exposed by the authenticated role and feature must be gated at release via merge/deploy controls. Amplify rebuilds `main` automatically and GitHub Actions publishes the backend on merge.
 
@@ -40,5 +40,5 @@ No new frontend flag is necessary: the navigation is exposed by the authenticate
 
 - Producer unit/integration tests: anonymous 401, free 403, manager/admin inventory and upload/download, safe signed policy, collision 409, invalid year/path/oversized rejection.
 - Frontend lint/build, backend Node 22 + MySQL CI.
-- Independent security review of POST policy, IAM and CORS, plus S3 upload and browsing session.
+- Independent security review of conditional PUT signature, IAM and CORS, plus S3 upload and browsing session.
 - Confirm existing search and visual PDF views remain unaffected.
