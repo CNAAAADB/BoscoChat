@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { currentSession, login, logout, register } from './api/auth.js';
-import { changeUserRole, createUser, deleteUser, listUsers, setUserSuspended } from './api/users.js';
+import { changeUserRole, createUser, deleteUser, listUsers, setUserSuspended, issuePasswordReset, redeemPasswordReset } from './api/users.js';
 import HistoricalManagement from './HistoricalManagement.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
@@ -52,7 +52,6 @@ export default function App() {
   const [visualPageBusy, setVisualPageBusy] = useState(false);
   const [registration, setRegistration] = useState({ username: '', email: '', password: '', terms: false });
   const [credentials, setCredentials] = useState({ email: '', password: '' });
-  const [newDoc, setNewDoc] = useState({ title: '', content: '', page: 1 });
   const [resetLink, setResetLink] = useState('');
   const [resetToken, setResetToken] = useState(() => new URLSearchParams(window.location.hash.slice(1)).get('reset') ?? '');
   const [resetPassword, setResetPassword] = useState('');
