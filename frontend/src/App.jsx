@@ -7,6 +7,7 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
 const ARCHIVE_SEARCH_ENABLED = import.meta.env.VITE_ARCHIVE_SEARCH === 'true';
 const ARCHIVE_PDF_VIEW_ENABLED = import.meta.env.VITE_ARCHIVE_PDF_VIEW === 'true';
 const ARCHIVE_PAGE_IMAGE_ENABLED = import.meta.env.VITE_ARCHIVE_PAGE_IMAGE === 'true';
+const PASSWORD_RESET_ENABLED = import.meta.env.VITE_PASSWORD_RESET === 'true';
 const SEARCH_MODES = [
   { value: 'relevance', label: 'Más relevantes' },
   { value: 'all', label: 'Todas las palabras' },
@@ -457,10 +458,10 @@ export default function App() {
                   <button style={styles.btnPrimary} disabled={self || userAdminBusy} type="button" onClick={() => runUserAdministration(() => setUserSuspended(record.id, !record.suspended))}>
                     {record.suspended ? 'Reactivar' : 'Suspender'}
                   </button>
-                  <button type="button" style={styles.btnPrimary} disabled={self || userAdminBusy} onClick={() => runUserAdministration(async () => {
+                  {PASSWORD_RESET_ENABLED ? <button type="button" style={styles.btnPrimary} disabled={self || userAdminBusy} onClick={() => runUserAdministration(async () => {
                     const { reset } = await issuePasswordReset(record.id);
                     setResetLink(window.location.origin + window.location.pathname + '#reset=' + encodeURIComponent(reset.token));
-                  })}>Restablecer contraseña</button>
+                  })}>Restablecer contraseña</button> : null}
                   <button style={{ ...styles.btnPrimary, backgroundColor: '#ff7777' }} disabled={self || userAdminBusy} type="button" onClick={() => {
                     if (window.confirm(`¿Eliminar definitivamente la cuenta de ${record.username}?`)) {
                       runUserAdministration(() => deleteUser(record.id));
