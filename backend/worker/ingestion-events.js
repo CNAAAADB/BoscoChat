@@ -1,5 +1,6 @@
 // SQS envelope for S3 EventBridge notifications. Strict allowlist: annual PDFs only.
 import { parseArchiveKey } from '../src/documents/archive-keys.js';
+import { safeArchivePdfKey } from '../src/documents/archive-filenames.js';
 
 export function objectsFromQueueEvent(event) {
   if (!Array.isArray(event?.Records)) throw new TypeError('Expected SQS records');
@@ -14,6 +15,10 @@ export function objectsFromQueueEvent(event) {
     }
     const key = payload.detail?.object?.key;
     if (parseArchiveKey(key).status !== 'recognized') {
+      // A safe, nonannual PDF belongs in the private directory but awaits
+      // cataloguing; acknowledge its notification without poisoning the DLQ.
+      if (typeof key === 'string' && key.startsWith('originals/')
+        && safeArchivePdfKey(key.slice('originals/'.length)) === key) continue;
       throw new Error('Unexpected archive key');
     }
     const size = payload.detail?.object?.size;
