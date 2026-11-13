@@ -60,7 +60,7 @@ These are not considered complete from a single story and must be evidenced acro
 
 ## BC-017 Gestión histórica (2026-11-13)
 - **Alcance aprobado por propietario:** nombre «Gestión histórica», acceso solo administradores y gestores documentales. `frontend/src/HistoricalManagement.jsx`, `frontend/src/api/historical.js`, `backend/src/routes/historical-management.js`, `backend/src/documents/archive-s3-signing.js`.
-- **RF-DOCMGMT-01/02:** listado y consulta RDS, subida directa de PDF anuales autorizada por POST SigV4, ingesta automática S3→EventBridge→SQS→Lambda; descarga original separada del visor lector.
+- **RF-DOCMGMT-01/02:** listado y consulta RDS, subida directa de PDF anuales autorizada por PUT SigV4 con `If-None-Match`, ingesta automática S3→EventBridge→SQS→Lambda; descarga original separada del visor lector.
 - **Pruebas:** `backend/test/historical-management.test.js` cubre control de roles, validación y enlaces firmados. Pendiente CI y pruebas positivas en AWS.
 - **TRACE-GAP:** otras publicaciones y metadatos de catalogación, edición OCR/auditoría RF-DOCMGMT-04, anti-malware, simultaneidad al evitar sobrescrituras, revisión de IAM y CORS e independiente FULL de seguridad. BC-017 no DONE.
 
