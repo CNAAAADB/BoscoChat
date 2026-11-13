@@ -1,5 +1,16 @@
 # BoscoChat Progress
 
+## BC-012 protected visual page preview — AWS deployment evidence, 2026-11-13
+- PR #35 was merged to `main` (commit `f228d83ac1788572bba49c81aeec83d29765267d`), and CI package, frontend and PDF-worker build checks passed.
+- AWS CloudFormation stack `boscochat-archive-page-renderer` reached `CREATE_COMPLETE`; PR #36 repaired the narrowly scoped S3 `previews/*` cache-miss listing permission, and the stack reached `UPDATE_COMPLETE`.
+- Container in private ECR: immutable `sha256:5e371c207b1a0ecf466880c03578d142d8867f09c60ef4c27de1fc7c15265717`; the original ingestor Lambda image and SQS mappings were not modified.
+- Direct production Lambda tests rendered actual physical JPEG pages: 1923 p18/p92, 2025 p1, 1994 p1. 1923 p18 private cached JPEG: 236426 bytes. One original was 263 MiB; representative initial renders observed in CloudWatch at roughly 2–5 seconds.
+- Backend Lambda role `boscochat-backend-role-yvarjgvz` received `lambda:InvokeFunction` ONLY for `boscochat-pdf-page-renderer`; a dedicated watermark HMAC secret was generated privately; `ARCHIVE_PAGE_IMAGE_ENABLED=true`. A rollback version `boscochat-backend:3` was published before activation. PDF byte-range proxy remains disabled.
+- Backend Lambda tests: anonymous image request = HTTP 401, invalid session = HTTP 401, public archive keyword search = HTTP 200 (10 results). These do NOT substitute for an authenticated positive browser image test.
+- Amplify app `dyqpe5eifx600`, branch `main`, job #33 `SUCCEED`. App variables `VITE_ARCHIVE_PAGE_IMAGE=true` and `VITE_ARCHIVE_PDF_VIEW=false`. Public `https://boscochat.com` is configured to display original page JPGs for authenticated users; **browser end-to-end still to be confirmed by owner**.
+- Status: **DEPLOYED FOR USER VALIDATION; BC-012 NOT DONE**. Independent FULL security review, robust/invisible watermark durability (JPEG COM marker is easily removed), session-positive browser test, rate abuse, cross-browser cookies, accessibility and rollback test remain `TRACE-GAP`. Do not confuse producer smoke tests with independent verification.
+
+
 ## BC-012 protected visual page preview implementation — 2026-11-13
 - Owner requested source-page **visual** reading, not raw OCR. Branch `feat/bc-012-rendered-page-previews-20261113` adds an isolated Poppler JPEG renderer, private S3 cache, authenticated image endpoint, preliminary per-user trace metadata, throttling, React page navigation/zoom and tests. All release switches default off; production and independent FULL security tests are still required before activating.
 - The historical PDF proxy remains disabled; images do not expose full private originals. Robust watermarking, large-document performance and browser end-to-end verification remain TRACE-GAP.
