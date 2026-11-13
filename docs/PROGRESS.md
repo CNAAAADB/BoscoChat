@@ -1,5 +1,11 @@
 # BoscoChat Progress
 
+## BC-008 public search activation preparation — 2026-11-13
+- Owner explicitly requested activation of ten-result anonymous archive previews on `boscochat.com`, overriding the former unauthenticated-search prohibition as a product request; RF-USER-03 approved SRS update still needed (TRACE-GAP).
+- Branch `feat/bc-008-public-search-guarded-activation-20261113` adds MySQL-backed per-IP limiting (30/minute, fail-closed), tests, no-cache responses and AWS activation checklist. No live deployment is evidenced; do not mark BC-008 DONE or enable public search prior to required independent review.
+- Last owner-observed archive MySQL count: 41 indexed annual documents out of 92 enqueued; remaining ingestion completion unverified.
+
+
 ## Current focus
 - BC-002 — PR #17 merged to `main` on 2026-11-10 with the shared MySQL/HMAC authentication limiter and passing producer CI, but with zero submitted reviews and while its recorded gate said `BLOCKED / TRACE-GAP — do not merge`. The story remains `BLOCKED`.
 - BC-003 — Query usage logging and quotas remains `BLOCKED` after merge pending independent gates and policy approval.

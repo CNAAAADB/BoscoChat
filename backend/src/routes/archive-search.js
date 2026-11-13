@@ -6,7 +6,7 @@ export function createArchiveSearchRouter(pool) {
   // Public discovery, with no PDF download or direct object keys exposed.
   // Apply WAF/API Gateway rate limits before opening this endpoint to the Internet.
   router.get('/search', async (req, res, next) => {
-    res.set('Cache-Control', 'public, max-age=30');
+    res.set('Cache-Control', 'private, no-store');
     try {
       const result = await searchArchivePages(pool, req.query.q, { year: req.query.year });
       return res.json({ results: result });

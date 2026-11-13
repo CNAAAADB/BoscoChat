@@ -8,6 +8,7 @@ import { queryQuotaConfig } from './usage/quota-config.js';
 import { UsageService } from './usage/service.js';
 import { MysqlAuthRateLimitStore } from './db/auth-rate-limit-store.js';
 import { createAuthRateLimiter } from './middleware/auth-rate-limit.js';
+import { createArchiveSearchRateLimiter } from './middleware/archive-search-rate-limit.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createAdminUsersRouter } from './routes/admin-users.js';
 import { createLegacyRouter } from './routes/legacy.js';
@@ -87,7 +88,10 @@ export function createApp({
   app.use('/api/admin/archive', createArchiveDiagnosticRouter(service, { enabled: environment.ARCHIVE_S3_PROBE_ENABLED === 'true' }));
   if (pool) {
     if (environment.ARCHIVE_PUBLIC_SEARCH_ENABLED === 'true') {
-      app.use('/api/archive', createArchiveSearchRouter(pool));
+      app.use('/api/archive', createArchiveSearchRateLimiter({
+        store: sharedAuthRateLimitStore ?? undefined,
+        hashKey: authRateLimitHashKey,
+      }), createArchiveSearchRouter(pool));
     }
     app.use('/api/archive/documents', createArchiveDocumentRouter(pool, service, {
       pdfViewerEnabled: environment.ARCHIVE_PDF_VIEW_ENABLED === 'true',
