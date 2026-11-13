@@ -1,5 +1,10 @@
 # BoscoChat Progress
 
+## BC-012 protected visual page preview implementation — 2026-11-13
+- Owner requested source-page **visual** reading, not raw OCR. Branch `feat/bc-012-rendered-page-previews-20261113` adds an isolated Poppler JPEG renderer, private S3 cache, authenticated image endpoint, preliminary per-user trace metadata, throttling, React page navigation/zoom and tests. All release switches default off; production and independent FULL security tests are still required before activating.
+- The historical PDF proxy remains disabled; images do not expose full private originals. Robust watermarking, large-document performance and browser end-to-end verification remain TRACE-GAP.
+
+
 ## BC-008/BC-011 relevance search and BC-012 visual PDF gap — 2026-11-13
 - User confirmed live keyword search works but multi-word queries enforce all terms, show only OCR text, and do not open the visual source page. Implemented relevance-ranked default, all/any/exact search modes, contextual highlighted snippets in branch `feat/bc-008-natural-search-and-visual-viewer-prep-20261113` (tests/CI/release pending).
 - BC-012 remains **BLOCKED**: range proxy is feature-gated and not independently verified for authenticated browser PDF loading, cross-origin cookies, large file ranges, controls, watermark, and rate abuse. Do not enable raw PDF viewing from this change; needs separate verified viewer delivery.
