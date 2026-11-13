@@ -305,7 +305,7 @@ As an Administrator, I want usage and resource monitoring so that I can supervis
 - Status: IDEA
 - Owner role: Product / Developer
 - Depends on: current Amplify/API Gateway deployment
-- SRS: TRACE-GAP — requested by product owner on 2026-11-13, official hostname boscochat.com confirmed 2026-11-13; DNS control pending
+- SRS: TRACE-GAP — requested by product owner on 2026-11-13, official hostname boscochat.com confirmed 2026-11-13; DNS provider Hostinger confirmed, DNS edits pending
 - Design/mockup: TBD
 - PR: -
 
@@ -314,7 +314,8 @@ As a visitor, I want to access BoscoChat using its official domain securely and 
 
 **Acceptance criteria**
 - [x] Confirm exact official domain: `boscochat.com` (owner confirmed 2026-11-13).
-- [ ] Confirm DNS registrar, authorized DNS administration and app/API subdomains (proposed `www.boscochat.com` and `api.boscochat.com`, subject to approval).
+- [x] Confirm DNS provider: Hostinger (owner confirmed 2026-11-13).
+- [ ] Confirm DNS editing access and app/API subdomains (proposed `www.boscochat.com` and `api.boscochat.com`, subject to approval).
 - [ ] Configure custom domain on AWS Amplify; attach and validate TLS certificate, force HTTPS and verify DNS resolution.
 - [ ] Place the API on a suitable HTTPS subdomain with a valid certificate and update frontend API base, backend CORS and cookie domain/SameSite settings safely.
 - [ ] Verify registration, login, session persistence, public search and protected PDF viewer from the final domain, including mobile browsers.
