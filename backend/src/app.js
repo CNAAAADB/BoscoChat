@@ -121,7 +121,7 @@ export function createApp({
         error: { code: error.code, message: error.message, ...(error.details ? { details: error.details } : {}) },
       });
     }
-    console.error('Unhandled request error', { method: req.method, path: req.path, name: error?.name });
+    console.error('Unhandled request error', { method: req.method, path: req.path, name: error?.name, code: typeof error?.code === 'string' ? error.code : undefined, sqlState: typeof error?.sqlState === 'string' ? error.sqlState : undefined });
     return res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'No se ha podido completar la solicitud.' } });
   });
 
