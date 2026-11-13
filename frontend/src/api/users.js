@@ -30,3 +30,11 @@ export function setUserSuspended(userId, suspended) {
 export function deleteUser(userId) {
   return request(`/admin/users/${userId}`, { method: 'DELETE' });
 }
+
+export function issuePasswordReset(userId) {
+  return request(`/admin/users/${userId}/password-reset`, { method: 'POST' });
+}
+
+export function redeemPasswordReset(token, password) {
+  return request('/auth/password-reset', { method: 'POST', body: JSON.stringify({ token, password }) });
+}
