@@ -65,6 +65,7 @@ export function createApp({
   app.disable('x-powered-by');
   app.set('trust proxy', environment.TRUST_PROXY === '1' ? 1 : false);
   app.use((req, res, next) => {
+    if (req.path.startsWith('/api/')) res.set('Cache-Control', 'private, no-store');
     res.set({
       'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
       'Referrer-Policy': 'no-referrer',

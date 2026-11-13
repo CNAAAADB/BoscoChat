@@ -3,7 +3,7 @@ import { currentSession, login, logout, register } from './api/auth.js';
 import { changeUserRole, createUser, deleteUser, listUsers, setUserSuspended, issuePasswordReset, redeemPasswordReset } from './api/users.js';
 import HistoricalManagement from './HistoricalManagement.jsx';
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
+const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 // Switch on only after RDS archive migration, real ingestion and API deployment.
 const ARCHIVE_SEARCH_ENABLED = import.meta.env.VITE_ARCHIVE_SEARCH === 'true';
 const ARCHIVE_PDF_VIEW_ENABLED = import.meta.env.VITE_ARCHIVE_PDF_VIEW === 'true';
@@ -442,7 +442,7 @@ export default function App() {
                 <strong>{record.username}</strong> <span>({record.email})</span>
                 <p>Perfil: {ROLE_LABELS[record.role] ?? 'Usuario'} · Estado: {record.suspended ? 'Suspendida' : 'Activa'}</p>
                 <select aria-label={`Rol de ${record.username}`} disabled={self || userAdminBusy} style={styles.input} value={ROLES.some((role) => role.value === record.role) ? record.role : 'free'} onChange={(event) => runUserAdministration(() => changeUserRole(record.id, event.target.value))}>
-                  {ROLES.map((role) => <option key={role} value={role}>{role}</option>)}
+                  {ROLES.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
                 </select>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                   <button style={styles.btnPrimary} disabled={self || userAdminBusy} type="button" onClick={() => runUserAdministration(() => setUserSuspended(record.id, !record.suspended))}>
