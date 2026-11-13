@@ -82,7 +82,7 @@ export default function HistoricalManagement() {
   return (
     <section style={panel}>
       <h2 style={heading}>Gestión histórica</h2>
-      <p style={{ lineHeight: 1.6 }}>Área privada para administrar los originales del Archivo Histórico Salesiano. Solo pueden acceder administradores y gestores documentales.</p>
+      <p style={{ lineHeight: 1.6 }}>Área privada para administrar los originales del Archivo Histórico Salesiano. Solo pueden acceder los usuarios con el perfil Historiador.</p>
       {error ? <p role="alert" style={{ background: '#471b1b', border: '1px solid #eb6868', borderRadius: 12, padding: 14 }}>{error}</p> : null}
       {message ? <p role="status" style={{ background: '#223527', borderRadius: 12, padding: 14 }}>{message}</p> : null}
 
