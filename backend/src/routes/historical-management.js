@@ -22,13 +22,14 @@ function isAbsentObject(error) {
 
 export function createHistoricalManagementRouter(pool, authService, {
   s3Client = null,
+  s3Commands = null,
   signer = { upload: signedArchiveUpload, download: signedArchiveDownload },
 } = {}) {
   const router = express.Router();
   router.use(requireAuthorization(authService, allowed));
 
   async function withS3(fn) {
-    if (s3Client) return fn(s3Client, await import('@aws-sdk/client-s3'));
+    if (s3Client) return fn(s3Client, s3Commands ?? await import('@aws-sdk/client-s3'));
     const sdk = await import('@aws-sdk/client-s3');
     const client = new sdk.S3Client({ region: REGION, maxAttempts: 2 });
     try { return await fn(client, sdk); } finally { client.destroy(); }
