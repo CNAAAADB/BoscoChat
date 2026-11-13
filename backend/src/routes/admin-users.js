@@ -2,7 +2,7 @@ import express from 'express';
 import { requireAuthorization } from '../middleware/authorization.js';
 import { ROLES } from '../users/roles.js';
 
-export function createAdminUsersRouter(authService, administrationService) {
+export function createAdminUsersRouter(authService, administrationService, { passwordResets = null } = {}) {
   const router = express.Router();
   router.use(requireAuthorization(authService, new Set([ROLES.ADMINISTRATOR])));
 
@@ -27,6 +27,16 @@ export function createAdminUsersRouter(authService, administrationService) {
       res.json({ user: await administrationService.setSuspended(req.user.id, req.params.userId, req.body?.suspended) });
     } catch (error) { next(error); }
   });
+
+  if (passwordResets) {
+    router.post('/:userId/password-reset', async (req, res, next) => {
+      try {
+        const reset = await passwordResets.issueByAdministrator(req.user.id, req.params.userId);
+        res.set('Cache-Control', 'no-store');
+        res.status(201).json({ reset });
+      } catch (error) { next(error); }
+    });
+  }
 
   router.delete('/:userId', async (req, res, next) => {
     try {
