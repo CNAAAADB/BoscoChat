@@ -85,7 +85,7 @@ async function withApp(fn) {
 }
 function cookie(role) { return { cookie: 'boscochat_session=' + role + '-session' }; }
 
-test('BC-017 rejects anonymous and normal users for all management endpoints', async () => withApp(async (base) => {
+test('BC-017 rejects anonymous, platform administrators and normal users for all management endpoints', async () => withApp(async (base) => {
   for (const [method, path] of [
     ['GET', '/documents'], ['POST', '/uploads'], ['GET', '/documents/1923/download'],
   ]) {
@@ -93,6 +93,8 @@ test('BC-017 rejects anonymous and normal users for all management endpoints', a
     assert.equal(anonymous.status, 401, method + ' ' + path);
     const normal = await fetch(base + path, { method, headers: cookie('free') });
     assert.equal(normal.status, 403, method + ' ' + path);
+    const platformAdmin = await fetch(base + path, { method, headers: cookie('admin') });
+    assert.equal(platformAdmin.status, 403, method + ' ' + path);
   }
 }));
 
