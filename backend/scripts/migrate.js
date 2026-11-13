@@ -140,6 +140,17 @@ async function migrate() {
       KEY ix_admin_audit_action_created (action, created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
 
+    await connection.execute(`CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      token_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+      user_id ${userIdType} NOT NULL,
+      expires_at DATETIME(3) NOT NULL,
+      created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+      PRIMARY KEY (token_hash),
+      UNIQUE KEY ux_reset_user (user_id),
+      KEY ix_reset_expiry (expires_at),
+      CONSTRAINT fk_password_reset_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+
     await connection.execute(`CREATE TABLE IF NOT EXISTS query_logs (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
       user_id ${userIdType} NOT NULL,
