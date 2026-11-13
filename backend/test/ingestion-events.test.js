@@ -29,3 +29,12 @@ test('BC-007 rejects wrong bucket or event source', () => {
 test('BC-007 rejects huge object before downloading it', () => {
   assert.throws(() => objectsFromQueueEvent(event(undefined, { detail: { bucket: { name: 'boscochat-archivo-pdfs' }, object: { key: 'originals/Don Bosco en España_1923.pdf', size: 500000000 } } })), /Invalid S3 object size/);
 });
+
+test('BC-017 acknowledges safe nonannual original PDFs for later cataloguing without indexing', () => {
+  assert.deepEqual(objectsFromQueueEvent(event('originals/Memoria Histórica 1982.pdf')), []);
+  assert.deepEqual(objectsFromQueueEvent(event('originals/Boletín Salesiano.pdf')), []);
+  assert.throws(() => objectsFromQueueEvent(event('originals/../secreto.pdf')), /Unexpected archive key/);
+  assert.throws(() => objectsFromQueueEvent(event('originals/Memoria Histórica 1982.pdf', {
+    detail: { bucket: { name: 'boscochat-archivo-pdfs' }, object: { key: 'originals/Memoria Histórica 1982.pdf', size: 500000000 } },
+  })), /Invalid S3 object size/);
+});
