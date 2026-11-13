@@ -46,6 +46,7 @@ export default function HistoricalManagement() {
 
   const upload = async (event) => {
     event.preventDefault();
+    const uploadForm = event.currentTarget;
     setError('');
     setMessage('');
     if (!selectedFile) return setError('Selecciona un PDF.');
@@ -54,7 +55,7 @@ export default function HistoricalManagement() {
     try {
       const response = await historicalUpload(selectedFile, setMessage);
       setSelectedFile(null);
-      // The selected file input is reset by the native form after success.
+      uploadForm.reset();
       setMessage(response.willIndexAutomatically
         ? 'PDF guardado en AWS. La indexación automática está solicitada.'
         : 'PDF guardado en AWS y visible en el directorio. Pendiente de catalogación para buscar su contenido.');
