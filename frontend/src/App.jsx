@@ -240,7 +240,7 @@ export default function App() {
       {view === 'home' ? (
         <section style={styles.card}>
           <h2 style={styles.sectionTitle}>Identidad Salesiana</h2>
-          <p style={{ lineHeight: 1.9, fontSize: '1.2rem' }}>Los antiguos alumnos salesianos somos personas basadas en el Sistema Preventivo: <strong>razón, religión y bondad amorosa.</strong></p>
+          <p style={{ lineHeight: 1.9, fontSize: '1.2rem' }}>Los antiguos alumnos salesianos somos personas basadas en el Sistema Preventivo: <strong>razón, religión y amorevolezza.</strong></p>
           {user ? <p>Sesión iniciada como <strong>{user.username}</strong> ({user.role}).</p> : null}
         </section>
       ) : null}
