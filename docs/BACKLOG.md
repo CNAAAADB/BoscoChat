@@ -300,6 +300,47 @@ As an Administrator, I want usage and resource monitoring so that I can supervis
 - [ ] Show user activity indicators.
 - [ ] Show system-resource/operational metrics available from the deployed environment.
 
+### BC-016 — Official BoscoChat domain and HTTPS
+- Priority: P1
+- Status: IDEA
+- Owner role: Product / Developer
+- Depends on: current Amplify/API Gateway deployment
+- SRS: TRACE-GAP — requested by product owner on 2026-11-13, hostname and DNS control pending
+- Design/mockup: TBD
+- PR: -
+
+**Story**
+As a visitor, I want to access BoscoChat using its official domain securely and consistently.
+
+**Acceptance criteria**
+- [ ] Confirm exact official domain, DNS registrar, authorized DNS administration and intended app/API subdomains.
+- [ ] Configure custom domain on AWS Amplify; attach and validate TLS certificate, force HTTPS and verify DNS resolution.
+- [ ] Place the API on a suitable HTTPS subdomain with a valid certificate and update frontend API base, backend CORS and cookie domain/SameSite settings safely.
+- [ ] Verify registration, login, session persistence, public search and protected PDF viewer from the final domain, including mobile browsers.
+- [ ] Preserve existing links or document redirects; provide rollback and document DNS changes without committing credentials.
+
+### BC-017 — Private archive management through the website
+- Priority: P1
+- Status: IDEA
+- Owner role: Product / Developer
+- Depends on: BC-002, BC-006, BC-007
+- SRS: RF-DOCMGMT-01, RF-DOCMGMT-02, RF-DOCMGMT-04; TRACE-GAP for exact upload/download authorization policy
+- Design/mockup: TBD
+- PR: -
+
+**Story**
+As an authorized archive administrator or documentary manager, I want to upload files, list available documents, filter by filename and download original files from an authenticated website area.
+
+**Acceptance criteria**
+- [ ] Provide a protected archive-management route in the React web application, restricted server-side to administrator and documentary_manager roles.
+- [ ] List existing objects under private S3 originals/ with filename, size, year, ingestion status and pagination; exclude folder markers.
+- [ ] Support case-insensitive filename filtering and safe handling of Unicode, special characters and missing metadata.
+- [ ] Upload PDF files using a private short-lived upload mechanism or streaming proxy with content-type/size validation, overwrite policy, checksum and failure states.
+- [ ] Successful upload triggers the automatic ingestion pipeline; show pending/processed/failed state and retry for authorized managers.
+- [ ] Authorize original-PDF downloads via a controlled private mechanism; never expose a public bucket.
+- [ ] Audit operations, prevent IDOR/path traversal, enforce limits and test permissions, failures and concurrency.
+- [ ] Separate public search, authenticated reading and privileged upload/download access.
+
 ### BC-014 — User profile management
 - Priority: P2
 - Status: IDEA
