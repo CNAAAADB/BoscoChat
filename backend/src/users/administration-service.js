@@ -1,5 +1,5 @@
 import { AuthError } from '../auth/service.js';
-import { normalizeRole, ROLES } from './roles.js';
+import { normalizeRole, ROLES, ASSIGNABLE_ROLES } from './roles.js';
 
 function positiveUserId(value) {
   const id = Number(value);
@@ -48,7 +48,7 @@ export class UserAdministrationService {
 
   async createUser(actorId, input) {
     const role = normalizeRole(input?.role);
-    if (!role) {
+    if (!ASSIGNABLE_ROLES.includes(role)) {
       const error = new AuthError(400, 'INVALID_ROLE', 'Selecciona un rol válido.');
       await this.auditDenied(actorId, null, 'user.create', error);
       throw error;
@@ -67,7 +67,7 @@ export class UserAdministrationService {
     try {
       targetId = positiveUserId(targetIdValue);
       const role = normalizeRole(roleValue);
-      if (!role) throw new AuthError(400, 'INVALID_ROLE', 'Selecciona un rol válido.');
+      if (!ASSIGNABLE_ROLES.includes(role)) throw new AuthError(400, 'INVALID_ROLE', 'Selecciona uno de los tres perfiles disponibles.');
       if (Number(actorId) === targetId && role !== ROLES.ADMINISTRATOR) {
         throw new AuthError(409, 'SELF_ADMINISTRATION_FORBIDDEN', 'No puedes retirar tu propio acceso de administrador.');
       }
