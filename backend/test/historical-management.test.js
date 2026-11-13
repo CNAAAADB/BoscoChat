@@ -7,19 +7,19 @@ import { signedArchiveUpload, signedArchiveDownload } from '../src/documents/arc
 const credentials = { accessKey: 'AKIDEXAMPLE', secret: 'a'.repeat(40), token: 'tokenexample' };
 const now = new Date('2026-11-13T12:00:00.000Z');
 
-test('BC-017 S3 POST signature is limited to one filename, 350 MiB and five minutes', () => {
+test('BC-017 signed conditional S3 PUT binds key, size, MIME, encryption and no-overwrite header', () => {
   const result = signedArchiveUpload({
     key: 'originals/Don Bosco en España_2026.pdf',
     fileSize: 5000000, credentials, now,
   });
-  assert.equal(result.url, 'https://boscochat-archivo-pdfs.s3.us-east-1.amazonaws.com/');
+  assert.equal(result.method, 'PUT');
+  assert.match(result.url, /^https:\/\/boscochat-archivo-pdfs\.s3\.us-east-1\.amazonaws\.com\/originals\//);
   assert.equal(result.expiresIn, 300);
-  assert.equal(result.fields['x-amz-server-side-encryption'], 'AES256');
-  assert.match(result.fields['x-amz-signature'], /^[a-f0-9]{64}$/);
-  const policy = JSON.parse(Buffer.from(result.fields.policy, 'base64').toString('utf8'));
-  assert.equal(policy.expiration, '2026-11-13T12:05:00.000Z');
-  assert.ok(policy.conditions.some((condition) => condition[0] === 'eq' && condition[1] === '$key' && condition[2] === 'originals/Don Bosco en España_2026.pdf'));
-  assert.ok(policy.conditions.some((condition) => condition[0] === 'content-length-range' && condition[2] === 350 * 1024 * 1024 + 4096));
+  assert.equal(result.headers['If-None-Match'], '*');
+  assert.equal(result.headers['x-amz-server-side-encryption'], 'AES256');
+  assert.match(result.url, /X-Amz-Signature=[a-f0-9]{64}$/);
+  assert.match(result.url, /X-Amz-SignedHeaders=content-length%3Bcontent-type%3Bhost%3Bif-none-match%3Bx-amz-server-side-encryption/);
+  assert.match(result.url, /X-Amz-Expires=300/);
   assert.throws(() => signedArchiveUpload({ key: 'originals/../secret.pdf', fileSize: 1000, now, credentials }), /INVALID_ARCHIVE_UPLOAD/);
   assert.throws(() => signedArchiveUpload({ key: 'originals/Don Bosco en España_2026.pdf', fileSize: 351 * 1024 * 1024, now, credentials }), /INVALID_ARCHIVE_UPLOAD/);
 });
@@ -66,7 +66,7 @@ const sessions = {
 };
 const auth = { async session(token) { return sessions[token] ?? null; } };
 const signer = {
-  upload: ({ key }) => ({ url: 'https://s3.example.invalid/', fields: { key }, expiresIn: 300 }),
+  upload: ({ key }) => ({ method: 'PUT', url: 'https://s3.example.invalid/', headers: { 'If-None-Match': '*' }, key, expiresIn: 300 }),
   download: ({ key }) => ({ url: 'https://download.example.invalid/' + encodeURIComponent(key), expiresIn: 60 }),
 };
 
@@ -118,7 +118,7 @@ test('BC-017 prevents overwriting existing annual and invalid uploads', async ()
     body: JSON.stringify({ filename: 'Don Bosco en España_2026.pdf', sizeBytes: 240000 }),
   });
   assert.equal(valid.status, 201);
-  assert.equal((await valid.json()).upload.fields.key, 'originals/Don Bosco en España_2026.pdf');
+  assert.equal((await valid.json()).upload.key, 'originals/Don Bosco en España_2026.pdf');
   const invalid = await fetch(base + '/uploads', {
     method: 'POST', headers: { ...cookie('admin'), 'Content-Type': 'application/json' },
     body: JSON.stringify({ filename: '../../secret.pdf', sizeBytes: 2 }),
