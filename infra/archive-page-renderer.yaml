@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: BoscoChat BC-012 - isolated authenticated visual page renderer for private archive originals
+
+Parameters:
+  WorkerImageUri:
+    Type: String
+    Description: Reviewed ECR image pinned to the main Git commit
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet::Id
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet::Id
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup::Id
+
+Resources:
+  PageRendererRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: boscochat-pdf-page-renderer-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        - PolicyName: private-page-cache-only
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ReadOnlyOriginalPdfs
+                Effect: Allow
+                Action: s3:GetObject
+                Resource: arn:aws:s3:::boscochat-archivo-pdfs/originals/*
+              - Sid: ReadAndCachePrivatePageImages
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: arn:aws:s3:::boscochat-archivo-pdfs/previews/*
+
+  PageRenderer:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: boscochat-pdf-page-renderer
+      PackageType: Image
+      Code:
+        ImageUri: !Ref WorkerImageUri
+      ImageConfig:
+        Command:
+          - worker/page-preview.handler
+      Role: !GetAtt PageRendererRole.Arn
+      MemorySize: 2048
+      Timeout: 120
+      EphemeralStorage:
+        Size: 1024
+      VpcConfig:
+        SubnetIds:
+          - !Ref PrivateSubnetA
+          - !Ref PrivateSubnetB
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+
+Outputs:
+  PageRendererName:
+    Value: !Ref PageRenderer
+  PageRendererArn:
+    Value: !GetAtt PageRenderer.Arn
