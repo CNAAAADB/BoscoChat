@@ -316,8 +316,8 @@ As a visitor, I want to access BoscoChat using its official domain securely and 
 - [x] Confirm exact official domain: `boscochat.com` (owner confirmed 2026-11-13).
 - [x] Confirm DNS provider: Hostinger (owner confirmed 2026-11-13).
 - [ ] Confirm DNS editing access and app/API subdomains (proposed `www.boscochat.com` and `api.boscochat.com`, subject to approval).
-- [ ] Configure custom domain on AWS Amplify; attach and validate TLS certificate, force HTTPS and verify DNS resolution.
-- [ ] Place the API on a suitable HTTPS subdomain with a valid certificate and update frontend API base, backend CORS and cookie domain/SameSite settings safely.
+- [x] Configure `boscochat.com` and `www.boscochat.com` on AWS Amplify branch `main`; owner screenshot 2026-11-13 shows domain `Disponible`, Amplify-managed TLS and both hostname mappings. Browser end-to-end HTTPS and redirect behavior still require verification.
+- [ ] Place API at proposed `api.boscochat.com` with valid HTTPS certificate and update frontend API base, backend CORS and cookie SameSite settings safely.
 - [ ] Verify registration, login, session persistence, public search and protected PDF viewer from the final domain, including mobile browsers.
 - [ ] Preserve existing links or document redirects; provide rollback and document DNS changes without committing credentials.
 
