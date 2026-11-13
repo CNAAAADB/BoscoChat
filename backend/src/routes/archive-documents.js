@@ -1,7 +1,8 @@
 import express from 'express';
 import { requireAuthorization } from '../middleware/authorization.js';
+import { watermarkPageJpeg } from '../documents/jpeg-watermark.js';
 
-export function createArchiveDocumentRouter(pool, authService, { pdfViewerEnabled = false, allowedOrigins = [] } = {}) {
+export function createArchiveDocumentRouter(pool, authService, { pdfViewerEnabled = false, allowedOrigins = [], pageImageEnabled = false, imageRateLimiter = (_req, _res, next) => next(), watermarkSecret = '' } = {}) {
   const router = express.Router();
   const authenticated = requireAuthorization(authService);
   router.get('/:documentId/pages/:pageNumber', authenticated, async (req, res, next) => {
@@ -22,6 +23,61 @@ export function createArchiveDocumentRouter(pool, authService, { pdfViewerEnable
       return res.json({ page: rows[0] });
     } catch (error) { return next(error); }
   });
+
+  if (pageImageEnabled) {
+    router.get('/:documentId/pages/:pageNumber/image', authenticated, imageRateLimiter, async (req, res) => {
+      const documentId = Number(req.params.documentId);
+      const pageNumber = Number(req.params.pageNumber);
+      if (!Number.isSafeInteger(documentId) || documentId < 1
+          || !Number.isSafeInteger(pageNumber) || pageNumber < 1 || pageNumber > 5000) {
+        return res.status(400).json({ error: { code: 'INVALID_DOCUMENT_PAGE', message: 'Documento o página inválidos.' } });
+      }
+      try {
+        const [rows] = await pool.execute(
+          'SELECT d.s3_key FROM archive_documents d JOIN archive_pages p ON p.document_id = d.id WHERE d.id = ? AND d.indexed_at IS NOT NULL AND p.page_number = ? LIMIT 1',
+          [documentId, pageNumber],
+        );
+        if (!rows.length || !/^originals\/[^/]+\.pdf$/i.test(rows[0].s3_key)) {
+          return res.status(404).json({ error: { code: 'PAGE_NOT_FOUND', message: 'Página no encontrada.' } });
+        }
+        const { LambdaClient, InvokeCommand } = await import('@aws-sdk/client-lambda');
+        const client = new LambdaClient({ region: 'us-east-1', maxAttempts: 1 });
+        let invocation;
+        try {
+          invocation = await client.send(new InvokeCommand({
+            FunctionName: 'boscochat-pdf-page-renderer',
+            InvocationType: 'RequestResponse',
+            Payload: Buffer.from(JSON.stringify({ key: rows[0].s3_key, page: pageNumber })),
+          }));
+        } finally {
+          client.destroy();
+        }
+        if (invocation.FunctionError || !invocation.Payload || invocation.Payload.length > 5 * 1024 * 1024) {
+          throw new Error('PAGE_RENDERER_FAILED');
+        }
+        const output = JSON.parse(Buffer.from(invocation.Payload).toString('utf8'));
+        if (output.mimeType !== 'image/jpeg' || typeof output.image !== 'string' || output.image.length > 4 * 1024 * 1024) {
+          throw new Error('INVALID_RENDERER_RESPONSE');
+        }
+        const jpeg = Buffer.from(output.image, 'base64');
+        if (jpeg.length < 2 || jpeg.length > 3 * 1024 * 1024) throw new Error('INVALID_RENDERED_IMAGE');
+        const identified = watermarkPageJpeg(jpeg, {
+          userId: req.user.id, documentId, pageNumber, secret: watermarkSecret,
+        });
+        res.set({
+          'Cache-Control': 'private, no-store',
+          'Content-Type': 'image/jpeg',
+          'Content-Disposition': 'inline',
+          'Content-Length': String(identified.length),
+          'X-Content-Type-Options': 'nosniff',
+        });
+        return res.end(identified);
+      } catch (error) {
+        console.error('Protected visual page preview failed', { name: error?.name, code: error?.code });
+        return res.status(502).json({ error: { code: 'PAGE_PREVIEW_FAILED', message: 'No se ha podido mostrar la página visual.' } });
+      }
+    });
+  }
 
   if (pdfViewerEnabled) {
     async function servePdf(req, res) {
