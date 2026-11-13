@@ -34,7 +34,7 @@ Backend execution role `boscochat-backend-role-yvarjgvz`:
 
 S3 CORS must allow the three actual hosting origins (`boscochat.com`, `www.boscochat.com`, default Amplify hostname), `PUT` uploads and `ETag` exposure. The bucket must remain blocked from public access. Confirm EventBridge notification is enabled.
 
-No new frontend flag is necessary: the navigation is exposed by the authenticated role and feature must be gated at release via merge/deploy controls. Amplify rebuilds `main` automatically and GitHub Actions publishes the backend on merge.
+**Release gates:** backend `HISTORICAL_MANAGEMENT_ENABLED=true` and Amplify build-time `VITE_HISTORICAL_MANAGEMENT=true` (defaults off). Configure IAM, bucket CORS and validate signed PUT/GET with a disposable test annual before enabling both. A production merge alone must not activate privileged upload/download routes. Amplify rebuilds `main` automatically and GitHub Actions publishes the backend on merge.
 
 ## Tests and acceptance
 
