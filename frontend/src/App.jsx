@@ -3,7 +3,7 @@ import { currentSession, login, logout, register } from './api/auth.js';
 import { changeUserRole, createUser, deleteUser, listUsers, setUserSuspended, issuePasswordReset, redeemPasswordReset } from './api/users.js';
 import HistoricalManagement from './HistoricalManagement.jsx';
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
+const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 // Switch on only after RDS archive migration, real ingestion and API deployment.
 const ARCHIVE_SEARCH_ENABLED = import.meta.env.VITE_ARCHIVE_SEARCH === 'true';
 const ARCHIVE_PDF_VIEW_ENABLED = import.meta.env.VITE_ARCHIVE_PDF_VIEW === 'true';
