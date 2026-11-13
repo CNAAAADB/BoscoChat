@@ -64,7 +64,7 @@ export function signedArchiveUpload({ key, fileSize, now, credentials = credenti
     ...(credentials.token ? { 'X-Amz-Security-Token': credentials.token } : {}),
   };
   const canonicalQuery = Object.entries(query).map(([k, v]) => [encode(k), encode(v)])
-    .sort(([a], [b]) => a.localeCompare(b, 'en')).map(([k, v]) => k + '=' + v).join('&');
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([k, v]) => k + '=' + v).join('&');
   const canonicalHeaders = 'content-length:' + fileSize + '\n'
     + 'content-type:application/pdf\n'
     + 'host:' + host + '\n'
@@ -96,10 +96,11 @@ export function signedArchiveDownload({ key, now, credentials = credentialsFromE
     'X-Amz-Date': timestamp,
     'X-Amz-Expires': '60',
     'X-Amz-SignedHeaders': 'host',
+    'response-content-disposition': 'attachment; filename="Don_Bosco_en_Espana_' + key.slice(-8, -4) + '.pdf"',
     ...(credentials.token ? { 'X-Amz-Security-Token': credentials.token } : {}),
   };
   const canonicalQuery = Object.entries(query).map(([k, v]) => [encode(k), encode(v)])
-    .sort(([a], [b]) => a.localeCompare(b, 'en')).map(([k, v]) => k + '=' + v).join('&');
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([k, v]) => k + '=' + v).join('&');
   const request = 'GET\n' + path + '\n' + canonicalQuery + '\nhost:' + host + '\n\nhost\nUNSIGNED-PAYLOAD';
   const stringToSign = 'AWS4-HMAC-SHA256\n' + timestamp + '\n' + day + '/' + REGION + '/s3/aws4_request\n' + sha256(request);
   return { url: 'https://' + host + path + '?' + canonicalQuery + '&X-Amz-Signature=' + hmac(signingKey(credentials.secret, day), stringToSign, 'hex'), expiresIn: 60 };
