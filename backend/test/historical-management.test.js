@@ -28,10 +28,12 @@ test('BC-017 signed download is limited to a matching original with 60-second to
   const { url, expiresIn } = signedArchiveDownload({ key: 'originals/Don Bosco en España_2025.pdf', now, credentials });
   assert.equal(expiresIn, 60);
   assert.match(url, /X-Amz-Expires=60/);
-  assert.match(url, /response-content-disposition=attachment%3B%20filename%3D%22Don_Bosco_en_Espana_2025.pdf%22/);
+  assert.match(url, /response-content-disposition=attachment%3B%20filename%3D%22BoscoChat_Original.pdf%22/);
   assert.match(url, /X-Amz-Signature=[a-f0-9]{64}/);
   assert.match(url, /Don%20Bosco%20en%20Espa%C3%B1a_2025\.pdf/);
   assert.throws(() => signedArchiveDownload({ key: 'previews/2025/a.jpg', now, credentials }), /INVALID_ARCHIVE_DOWNLOAD/);
+  assert.ok(signedArchiveDownload({ key: 'originals/Memoria Histórica 1982.pdf', now, credentials }).url.includes('Memoria%20Hist%C3%B3rica'));
+  assert.throws(() => signedArchiveDownload({ key: 'originals/../secret.pdf', now, credentials }), /INVALID_ARCHIVE_DOWNLOAD/);
 });
 
 class ListObjectsV2Command { constructor(params) { Object.assign(this, params); } }
@@ -43,11 +45,12 @@ const mockS3 = {
       return { Contents: [
         { Key: 'originals/Don Bosco en España_1923.pdf', Size: 12345, LastModified: now },
         { Key: 'originals/Don Bosco en España_2025.pdf', Size: 25000, LastModified: now },
+        { Key: 'originals/Boletín de la casa 1950.pdf', Size: 18000, LastModified: now },
         { Key: 'originals/ignored.txt', Size: 1 },
       ] };
     }
     if (command instanceof HeadObjectCommand) {
-      if (command.Key.endsWith('2025.pdf') || command.Key.endsWith('1923.pdf')) return { ContentLength: 25000 };
+      if (command.Key.endsWith('2025.pdf') || command.Key.endsWith('1923.pdf') || command.Key.endsWith('casa 1950.pdf')) return { ContentLength: 25000 };
       const err = new Error('not found');
       err.name = 'NotFound';
       throw err;
@@ -87,7 +90,7 @@ function cookie(role) { return { cookie: 'boscochat_session=' + role + '-session
 
 test('BC-017 rejects anonymous, platform administrators and normal users for all management endpoints', async () => withApp(async (base) => {
   for (const [method, path] of [
-    ['GET', '/documents'], ['POST', '/uploads'], ['GET', '/documents/1923/download'],
+    ['GET', '/documents'], ['POST', '/uploads'], ['GET', '/documents/1923/download'], ['GET', '/documents/download?filename=Bolet%C3%ADn%20de%20la%20casa%201950.pdf'],
   ]) {
     const anonymous = await fetch(base + path, { method });
     assert.equal(anonymous.status, 401, method + ' ' + path);
@@ -137,4 +140,35 @@ test('BC-017 only permits authorized downloads of existing years', async () => w
   assert.equal(absent.status, 404);
   const invalid = await fetch(base + '/documents/not-a-year/download', { headers: cookie('manager') });
   assert.equal(invalid.status, 400);
+}));
+
+test('BC-017 stores generic PDFs in the same originals prefix but marks them for cataloguing', async () => withApp(async (base) => {
+  const inventory = await fetch(base + '/documents?q=Boletín', { headers: cookie('manager') });
+  assert.equal(inventory.status, 200);
+  const records = await inventory.json();
+  assert.equal(records.total, 1);
+  assert.equal(records.documents[0].filename, 'Boletín de la casa 1950.pdf');
+  assert.equal(records.documents[0].status, 'stored');
+  assert.equal(records.documents[0].year, null);
+
+  const signed = await fetch(base + '/uploads', {
+    method: 'POST', headers: { ...cookie('manager'), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename: 'Memoria Histórica 1982.pdf', sizeBytes: 55000 }),
+  });
+  assert.equal(signed.status, 201);
+  const data = await signed.json();
+  assert.equal(data.upload.key, 'originals/Memoria Histórica 1982.pdf');
+  assert.equal(data.willIndexAutomatically, false);
+  const annual = await fetch(base + '/uploads', {
+    method: 'POST', headers: { ...cookie('manager'), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename: 'Don Bosco en España_2026.pdf', sizeBytes: 55000 }),
+  });
+  assert.equal((await annual.json()).willIndexAutomatically, true);
+
+  const download = await fetch(base + '/documents/download?filename=Bolet%C3%ADn%20de%20la%20casa%201950.pdf', { headers: cookie('manager') });
+  assert.equal(download.status, 200);
+  assert.equal((await download.json()).download.expiresIn, 60);
+
+  const traversal = await fetch(base + '/documents/download?filename=..%2Fprivate.pdf', { headers: cookie('manager') });
+  assert.equal(traversal.status, 400);
 }));
