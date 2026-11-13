@@ -54,8 +54,10 @@ export default function HistoricalManagement() {
     try {
       const response = await historicalUpload(selectedFile, setMessage);
       setSelectedFile(null);
-      if (event.currentTarget) event.currentTarget.reset();
-      setMessage('PDF de ' + response.year + ' almacenado. La indexación automática ya está solicitada.');
+      // The selected file input is reset by the native form after success.
+      setMessage(response.willIndexAutomatically
+        ? 'PDF guardado en AWS. La indexación automática está solicitada.'
+        : 'PDF guardado en AWS y visible en el directorio. Pendiente de catalogación para buscar su contenido.');
       await refresh();
     } catch (failure) {
       setError(failure.message);
@@ -64,13 +66,13 @@ export default function HistoricalManagement() {
     }
   };
 
-  const download = async (year) => {
+  const download = async (filename) => {
     setError('');
     // Create the window during the user's click, before awaiting the authenticated request.
     const popup = window.open('about:blank', '_blank');
     if (popup) popup.opener = null;
     try {
-      const response = await historicalDownload(year);
+      const response = await historicalDownload(filename);
       if (popup && !popup.closed) popup.location.replace(response.download.url);
       else window.location.assign(response.download.url);
     } catch (failure) {
@@ -82,43 +84,45 @@ export default function HistoricalManagement() {
   return (
     <section style={panel}>
       <h2 style={heading}>Gestión histórica</h2>
-      <p style={{ lineHeight: 1.6 }}>Área privada para administrar los originales del Archivo Histórico Salesiano. Solo pueden acceder los usuarios con el perfil Historiador.</p>
+      <p style={{ lineHeight: 1.6 }}>Directorio privado de documentos originales. Acceso exclusivo para historiadores.</p>
       {error ? <p role="alert" style={{ background: '#471b1b', border: '1px solid #eb6868', borderRadius: 12, padding: 14 }}>{error}</p> : null}
       {message ? <p role="status" style={{ background: '#223527', borderRadius: 12, padding: 14 }}>{message}</p> : null}
 
-      <form onSubmit={upload} style={{ padding: 20, borderRadius: 20, background: '#11111e', margin: '26px 0' }}>
-        <h3 style={{ color: '#E6D7AA', marginTop: 0 }}>Incorporar un documento histórico</h3>
-        <p>PDF anual de <strong>Don Bosco en España</strong>. Nombre: <code>Don Bosco en España_YYYY.pdf</code>. Máximo 350 MB; si ya existe ese año, no se sobrescribe.</p>
-        <label htmlFor="historical-pdf">Archivo PDF</label>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginTop: 10 }}>
-          <input id="historical-pdf" type="file" accept=".pdf,application/pdf" disabled={busy} onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)} style={{ ...control, flex: '1 1 300px' }} />
-          <button type="submit" disabled={busy || !selectedFile} style={{ ...button, opacity: busy || !selectedFile ? 0.5 : 1 }}>{busy ? 'Subiendo…' : 'Subir PDF'}</button>
-        </div>
-        <p style={{ fontSize: 13, opacity: 0.8 }}>La subida es directa al almacenamiento privado de AWS. Una vez completada, el documento entra automáticamente en la cola de indexación.</p>
-      </form>
-
+      <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '20px 0' }}><a style={{ ...button, textDecoration: 'none' }} href="#historical-upload">+ Subir nuevo PDF</a></div>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        <h3 style={{ color: '#E6D7AA', margin: 0 }}>Documentos del archivo ({visible.length})</h3>
+        <h3 style={{ color: '#E6D7AA', margin: 0 }}>Archivos almacenados ({documents.length})</h3>
         <button type="button" onClick={refresh} disabled={loading || busy} style={button}>Actualizar estado</button>
       </div>
       <label htmlFor="historical-filter" style={{ display: 'block', margin: '20px 0 10px' }}>Filtrar por nombre o año</label>
       <input id="historical-filter" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Ej. 1954 o Don Bosco" style={{ ...control, width: '100%' }} />
       {loading ? <p role="status">Consultando el archivo…</p> : null}
-      {!loading && !visible.length ? <p>No hay documentos que coincidan con el filtro.</p> : null}
+      {!loading && !visible.length ? <p>No hay PDF que coincidan con el filtro.</p> : null}
       <div style={{ display: 'grid', gap: 12, marginTop: 18 }}>
         {visible.map((doc) => (
-          <article key={doc.year} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap', background: '#12121d', border: '1px solid #353554', borderRadius: 16, padding: 16 }}>
+          <article key={doc.filename} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap', background: '#12121d', border: '1px solid #353554', borderRadius: 16, padding: 16 }}>
             <div style={{ minWidth: 200, flex: 1 }}>
-              <strong style={{ overflowWrap: 'anywhere' }}>{doc.filename}</strong>
-              <div style={{ fontSize: 13, color: '#c7c7d6', marginTop: 8 }}>{sizeLabel(doc.sizeBytes)} · {doc.year} · {doc.pages} páginas indexadas</div>
+              <strong style={{ overflowWrap: 'anywhere' }}>📄 {doc.filename}</strong>
+              <div style={{ fontSize: 13, color: '#c7c7d6', marginTop: 8 }}>{sizeLabel(doc.sizeBytes)}{doc.year ? ` · ${doc.year}` : ''} · {doc.pages} páginas indexadas</div>
               <div style={{ color: doc.status === 'indexed' ? '#a4dfb4' : '#efcd80', marginTop: 5 }}>
-                {doc.status === 'indexed' ? 'Indexado y disponible para búsqueda' : 'Pendiente de indexación'}
+                {doc.status === 'indexed' ? 'Indexado y disponible para búsqueda' : doc.status === 'stored' ? 'Almacenado · pendiente de catalogación' : 'Pendiente de indexación'}
               </div>
             </div>
-            <button type="button" onClick={() => download(doc.year)} style={button}>Descargar original</button>
+            <button type="button" onClick={() => download(doc.filename)} style={button}>Descargar original</button>
           </article>
         ))}
       </div>
+      <form id="historical-upload" onSubmit={upload} style={{ padding: 20, borderRadius: 20, background: '#11111e', margin: '26px 0' }}>
+        <h3 style={{ color: '#E6D7AA', marginTop: 0 }}>Subir un nuevo PDF</h3>
+        <p>Puedes subir un PDF de hasta 350 MB. Se guardará junto a los originales existentes y nunca sobrescribirá un archivo con el mismo nombre.</p>
+        <label htmlFor="historical-pdf">Archivo PDF</label>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginTop: 10 }}>
+          <input id="historical-pdf" type="file" accept=".pdf,application/pdf" disabled={busy} onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)} style={{ ...control, flex: '1 1 300px' }} />
+          <button type="submit" disabled={busy || !selectedFile} style={{ ...button, opacity: busy || !selectedFile ? 0.5 : 1 }}>{busy ? 'Subiendo…' : 'Subir PDF'}</button>
+        </div>
+        <p style={{ fontSize: 13, opacity: 0.8 }}>El archivo se sube directamente al S3 privado. Las anualidades «Don Bosco en España_YYYY.pdf» se indexan automáticamente; otros PDF quedarán almacenados y pendientes de catalogación.</p>
+      </form>
+
+
     </section>
   );
 }
