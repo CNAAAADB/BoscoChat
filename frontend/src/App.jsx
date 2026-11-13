@@ -23,13 +23,6 @@ function highlightSearchTerms(text, search) {
     : part);
 }
 
-const ROLES = ['free''));
-  const parts = String(text).split(new RegExp('(' + escaped.join('|') + ')', 'giu'));
-  return parts.map((part, index) => words.includes(part.toLocaleLowerCase('es'))
-    ? <mark key={index} style={{ background: '#E6D7AA', color: '#121212', borderRadius: 2 }}>{part}</mark>
-    : part);
-}
-
 const ROLES = ['free', 'pro', 'premium', 'advanced', 'administrator', 'documentary_manager'];
 
 export default function App() {
