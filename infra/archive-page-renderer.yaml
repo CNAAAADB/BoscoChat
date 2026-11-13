@@ -32,6 +32,13 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
+              - Sid: CheckPrivatePreviewCacheExistence
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: arn:aws:s3:::boscochat-archivo-pdfs
+                Condition:
+                  StringLike:
+                    s3:prefix: previews/*
               - Sid: ReadOnlyOriginalPdfs
                 Effect: Allow
                 Action: s3:GetObject
