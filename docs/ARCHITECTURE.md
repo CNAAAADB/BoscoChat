@@ -153,3 +153,9 @@ Exact network IDs, regions, sizing, backup/recovery, IaC and observability detai
 - Suspension sets `users.suspended_at`, revokes active sessions atomically and prevents new sessions until reactivation. User deletion relies on database foreign-key cascades for sessions and user-linked usage records.
 - Self-demotion, self-suspension and self-deletion are rejected to preserve an active administrative control path. Password hashes and other authentication secrets are never returned by administration APIs.
 
+
+## Planned automatic PDF ingestion (BC-007; not deployed)
+
+The owner-approved operational flow is `S3 Object Created -> S3 EventBridge notifications -> EventBridge rule -> SQS + DLQ -> dedicated private VPC Lambda container with Poppler -> private MySQL RDS`. This worker is **independent of the public Express API Lambda**. It does not need inbound HTTP exposure, does not make the S3 bucket public, and keeps the original PDF as immutable storage input. A read-only IAM permission on `originals/*`, verified RDS TLS, strict parsing, size/page limits, SQS retries, and transactional page replacement are required. Multiple S3 events may be delivered; document keys are unique and updates replace indexed pages transactionally. EventBridge must be enabled explicitly on the bucket. This is proposed infrastructure only; the current deployment is not known to have it enabled.
+
+New product requests BC-016 (official TLS domain for Amplify/API with same-site cookie/CORS validation) and BC-017 (role-protected S3 upload, list, name filter, original download and ingestion status) remain planned; public search/reader access and manager-only original file transfer remain separate security boundaries.
