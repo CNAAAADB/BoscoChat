@@ -39,42 +39,45 @@ function credentialScope(accessKey, day) {
   return accessKey + '/' + day + '/' + REGION + '/s3/aws4_request';
 }
 
-// Exact-key S3 POST policy. S3 enforces the body-size range independently of the browser.
-// The user must have already passed server-side role authorization.
+// Signed conditional PUT: S3 enforces atomic non-overwrite with If-None-Match: *.
+// Content-Length is part of the signature, fixing the accepted upload size.
 export function signedArchiveUpload({ key, fileSize, now, credentials = credentialsFromEnvironment() }) {
   if (typeof key !== 'string' || !/^originals\/Don Bosco en Espa(?:ñ|n)a_\d{4}\.pdf$/u.test(key)
     || !Number.isSafeInteger(fileSize) || fileSize < 1 || fileSize > MAX_PDF_BYTES) {
     throw new Error('INVALID_ARCHIVE_UPLOAD');
   }
   const { timestamp, day } = timeParts(now);
-  const credential = credentialScope(credentials.accessKey, day);
-  const fields = {
-    key,
+  const host = BUCKET + '.s3.' + REGION + '.amazonaws.com';
+  const path = '/' + key.split('/').map(encode).join('/');
+  const headers = {
     'Content-Type': 'application/pdf',
+    'If-None-Match': '*',
     'x-amz-server-side-encryption': 'AES256',
-    'success_action_status': '201',
-    'x-amz-algorithm': 'AWS4-HMAC-SHA256',
-    'x-amz-credential': credential,
-    'x-amz-date': timestamp,
-    ...(credentials.token ? { 'x-amz-security-token': credentials.token } : {}),
   };
-  const conditions = [
-    ['eq', '$key', key],
-    ['eq', '$Content-Type', 'application/pdf'],
-    ['eq', '$x-amz-server-side-encryption', 'AES256'],
-    ['eq', '$success_action_status', '201'],
-    ['content-length-range', 1, MAX_PDF_BYTES + 4096],
-    ['eq', '$x-amz-algorithm', 'AWS4-HMAC-SHA256'],
-    ['eq', '$x-amz-credential', credential],
-    ['eq', '$x-amz-date', timestamp],
-    ...(credentials.token ? [['eq', '$x-amz-security-token', credentials.token]] : []),
-  ];
-  const policy = Buffer.from(JSON.stringify({
-    expiration: new Date(new Date(now).getTime() + 5 * 60 * 1000).toISOString(),
-    conditions,
-  })).toString('base64');
-  const signature = hmac(signingKey(credentials.secret, day), policy, 'hex');
-  return { url: ALLOWED_ORIGIN, fields: { ...fields, policy, 'x-amz-signature': signature }, expiresIn: 300 };
+  const signedHeaders = 'content-length;content-type;host;if-none-match;x-amz-server-side-encryption';
+  const query = {
+    'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
+    'X-Amz-Credential': credentialScope(credentials.accessKey, day),
+    'X-Amz-Date': timestamp,
+    'X-Amz-Expires': '300',
+    'X-Amz-SignedHeaders': signedHeaders,
+    ...(credentials.token ? { 'X-Amz-Security-Token': credentials.token } : {}),
+  };
+  const canonicalQuery = Object.entries(query).map(([k, v]) => [encode(k), encode(v)])
+    .sort(([a], [b]) => a.localeCompare(b, 'en')).map(([k, v]) => k + '=' + v).join('&');
+  const canonicalHeaders = 'content-length:' + fileSize + '\n'
+    + 'content-type:application/pdf\n'
+    + 'host:' + host + '\n'
+    + 'if-none-match:*\n'
+    + 'x-amz-server-side-encryption:AES256\n';
+  const canonicalRequest = 'PUT\n' + path + '\n' + canonicalQuery + '\n'
+    + canonicalHeaders + '\n' + signedHeaders + '\nUNSIGNED-PAYLOAD';
+  const stringToSign = 'AWS4-HMAC-SHA256\n' + timestamp + '\n' + day + '/' + REGION + '/s3/aws4_request\n' + sha256(canonicalRequest);
+  const signature = hmac(signingKey(credentials.secret, day), stringToSign, 'hex');
+  return {
+    method: 'PUT', url: 'https://' + host + path + '?' + canonicalQuery + '&X-Amz-Signature=' + signature,
+    headers, expiresIn: 300,
+  };
 }
 
 // The temporary link is issued only after server-side authorization and object lookup.
