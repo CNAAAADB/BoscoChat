@@ -80,7 +80,9 @@ export function createHistoricalManagementRouter(pool, authService, {
             indexedAt: db?.indexed_at ? new Date(db.indexed_at).toISOString() : null,
           };
         })
-        .sort((a, b) => b.year === null ? -1 : a.year === null ? 1 : b.year - a.year);
+        .sort((a, b) => a.year === null && b.year === null
+          ? a.filename.localeCompare(b.filename, 'es')
+          : a.year === null ? 1 : b.year === null ? -1 : b.year - a.year);
       res.set('Cache-Control', 'private, no-store');
       return res.json({ documents, total: documents.length });
     } catch (error) { return next(error); }
@@ -104,7 +106,7 @@ export function createHistoricalManagementRouter(pool, authService, {
           throw error;
         }
       });
-      if (exists) return replyError(res, 409, 'DOCUMENT_ALREADY_EXISTS', 'Ya hay un PDF de ese año. No se sobrescriben originales.');
+      if (exists) return replyError(res, 409, 'DOCUMENT_ALREADY_EXISTS', 'Ya existe un PDF con ese nombre. No se sobrescriben originales.');
       const upload = signer.upload({ key, fileSize: bytes, now: new Date() });
       res.set('Cache-Control', 'private, no-store');
       return res.status(201).json({ upload, year: meta?.status === 'recognized' ? meta.year : null, filename, willIndexAutomatically: meta?.status === 'recognized' });
