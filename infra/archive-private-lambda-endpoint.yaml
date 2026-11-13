@@ -1,0 +1,57 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: BoscoChat BC-012 - private Lambda API access from the backend VPC, without NAT or public PDF exposure
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet::Id
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet::Id
+  BackendSecurityGroup:
+    Type: AWS::EC2::SecurityGroup::Id
+
+Resources:
+  LambdaEndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: TLS only from BoscoChat application Lambdas to private Lambda API endpoint
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref BackendSecurityGroup
+          Description: Invoke private page renderer from BoscoChat backend
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          DestinationSecurityGroupId: !Ref BackendSecurityGroup
+          Description: Endpoint TCP response traffic in BoscoChat VPC
+
+  PrivateLambdaApiEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VpcId
+      ServiceName: com.amazonaws.us-east-1.lambda
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnetA
+        - !Ref PrivateSubnetB
+      SecurityGroupIds:
+        - !Ref LambdaEndpointSecurityGroup
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: lambda:InvokeFunction
+            Resource: arn:aws:lambda:us-east-1:909186483504:function:boscochat-pdf-page-renderer
+
+Outputs:
+  VpcEndpointId:
+    Value: !Ref PrivateLambdaApiEndpoint
+  EndpointSecurityGroupId:
+    Value: !Ref LambdaEndpointSecurityGroup
