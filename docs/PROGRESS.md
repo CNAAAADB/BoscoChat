@@ -4,6 +4,13 @@
 
 # BoscoChat Progress
 
+## BC-002/BC-017 deployment verification — 2026-11-13
+- PR #41 (Gestión histórica) and PR #42 (three access profiles) merged in `main`; frontend correct historian-only copy PR #43 merged. Product access roles: `administrator` (account management), `documentary_manager` (historical archive management) and `free` (ordinary search). Legacy plan roles preserved.
+- Applied backend-role inline policy `BoscoChatHistoricalManagementS3` (S3 list prefix `originals/*`, read/upload originals) and S3 CORS for HTTPS `boscochat.com`, `www.boscochat.com` and Amplify default origin, PUT only. Bucket Public Access Block remained fully enabled. Amplify deployment job #40 succeeded after setting `VITE_HISTORICAL_MANAGEMENT=true`; backend `HISTORICAL_MANAGEMENT_ENABLED=true`. Following jobs #41/#42 also succeeded.
+- Lambda snapshot version 4 saved before exposing historical management. Post-activation smoke: anonymous/invalid-session management HTTP 401, archive search HTTP 200 with 10 results. **No authorized historian browser smoke yet**; IAM signed PUT, private download and concurrent non-overwrite require browser/integration confirmation and independent cybersecurity review. BC-017 is deployed for validation, not DONE.
+- PR #44 merged for one-off password reset schema bootstrap. Lambda snapshot version 5 saved; CloudWatch explicitly recorded `Password reset token schema bootstrap completed` and health HTTP 200. Temporary `PASSWORD_RESET_SCHEMA_BOOTSTRAP` flag removed after success. `PASSWORD_RESET_ENABLED` and `VITE_PASSWORD_RESET` remain off pending independent auth review and test with authorized administrative actor, token single-use/expiry, and session revocation. Do not mark BC-002 DONE.
+
+
 ## BC-017 Gestión histórica — implementación en revisión (2026-11-13)
 - El propietario define el nombre visible «Gestión histórica». Rama `feat/bc-017-gestion-historica-20261113`: acceso exclusivo para `documentary_manager` (Historiador), inventario privado S3 con filtro y estado RDS, subida PUT condicionada firmada de PDF anuales hasta 350 MiB con indexación S3→EventBridge→SQS, y descarga original mediante enlace firmado de 60 s. Se sustituye el formulario antiguo de OCR de prueba.
 - Limitación de alcance: por ahora solo anualidades `Don Bosco en España_YYYY.pdf`, dado que el worker actual no reconoce otras publicaciones. Catalogación de otras revistas, campos de autor/sección y corrección OCR quedan `TRACE-GAP`.
