@@ -10,6 +10,14 @@
 
 # BoscoChat Progress
 
+## BC-017 — PDF directory deployment evidence (2026-11-13)
+- PR #47 merged into `main` at `5615e6d42cf3e181e6156afa2ddc73a982dd956f`; backend/frontend/MySQL and PDF-worker CI passed. Amplify `main` job #44 `SUCCEED` for this commit; backend Lambda updated successfully. The signed S3 upload/download UI now presents the private PDF directory first, and a separate «+ Subir nuevo PDF» action.
+- S3 `originals/` still contains 92 annual historical PDF originals plus a zero-length folder marker; no existing originals were overwritten. Generic safe PDF names can be stored in this directory, status `stored`, awaiting cataloguing; only recognized `Don Bosco en España_YYYY.pdf` annuals are automatically indexed. Ingestor SQS event filter now acknowledges safe nonannual PDF event notifications without DLQ retries.
+- CloudFormation stack `boscochat-archive-ingestion` `UPDATE_COMPLETE`: `boscochat-pdf-ingestor` image pinned at `sha256:5a4081334a8b101054bcc2c08c56c933508dea52ee0acc4e1f26abbe03c6c81f` (prior image tag `sha-fa73a54eb76977499be773ce13f9515a413e4246` retained as rollback reference). Other stack parameters preserved. SQS ingestion and DLQ both at zero pending and in-flight.
+- AWS HTTP API CORS updated from GET/POST/OPTIONS to GET/POST/PATCH/DELETE/OPTIONS; credentials and existing three trusted HTTPS origins retained. This addresses missing preflight methods for user administration but browser `Failed to fetch` has not yet been confirmed resolved on the owner's device.
+- **Open verification:** screenshot had stale client bundle («Gestionar archivo» and OCR text form) despite GitHub `main` containing new component. Owner should reload web app with cache bypass and sign in as `Historiador` (admin account alone has no access). End-to-end authenticated directory and PDF upload/download still need confirmation. No real original was uploaded as a synthetic test. Independent security/anti-malware review and generic-PDF automatic indexing/cataloguing remain pending.
+
+
 ## BC-002/BC-017 deployment verification — 2026-11-13
 - PR #41 (Gestión histórica) and PR #42 (three access profiles) merged in `main`; frontend correct historian-only copy PR #43 merged. Product access roles: `administrator` (account management), `documentary_manager` (historical archive management) and `free` (ordinary search). Legacy plan roles preserved.
 - Applied backend-role inline policy `BoscoChatHistoricalManagementS3` (S3 list prefix `originals/*`, read/upload originals) and S3 CORS for HTTPS `boscochat.com`, `www.boscochat.com` and Amplify default origin, PUT only. Bucket Public Access Block remained fully enabled. Amplify deployment job #40 succeeded after setting `VITE_HISTORICAL_MANAGEMENT=true`; backend `HISTORICAL_MANAGEMENT_ENABLED=true`. Following jobs #41/#42 also succeeded.
