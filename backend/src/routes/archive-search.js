@@ -8,7 +8,7 @@ export function createArchiveSearchRouter(pool) {
   router.get('/search', async (req, res, next) => {
     res.set('Cache-Control', 'private, no-store');
     try {
-      const result = await searchArchivePages(pool, req.query.q, { year: req.query.year });
+      const result = await searchArchivePages(pool, req.query.q, { year: req.query.year, mode: req.query.mode });
       return res.json({ results: result });
     } catch (error) {
       return next(error);
