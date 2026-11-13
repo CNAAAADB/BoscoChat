@@ -1,0 +1,70 @@
+name: Build and publish BoscoChat PDF worker
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/publish-pdf-worker.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/publish-pdf-worker.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pdf-worker-image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Validate PDF worker container
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Lambda container without AWS credentials
+        run: docker build --pull -f backend/worker/Dockerfile -t boscochat-pdf-worker:ci backend
+      - name: Verify installed PDF tooling
+        run: docker run --rm --entrypoint /bin/sh boscochat-pdf-worker:ci -c 'command -v pdfinfo && command -v pdftotext'
+
+  publish:
+    name: Publish reviewed container to private ECR
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: us-east-1
+      ECR_REPOSITORY: boscochat-pdf-worker
+      IMAGE_TAG: sha-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get temporary AWS credentials from GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::909186483504:role/BoscoChat-GitHub-ECR-Publisher
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: BoscoChatECRPublish
+      - name: Authenticate to private Amazon ECR
+        id: login
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and publish immutable commit-tagged image
+        env:
+          ECR_REGISTRY: ${{ steps.login.outputs.registry }}
+        run: |
+          set -euo pipefail
+          IMAGE="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+          docker build --pull -f backend/worker/Dockerfile -t "${IMAGE}" backend
+          docker push "${IMAGE}"
+          docker inspect --format='Image: {{index .RepoDigests 0}}' "${IMAGE}" || true
+          echo "Published image: ${IMAGE}" >> "${GITHUB_STEP_SUMMARY}"
+          aws ecr describe-images --repository-name "${ECR_REPOSITORY}" --image-ids imageTag="${IMAGE_TAG}" --query 'imageDetails[0].imageDigest' --output text >> "${GITHUB_STEP_SUMMARY}"
