@@ -1,0 +1,124 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { historicalDocuments, historicalDownload, historicalUpload } from './api/historical.js';
+
+const panel = { background: 'rgba(25,25,45,0.9)', border: '1px solid #28295E', borderRadius: 30, padding: 'clamp(20px, 4vw, 42px)', maxWidth: 1100, margin: '0 auto 40px' };
+const control = { background: '#111', border: '1px solid #777', borderRadius: 12, color: '#fff', padding: 12, boxSizing: 'border-box', maxWidth: '100%' };
+const button = { border: 0, background: '#E6D7AA', color: '#161616', borderRadius: 22, padding: '13px 22px', cursor: 'pointer', fontWeight: 800 };
+const heading = { color: '#E6D7AA', marginTop: 0, borderLeft: '6px solid #E6D7AA', paddingLeft: 18, fontSize: 'clamp(1.7rem, 4vw, 2.3rem)' };
+const fileLimit = 350 * 1024 * 1024;
+
+function sizeLabel(bytes) {
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+export default function HistoricalManagement() {
+  const [documents, setDocuments] = useState([]);
+  const [query, setQuery] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await historicalDocuments();
+      setDocuments(response.documents ?? []);
+      setError('');
+    } catch (failure) {
+      setError(failure.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    historicalDocuments()
+      .then(({ documents: records }) => setDocuments(records ?? []))
+      .catch((failure) => setError(failure.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const visible = useMemo(() => documents.filter((doc) => (
+    doc.filename.toLocaleLowerCase('es').includes(query.trim().toLocaleLowerCase('es'))
+  )), [documents, query]);
+
+  const upload = async (event) => {
+    event.preventDefault();
+    setError('');
+    setMessage('');
+    if (!selectedFile) return setError('Selecciona un PDF.');
+    if (selectedFile.size > fileLimit) return setError('El PDF supera el límite de 350 MB.');
+    setBusy(true);
+    try {
+      const response = await historicalUpload(selectedFile, setMessage);
+      setSelectedFile(null);
+      if (event.currentTarget) event.currentTarget.reset();
+      setMessage('PDF de ' + response.year + ' almacenado. La indexación automática ya está solicitada.');
+      await refresh();
+    } catch (failure) {
+      setError(failure.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const download = async (year) => {
+    setError('');
+    // Create the window during the user's click, before awaiting the authenticated request.
+    const popup = window.open('about:blank', '_blank');
+    if (popup) popup.opener = null;
+    try {
+      const response = await historicalDownload(year);
+      if (popup && !popup.closed) popup.location.replace(response.download.url);
+      else window.location.assign(response.download.url);
+    } catch (failure) {
+      if (popup && !popup.closed) popup.close();
+      setError(failure.message);
+    }
+  };
+
+  return (
+    <section style={panel}>
+      <h2 style={heading}>Gestión histórica</h2>
+      <p style={{ lineHeight: 1.6 }}>Área privada para administrar los originales del Archivo Histórico Salesiano. Solo pueden acceder administradores y gestores documentales.</p>
+      {error ? <p role="alert" style={{ background: '#471b1b', border: '1px solid #eb6868', borderRadius: 12, padding: 14 }}>{error}</p> : null}
+      {message ? <p role="status" style={{ background: '#223527', borderRadius: 12, padding: 14 }}>{message}</p> : null}
+
+      <form onSubmit={upload} style={{ padding: 20, borderRadius: 20, background: '#11111e', margin: '26px 0' }}>
+        <h3 style={{ color: '#E6D7AA', marginTop: 0 }}>Incorporar un documento histórico</h3>
+        <p>PDF anual de <strong>Don Bosco en España</strong>. Nombre: <code>Don Bosco en España_YYYY.pdf</code>. Máximo 350 MB; si ya existe ese año, no se sobrescribe.</p>
+        <label htmlFor="historical-pdf">Archivo PDF</label>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginTop: 10 }}>
+          <input id="historical-pdf" type="file" accept=".pdf,application/pdf" disabled={busy} onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)} style={{ ...control, flex: '1 1 300px' }} />
+          <button type="submit" disabled={busy || !selectedFile} style={{ ...button, opacity: busy || !selectedFile ? 0.5 : 1 }}>{busy ? 'Subiendo…' : 'Subir PDF'}</button>
+        </div>
+        <p style={{ fontSize: 13, opacity: 0.8 }}>La subida es directa al almacenamiento privado de AWS. Una vez completada, el documento entra automáticamente en la cola de indexación.</p>
+      </form>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <h3 style={{ color: '#E6D7AA', margin: 0 }}>Documentos del archivo ({visible.length})</h3>
+        <button type="button" onClick={refresh} disabled={loading || busy} style={button}>Actualizar estado</button>
+      </div>
+      <label htmlFor="historical-filter" style={{ display: 'block', margin: '20px 0 10px' }}>Filtrar por nombre o año</label>
+      <input id="historical-filter" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Ej. 1954 o Don Bosco" style={{ ...control, width: '100%' }} />
+      {loading ? <p role="status">Consultando el archivo…</p> : null}
+      {!loading && !visible.length ? <p>No hay documentos que coincidan con el filtro.</p> : null}
+      <div style={{ display: 'grid', gap: 12, marginTop: 18 }}>
+        {visible.map((doc) => (
+          <article key={doc.year} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap', background: '#12121d', border: '1px solid #353554', borderRadius: 16, padding: 16 }}>
+            <div style={{ minWidth: 200, flex: 1 }}>
+              <strong style={{ overflowWrap: 'anywhere' }}>{doc.filename}</strong>
+              <div style={{ fontSize: 13, color: '#c7c7d6', marginTop: 8 }}>{sizeLabel(doc.sizeBytes)} · {doc.year} · {doc.pages} páginas indexadas</div>
+              <div style={{ color: doc.status === 'indexed' ? '#a4dfb4' : '#efcd80', marginTop: 5 }}>
+                {doc.status === 'indexed' ? 'Indexado y disponible para búsqueda' : 'Pendiente de indexación'}
+              </div>
+            </div>
+            <button type="button" onClick={() => download(doc.year)} style={button}>Descargar original</button>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
