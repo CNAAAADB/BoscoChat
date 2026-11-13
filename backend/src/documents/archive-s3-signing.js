@@ -83,7 +83,7 @@ export function signedArchiveUpload({ key, fileSize, now, credentials = credenti
 // The temporary link is issued only after server-side authorization and object lookup.
 // No whole PDF is proxied through the API Gateway's size-limited response.
 export function signedArchiveDownload({ key, now, credentials = credentialsFromEnvironment() }) {
-  if (typeof key !== 'string' || !/^originals\/Don Bosco en Espa(?:ñ|n)a_\d{4}\.pdf$/u.test(key)) {
+  if (typeof key !== 'string' || !key.startsWith('originals/') || safeArchivePdfKey(key.slice('originals/'.length)) !== key) {
     throw new Error('INVALID_ARCHIVE_DOWNLOAD');
   }
   const { timestamp, day } = timeParts(now);
