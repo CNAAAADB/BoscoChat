@@ -125,7 +125,6 @@ Resources:
       Timeout: 900
       EphemeralStorage:
         Size: 2048
-      ReservedConcurrentExecutions: 2
       VpcConfig:
         SubnetIds:
           - !Ref PrivateSubnetA
