@@ -6,6 +6,23 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
 // Switch on only after RDS archive migration, real ingestion and API deployment.
 const ARCHIVE_SEARCH_ENABLED = import.meta.env.VITE_ARCHIVE_SEARCH === 'true';
 const ARCHIVE_PDF_VIEW_ENABLED = import.meta.env.VITE_ARCHIVE_PDF_VIEW === 'true';
+const SEARCH_MODES = [
+  { value: 'relevance', label: 'Más relevantes' },
+  { value: 'all', label: 'Todas las palabras' },
+  { value: 'any', label: 'Cualquiera de las palabras' },
+  { value: 'exact', label: 'Frase exacta' },
+];
+
+function highlightSearchTerms(text, search) {
+  const words = [...new Set((search.match(/[\p{L}\p{N}]{2,}/gu) ?? []).map((word) => word.toLocaleLowerCase('es')))];
+  if (!words.length || !text) return text;
+  // Words only contain letters/numbers: safe to use as regex alternatives.
+  const parts = String(text).split(new RegExp('(' + words.join('|') + ')', 'giu'));
+  return parts.map((part, index) => words.includes(part.toLocaleLowerCase('es'))
+    ? <mark key={index} style={{ background: '#E6D7AA', color: '#121212', borderRadius: 2 }}>{part}</mark>
+    : part);
+}
+
 const ROLES = ['free', 'pro', 'premium', 'advanced', 'administrator', 'documentary_manager'];
 
 export default function App() {
@@ -19,10 +36,12 @@ export default function App() {
   const [searchError, setSearchError] = useState('');
   const [searchBusy, setSearchBusy] = useState(false);
   const [searchYear, setSearchYear] = useState('');
+  const [searchMode, setSearchMode] = useState('relevance');
   const [selectedPage, setSelectedPage] = useState(null);
   const [pagePreview, setPagePreview] = useState(null);
   const [pageBusy, setPageBusy] = useState(false);
   const [pageError, setPageError] = useState('');
+  const [pdfZoom, setPdfZoom] = useState(100);
   const [registration, setRegistration] = useState({ username: '', email: '', password: '', terms: false });
   const [credentials, setCredentials] = useState({ email: '', password: '' });
   const [newDoc, setNewDoc] = useState({ title: '', content: '', page: 1 });
@@ -227,6 +246,7 @@ export default function App() {
             try {
               const query = new URLSearchParams({ q: search });
               if (ARCHIVE_SEARCH_ENABLED && searchYear) query.set('year', searchYear);
+              if (ARCHIVE_SEARCH_ENABLED) query.set('mode', searchMode);
               const endpoint = ARCHIVE_SEARCH_ENABLED ? '/archive/search' : '/search';
               const response = await fetch(`${API_URL}${endpoint}?${query}`, { credentials: 'include' });
               const data = await response.json().catch(() => null);
@@ -237,6 +257,7 @@ export default function App() {
           }}>
             <input required minLength="2" style={{ ...styles.input, flex: '1 1 260px', width: 'auto', marginBottom: 0 }} aria-label="Consulta" placeholder="Buscar..." value={search} onChange={(event) => setSearch(event.target.value)} />
             {ARCHIVE_SEARCH_ENABLED ? <input style={{ ...styles.input, width: '130px', marginBottom: 0 }} aria-label="Filtrar por año" type="number" min="1922" max="2100" placeholder="Año" value={searchYear} onChange={(event) => setSearchYear(event.target.value)} /> : null}
+            {ARCHIVE_SEARCH_ENABLED ? <select aria-label="Tipo de búsqueda" style={{ ...styles.input, width: '220px', marginBottom: 0 }} value={searchMode} onChange={(event) => setSearchMode(event.target.value)}>{SEARCH_MODES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select> : null}
             <button style={styles.btnPrimary} disabled={searchBusy || (sessionLoading)} type="submit">{searchBusy ? 'Buscando…' : 'Buscar'}</button>
           </form>
           {ARCHIVE_SEARCH_ENABLED ? <p>La búsqueda es pública. Para consultar el documento original tendrás que iniciar sesión o registrarte.</p> : !user ? <p>Inicia sesión para buscar en el archivo.</p> : null}
@@ -245,7 +266,7 @@ export default function App() {
           {results.map((result) => (
             <article key={`${result.document_id ?? result.title}-${result.page_number}`} style={{ padding: '20px', background: '#1a1a2e', borderRadius: '20px', marginBottom: '10px' }}>
               <h3 style={{ color: '#E6D7AA' }}>{ARCHIVE_SEARCH_ENABLED ? `${result.publication} (${result.publication_year})` : result.title} (Pág. {result.page_number})</h3>
-              <p>{result.text_content}</p>
+              <p>{ARCHIVE_SEARCH_ENABLED ? highlightSearchTerms(result.text_content, search) : result.text_content}</p>
               {ARCHIVE_SEARCH_ENABLED ? <button style={styles.btnPrimary} type="button" onClick={() => openSearchResult(result)}>Consultar página {result.page_number}</button> : null}
             </article>
           ))}
@@ -266,7 +287,19 @@ export default function App() {
               <p>Página {selectedPage.pageNumber} del documento original.</p>
               {pageBusy ? <p>Cargando página…</p> : null}
               {pageError ? <p role="alert" style={styles.error}>{pageError}</p> : null}
-              {ARCHIVE_PDF_VIEW_ENABLED && !pageError ? <iframe title={`PDF original ${selectedPage.title}, página ${selectedPage.pageNumber}`} src={`${API_URL}/archive/documents/${selectedPage.documentId}/pdf#page=${selectedPage.pageNumber}`} style={{ width: '100%', height: '75vh', border: 0 }} /> : null}
+              {ARCHIVE_PDF_VIEW_ENABLED && !pageError ? (
+                <>
+                  <div aria-label="Navegación del documento original" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 15 }}>
+                    <button style={styles.btnPrimary} type="button" disabled={selectedPage.pageNumber <= 1} onClick={() => setSelectedPage((page) => ({ ...page, pageNumber: page.pageNumber - 1 }))}>Página anterior</button>
+                    <strong>Página {selectedPage.pageNumber}</strong>
+                    <button style={styles.btnPrimary} type="button" onClick={() => setSelectedPage((page) => ({ ...page, pageNumber: page.pageNumber + 1 }))}>Página siguiente</button>
+                    <label>Zoom <select aria-label="Zoom del PDF" style={{ ...styles.input, width: 110, padding: 8, marginBottom: 0 }} value={pdfZoom} onChange={(event) => setPdfZoom(Number(event.target.value))}>
+                      {[75, 100, 125, 150, 200].map((percent) => <option key={percent} value={percent}>{percent}%</option>)}
+                    </select></label>
+                  </div>
+                  <iframe title={`PDF original ${selectedPage.title}, página ${selectedPage.pageNumber}`} src={`${API_URL}/archive/documents/${selectedPage.documentId}/pdf#page=${selectedPage.pageNumber}&zoom=${pdfZoom}&toolbar=0&navpanes=0`} style={{ width: '100%', height: '75vh', border: 0 }} />
+                </>
+              ) : null}
               {!ARCHIVE_PDF_VIEW_ENABLED && pagePreview ? <article style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, padding: 20, background: '#151525', borderRadius: 12 }}>{pagePreview.text_content}</article> : null}
               {!ARCHIVE_PDF_VIEW_ENABLED ? <p>Vista de texto de la página. El PDF original estará disponible cuando se habilite el visor protegido.</p> : null}
             </>

@@ -1,5 +1,10 @@
 # BoscoChat Progress
 
+## BC-008/BC-011 relevance search and BC-012 visual PDF gap — 2026-11-13
+- User confirmed live keyword search works but multi-word queries enforce all terms, show only OCR text, and do not open the visual source page. Implemented relevance-ranked default, all/any/exact search modes, contextual highlighted snippets in branch `feat/bc-008-natural-search-and-visual-viewer-prep-20261113` (tests/CI/release pending).
+- BC-012 remains **BLOCKED**: range proxy is feature-gated and not independently verified for authenticated browser PDF loading, cross-origin cookies, large file ranges, controls, watermark, and rate abuse. Do not enable raw PDF viewing from this change; needs separate verified viewer delivery.
+
+
 ## BC-008 public search activation preparation — 2026-11-13
 - Owner explicitly requested activation of ten-result anonymous archive previews on `boscochat.com`, overriding the former unauthenticated-search prohibition as a product request; RF-USER-03 approved SRS update still needed (TRACE-GAP).
 - Branch `feat/bc-008-public-search-guarded-activation-20261113` adds MySQL-backed per-IP limiting (30/minute, fail-closed), tests, no-cache responses and AWS activation checklist. No live deployment is evidenced; do not mark BC-008 DONE or enable public search prior to required independent review.
