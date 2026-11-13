@@ -7,13 +7,14 @@ export function createArchiveSearchRateLimiter({
   hashKey = 'boscochat-local-development-only',
   now = Date.now,
   limit = 30,
+  scope = 'archive-search',
   windowMs = 60_000,
 } = {}) {
   return async function archiveSearchRateLimiter(req, res, next) {
     try {
       const timestamp = now();
-      const ipHash = createHmac('sha256', hashKey).update('archive-search:ip:' + req.ip).digest('hex');
-      const identityHash = createHmac('sha256', hashKey).update('archive-search:identity:' + req.ip).digest('hex');
+      const ipHash = createHmac('sha256', hashKey).update(scope + ':ip:' + req.ip).digest('hex');
+      const identityHash = createHmac('sha256', hashKey).update(scope + ':identity:' + req.ip).digest('hex');
       const blocked = await store.consume({ ip: ipHash, identity: identityHash }, {
         timestamp,
         resetAt: timestamp + windowMs,
