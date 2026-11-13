@@ -25,6 +25,8 @@ export function createAuthRouter(authService, {
   cookieSameSite = 'lax',
   loginRateLimiter = createAuthRateLimiter({ scope: 'login' }),
   registrationRateLimiter = createAuthRateLimiter({ scope: 'register', limit: 10, windowMs: 60 * 60 * 1000 }),
+  passwordResets = null,
+  resetRateLimiter = createAuthRateLimiter({ scope: 'password-reset', limit: 5, windowMs: 60 * 60 * 1000 }),
 } = {}) {
   const router = express.Router();
   const sessionCookieOptions = cookieOptions(production, cookieSameSite);
@@ -58,6 +60,16 @@ export function createAuthRouter(authService, {
       return next(error);
     }
   });
+
+  if (passwordResets) {
+    router.post('/password-reset', resetRateLimiter, async (req, res, next) => {
+      try {
+        await passwordResets.redeem(req.body ?? {});
+        res.set('Cache-Control', 'no-store');
+        res.json({ changed: true });
+      } catch (error) { next(error); }
+    });
+  }
 
   router.post('/logout', async (req, res, next) => {
     try {
