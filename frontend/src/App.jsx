@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { currentSession, login, logout, register } from './api/auth.js';
 import { changeUserRole, createUser, deleteUser, listUsers, setUserSuspended } from './api/users.js';
+import HistoricalManagement from './HistoricalManagement.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
 // Switch on only after RDS archive migration, real ingestion and API deployment.
 const ARCHIVE_SEARCH_ENABLED = import.meta.env.VITE_ARCHIVE_SEARCH === 'true';
 const ARCHIVE_PDF_VIEW_ENABLED = import.meta.env.VITE_ARCHIVE_PDF_VIEW === 'true';
+const HISTORICAL_MANAGEMENT_ENABLED = import.meta.env.VITE_HISTORICAL_MANAGEMENT === 'true';
 const ARCHIVE_PAGE_IMAGE_ENABLED = import.meta.env.VITE_ARCHIVE_PAGE_IMAGE === 'true';
 const SEARCH_MODES = [
   { value: 'relevance', label: 'Más relevantes' },
@@ -48,7 +50,6 @@ export default function App() {
   const [visualPageBusy, setVisualPageBusy] = useState(false);
   const [registration, setRegistration] = useState({ username: '', email: '', password: '', terms: false });
   const [credentials, setCredentials] = useState({ email: '', password: '' });
-  const [newDoc, setNewDoc] = useState({ title: '', content: '', page: 1 });
   const [users, setUsers] = useState([]);
   const [userAdminError, setUserAdminError] = useState('');
   const [userAdminBusy, setUserAdminBusy] = useState(false);
@@ -137,7 +138,7 @@ export default function App() {
   };
 
   const isAdministrator = user?.role === 'administrator';
-  const canManageDocuments = isAdministrator || user?.role === 'documentary_manager';
+  const canManageDocuments = user?.role === 'documentary_manager';
 
   const refreshUsers = async () => {
     const result = await listUsers();
@@ -230,7 +231,7 @@ export default function App() {
         ) : null}
         {user ? (
           <>
-            {canManageDocuments ? <button style={styles.navBtn} onClick={() => setView('admin')}>Gestionar archivo</button> : null}
+            {canManageDocuments && HISTORICAL_MANAGEMENT_ENABLED ? <button style={styles.navBtn} onClick={() => setView('admin')}>Gestión histórica</button> : null}
             {isAdministrator ? <button style={styles.navBtn} onClick={() => setView('users')}>Administrar usuarios</button> : null}
             <button style={{ ...styles.navBtn, color: '#ff7777' }} onClick={signOut}>Salir</button>
           </>
@@ -361,18 +362,7 @@ export default function App() {
         </section>
       ) : null}
 
-      {view === 'admin' && canManageDocuments ? (
-        <section style={styles.card}>
-          <h2 style={styles.sectionTitle}>Panel de Gestión Documental</h2>
-          <input style={styles.input} placeholder="Título del documento" value={newDoc.title} onChange={(event) => setNewDoc({ ...newDoc, title: event.target.value })} />
-          <input style={styles.input} type="number" min="1" value={newDoc.page} onChange={(event) => setNewDoc({ ...newDoc, page: event.target.value })} />
-          <textarea style={{ ...styles.input, height: '200px' }} placeholder="Texto OCR" value={newDoc.content} onChange={(event) => setNewDoc({ ...newDoc, content: event.target.value })} />
-          <button style={styles.btnPrimary} onClick={async () => {
-            const response = await fetch(`${API_URL}/admin/upload-doc`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newDoc) });
-            if (response.ok) setNewDoc({ title: '', content: '', page: 1 });
-          }}>Subir al archivo</button>
-        </section>
-      ) : null}
+      {view === 'admin' && canManageDocuments && HISTORICAL_MANAGEMENT_ENABLED ? <HistoricalManagement /> : null}
 
       {view === 'users' && isAdministrator ? (
         <section style={styles.card}>
