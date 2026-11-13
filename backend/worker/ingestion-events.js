@@ -14,16 +14,16 @@ export function objectsFromQueueEvent(event) {
       throw new Error('Unexpected archive bucket');
     }
     const key = payload.detail?.object?.key;
+    const size = payload.detail?.object?.size;
+    if (size != null && (!Number.isSafeInteger(size) || size < 1 || size > 350 * 1024 * 1024)) {
+      throw new Error('Invalid S3 object size');
+    }
     if (parseArchiveKey(key).status !== 'recognized') {
       // A safe, nonannual PDF belongs in the private directory but awaits
       // cataloguing; acknowledge its notification without poisoning the DLQ.
       if (typeof key === 'string' && key.startsWith('originals/')
         && safeArchivePdfKey(key.slice('originals/'.length)) === key) continue;
       throw new Error('Unexpected archive key');
-    }
-    const size = payload.detail?.object?.size;
-    if (size != null && (!Number.isSafeInteger(size) || size < 1 || size > 350 * 1024 * 1024)) {
-      throw new Error('Invalid S3 object size');
     }
     objects.push({ key, eventId: payload.id });
   }
