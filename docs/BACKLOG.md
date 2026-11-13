@@ -358,7 +358,7 @@ As a visitor, I want to access BoscoChat using its official domain securely and 
 As an authorized archive administrator or documentary manager, I want to upload files, list available documents, filter by filename and download original files from an authenticated website area.
 
 **Acceptance criteria**
-- [x] Provide a protected archive-management route in the React web application, restricted server-side to administrator and documentary_manager roles.
+- [x] Provide a protected archive-management route in the React web application, restricted server-side to the historian (`documentary_manager`) role.
 - [ ] List existing objects under private S3 originals/ with filename, size, year, ingestion status and pagination; exclude folder markers.
 - [x] Support case-insensitive filename filtering and safe handling of Unicode, special characters and missing metadata.
 - [ ] Upload PDF files using a private short-lived upload mechanism or streaming proxy with content-type/size validation, overwrite policy, checksum and failure states.
