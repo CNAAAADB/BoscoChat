@@ -15,12 +15,12 @@ export function historicalDocuments() {
   return request('/admin/historical/documents');
 }
 
-export function historicalDownload(year) {
-  return request('/admin/historical/documents/' + encodeURIComponent(year) + '/download');
+export function historicalDownload(filename) {
+  return request('/admin/historical/documents/download?filename=' + encodeURIComponent(filename));
 }
 
 export async function historicalUpload(file, onProgress) {
-  if (!file || file.size < 1 || file.size > 350 * 1024 * 1024 || !/^Don Bosco en Espa(?:ñ|n)a_\d{4}\.pdf$/iu.test(file.name)) {
+  if (!file || file.size < 1 || file.size > 350 * 1024 * 1024 || !/^\p{L}[\p{L}\p{N} ._()\-]{0,155}\.pdf$/iu.test(file.name) || file.name.includes('..')) {
     throw new Error('Selecciona un PDF anual «Don Bosco en España_YYYY.pdf» de hasta 350 MB.');
   }
   const prepared = await request('/admin/historical/uploads', {
