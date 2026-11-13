@@ -10,6 +10,7 @@ import { MysqlAuthRateLimitStore } from './db/auth-rate-limit-store.js';
 import { createAuthRateLimiter } from './middleware/auth-rate-limit.js';
 import { createArchiveSearchRateLimiter } from './middleware/archive-search-rate-limit.js';
 import { createAuthRouter } from './routes/auth.js';
+import { PasswordResetService } from './auth/password-reset-service.js';
 import { createAdminUsersRouter } from './routes/admin-users.js';
 import { createLegacyRouter } from './routes/legacy.js';
 import { createArchiveDiagnosticRouter } from './routes/archive-diagnostics.js';
