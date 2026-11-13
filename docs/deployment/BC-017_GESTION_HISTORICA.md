@@ -2,7 +2,7 @@
 
 ## Product scope
 
-The public-facing label is **Gestión histórica**, visible only to an authenticated `administrator` or `documentary_manager`. This is separate from administrator user management.
+The public-facing label is **Gestión histórica**, visible only to an authenticated `documentary_manager`. This is separate from administrator user management.
 
 This iteration supports the 92 known annual volumes of **Don Bosco en España** and recognizes new PDFs named `Don Bosco en España_YYYY.pdf` (1922–2100). The existing ingestion worker recognizes this exact convention. More publication families, descriptive metadata (authors/sections) and OCR correction require a subsequent catalog and SRS decision; they are not silently accepted as searchable.
 
@@ -16,7 +16,7 @@ This iteration supports the 92 known annual volumes of **Don Bosco en España** 
 
 ### Security controls and known limitations
 
-- Each endpoint independently uses `requireAuthorization(authService, {administrator, documentary_manager})`. A Free/Pro/Premium account gets 403, anonymous 401.
+- Each endpoint independently uses `requireAuthorization(authService, {documentary_manager})`. A Free/Pro/Premium account gets 403, anonymous 401.
 - No S3 objects are made public; Block Public Access remains enabled. Download links expire, but an authorized recipient can pass a live signed URL to another party until expiry. Do not log URLs.
 - Exact filename validation prevents arbitrary S3 keys or path traversal; 350-MiB maximum is checked by the backend and the precise body Content-Length is signed. Worker verifies PDF format with Poppler on indexing.
 - The API rejects issuing an upload permission for a year that already exists. S3 enforces atomic no-overwrite through the signed `If-None-Match: *` PUT request. Simultaneous writes to the same year must return HTTP 412 or 409 for one party; test this against real S3 before release.
