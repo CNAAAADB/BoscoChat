@@ -1,9 +1,9 @@
 import { createHmac, createHash } from 'node:crypto';
+import { safeArchivePdfKey } from './archive-filenames.js';
 
 const REGION = 'us-east-1';
 const BUCKET = 'boscochat-archivo-pdfs';
 const MAX_PDF_BYTES = 350 * 1024 * 1024;
-const ALLOWED_ORIGIN = 'https://' + BUCKET + '.s3.' + REGION + '.amazonaws.com/';
 
 function encode(value) {
   return encodeURIComponent(String(value)).replace(/[!'()*]/g, (char) => '%' + char.charCodeAt(0).toString(16).toUpperCase());
@@ -42,7 +42,7 @@ function credentialScope(accessKey, day) {
 // Signed conditional PUT: S3 enforces atomic non-overwrite with If-None-Match: *.
 // Content-Length is part of the signature, fixing the accepted upload size.
 export function signedArchiveUpload({ key, fileSize, now, credentials = credentialsFromEnvironment() }) {
-  if (typeof key !== 'string' || !/^originals\/Don Bosco en Espa(?:ñ|n)a_\d{4}\.pdf$/u.test(key)
+  if (typeof key !== 'string' || !key.startsWith('originals/') || safeArchivePdfKey(key.slice('originals/'.length)) !== key
     || !Number.isSafeInteger(fileSize) || fileSize < 1 || fileSize > MAX_PDF_BYTES) {
     throw new Error('INVALID_ARCHIVE_UPLOAD');
   }
@@ -96,7 +96,7 @@ export function signedArchiveDownload({ key, now, credentials = credentialsFromE
     'X-Amz-Date': timestamp,
     'X-Amz-Expires': '60',
     'X-Amz-SignedHeaders': 'host',
-    'response-content-disposition': 'attachment; filename="Don_Bosco_en_Espana_' + key.slice(-8, -4) + '.pdf"',
+    'response-content-disposition': 'attachment; filename="BoscoChat_Original.pdf"',
     ...(credentials.token ? { 'X-Amz-Security-Token': credentials.token } : {}),
   };
   const canonicalQuery = Object.entries(query).map(([k, v]) => [encode(k), encode(v)])
