@@ -21,7 +21,7 @@ export function historicalDownload(filename) {
 
 export async function historicalUpload(file, onProgress) {
   if (!file || file.size < 1 || file.size > 350 * 1024 * 1024 || !/^\p{L}[\p{L}\p{N} ._()\-]{0,155}\.pdf$/iu.test(file.name) || file.name.includes('..')) {
-    throw new Error('Selecciona un PDF anual «Don Bosco en España_YYYY.pdf» de hasta 350 MB.');
+    throw new Error('Selecciona un archivo PDF con un nombre válido y un tamaño máximo de 350 MB.');
   }
   const prepared = await request('/admin/historical/uploads', {
     method: 'POST',
@@ -34,7 +34,7 @@ export async function historicalUpload(file, onProgress) {
     body: file,
   });
   if (uploaded.status === 412 || uploaded.status === 409) {
-    throw new Error('Ya existe un original de ese año. No se sobrescriben documentos.');
+    throw new Error('Ya existe un original con ese nombre. No se sobrescriben documentos.');
   }
   if (!uploaded.ok) {
     throw new Error('La subida a S3 ha fallado (' + uploaded.status + '). Comprueba la conexión e inténtalo de nuevo.');
