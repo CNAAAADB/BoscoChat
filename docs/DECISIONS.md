@@ -43,3 +43,12 @@ Record material product/architecture/security/privacy decisions here.
 - Consequences: Role changes are effective on the next authenticated request because sessions resolve the current database user. Documentary-manager permission remains distinct from paid tiers. Deployments must run the migration before using the new API, and independent authorization/security review remains mandatory before completion.
 - Related stories/PRs: BC-002; PR #13.
 
+
+### DEC-005 — Event-driven private S3 PDF ingestion (proposed)
+- Date: 2026-11-13
+- Status: proposed
+- Context: The owner has 92 annual PDFs already in S3 and requires every future uploaded PDF to be indexed without manually running scripts or keeping CloudShell active. RDS is private; the public API Lambda should not perform multi-minute PDF extraction.
+- Decision: Use S3 EventBridge Object Created notifications -> EventBridge rule -> SQS standard queue with dead-letter queue -> dedicated VPC Lambda container (Node.js 22 and Poppler) -> MySQL FULLTEXT index. Limit processing concurrency and one PDF per SQS message; use atomic page replacement keyed by the private S3 object key. Keep OCR improvement as a separate future pipeline.
+- Consequences: S3 EventBridge must be explicitly enabled on the existing bucket; deploying the CloudFormation stack alone does not start event delivery. Historical PDFs require a deliberate one-time backfill; SQS is at-least-once, so workers must handle duplicate messages and failures safely. Requires CI, independent verification/security, operational alarms, ECR image publishing, cost/load tests, least-privilege IAM and secret-lifecycle handling before production use.
+- Related stories/PRs: BC-007; PR #25 (implementation proposal).
+

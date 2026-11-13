@@ -1,0 +1,166 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: BoscoChat BC-007 - S3 EventBridge to SQS and a private PDF ingestion Lambda container
+
+Parameters:
+  WorkerImageUri:
+    Type: String
+    Description: ECR digest URI of the reviewed and published PDF worker container
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet::Id
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet::Id
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup::Id
+  DbHost:
+    Type: String
+  DbUser:
+    Type: String
+    Default: boscochat_app
+  DbPassword:
+    Type: String
+    NoEcho: true
+    Description: Runtime MySQL password; inject securely; never commit
+  DbCaBase64:
+    Type: String
+    NoEcho: true
+    Description: Exact RDS CA public certificate base64 as used by deployed backend
+
+Resources:
+  IngestionDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: boscochat-pdf-ingestion-dlq
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+
+  IngestionQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: boscochat-pdf-ingestion
+      VisibilityTimeout: 5400
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt IngestionDeadLetterQueue.Arn
+        maxReceiveCount: 3
+
+  NewPdfRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: boscochat-new-pdf
+      Description: Object Created events emitted via S3 EventBridge integration
+      State: ENABLED
+      EventPattern:
+        source:
+          - aws.s3
+        detail-type:
+          - Object Created
+        detail:
+          bucket:
+            name:
+              - boscochat-archivo-pdfs
+          object:
+            key:
+              - prefix: originals/
+      Targets:
+        - Id: ArchiveQueue
+          Arn: !GetAtt IngestionQueue.Arn
+
+  IngestionQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref IngestionQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt IngestionQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !GetAtt NewPdfRule.Arn
+
+  WorkerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: boscochat-pdf-worker-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        - PolicyName: private-archive-and-queue
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: arn:aws:s3:::boscochat-archivo-pdfs/originals/*
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt IngestionQueue.Arn
+
+  Worker:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: boscochat-pdf-ingestor
+      PackageType: Image
+      Code:
+        ImageUri: !Ref WorkerImageUri
+      Role: !GetAtt WorkerRole.Arn
+      MemorySize: 2048
+      Timeout: 900
+      EphemeralStorage:
+        Size: 2048
+      ReservedConcurrentExecutions: 2
+      VpcConfig:
+        SubnetIds:
+          - !Ref PrivateSubnetA
+          - !Ref PrivateSubnetB
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+      Environment:
+        Variables:
+          DB_HOST: !Ref DbHost
+          DB_PORT: '3306'
+          DB_USER: !Ref DbUser
+          DB_PASSWORD: !Ref DbPassword
+          DB_NAME: boscochat
+          DB_SSL_MODE: require
+          DB_SSL_CA_BASE64: !Ref DbCaBase64
+          DB_CONNECTION_LIMIT: '1'
+
+  WorkerMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt IngestionQueue.Arn
+      FunctionName: !Ref Worker
+      BatchSize: 1
+      Enabled: true
+      FunctionResponseTypes:
+        - ReportBatchItemFailures
+      ScalingConfig:
+        MaximumConcurrency: 2
+
+Outputs:
+  WorkerFunctionName:
+    Value: !Ref Worker
+  QueueUrl:
+    Value: !Ref IngestionQueue
+  QueueArn:
+    Value: !GetAtt IngestionQueue.Arn
+  DeadLetterQueueUrl:
+    Value: !Ref IngestionDeadLetterQueue

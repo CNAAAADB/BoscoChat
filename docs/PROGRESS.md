@@ -5,6 +5,11 @@
 - BC-003 — Query usage logging and quotas remains BLOCKED after merge pending independent gates and policy approval.
 - BC-006 — PR #14 merged test tooling and a private S3/SSE-KMS/IAM proposal on 2026-11-02. PR #17 adds a source-hash verifier, records and re-verifies all three authorized PDF hashes in exact-head corpus CI, and closes the proposed delivery default to backend proxy with separated least-privilege roles; independent review and AWS implementation evidence remain pending.
 
+## Product requests recorded 2026-11-13
+- BC-016 (IDEA/P1): official domain and HTTPS; exact hostname, DNS access, API subdomain and certificate arrangement to confirm before deployment.
+- BC-017 (IDEA/P1): admin/manager document upload, private listing, filename filter and authorized original download; integrate with S3-driven automatic ingestion. Requirements and privacy/authorization gates pending.
+- BC-007: implementation branch for event-driven S3 -> SQS -> worker indexing, not deployed in AWS and not DONE.
+
 ## In progress
 - None.
 
