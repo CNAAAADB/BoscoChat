@@ -1,5 +1,12 @@
 # BoscoChat Progress
 
+## BC-012 visual page 15-second timeout remediation — 2026-11-13
+- Owner browser screenshot showed original-page image fetch failure on 2025 p12 after login. Backend CloudWatch confirmed a 15000 ms Lambda timeout during the page-image path.
+- Root cause: `boscochat-backend` VPC had S3 gateway endpoint but no NAT or Lambda API interface endpoint. The backend's `lambda:InvokeFunction` SDK call to private image renderer could not reach Lambda API. This was **not** a failure of `pdftoppm` (direct renderer tests had succeeded).
+- PR #38 merged, CloudFormation stack `boscochat-private-lambda-endpoint` in `CREATE_COMPLETE`; interface endpoint `vpce-0fb8b8294057b3182` is `available`, private DNS enabled, spans both existing backend subnets. HTTPS 443 security group ingress permits only the backend execution security group; VPC endpoint policy permits invoke only `boscochat-pdf-page-renderer`.
+- **Pending evidence:** repeat authentic user opening `Don Bosco en España (2025)` p12 to confirm end-to-end image returns successfully. Do not mark BC-012 DONE until this, independent security review and watermark durability are resolved. New interface endpoint incurs hourly and per-GB charges.
+
+
 ## BC-012 protected visual page preview — AWS deployment evidence, 2026-11-13
 - PR #35 was merged to `main` (commit `f228d83ac1788572bba49c81aeec83d29765267d`), and CI package, frontend and PDF-worker build checks passed.
 - AWS CloudFormation stack `boscochat-archive-page-renderer` reached `CREATE_COMPLETE`; PR #36 repaired the narrowly scoped S3 `previews/*` cache-miss listing permission, and the stack reached `UPDATE_COMPLETE`.
