@@ -93,8 +93,19 @@ export function createApp({
         hashKey: authRateLimitHashKey,
       }), createArchiveSearchRouter(pool));
     }
+    if (environment.ARCHIVE_PAGE_IMAGE_ENABLED === 'true' && Buffer.byteLength(environment.ARCHIVE_WATERMARK_HMAC_KEY ?? '') < 32) {
+      throw new Error('ARCHIVE_WATERMARK_HMAC_KEY_REQUIRED');
+    }
     app.use('/api/archive/documents', createArchiveDocumentRouter(pool, service, {
       pdfViewerEnabled: environment.ARCHIVE_PDF_VIEW_ENABLED === 'true',
+      pageImageEnabled: environment.ARCHIVE_PAGE_IMAGE_ENABLED === 'true',
+      imageRateLimiter: createArchiveSearchRateLimiter({
+        store: sharedAuthRateLimitStore ?? undefined,
+        hashKey: authRateLimitHashKey,
+        scope: 'archive-page-image',
+        limit: 20,
+      }),
+      watermarkSecret: environment.ARCHIVE_WATERMARK_HMAC_KEY,
       allowedOrigins: [...allowedOrigins],
     }));
     app.use('/api', createLegacyRouter(pool, service, usage, administration));
