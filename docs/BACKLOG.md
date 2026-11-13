@@ -68,7 +68,8 @@ As the platform, I want role-based authorization so that users only access funct
 - [x] Orchestrator rerun on 2026-11-04: independent black-box privilege and suspension/session-revocation checks PASS against materialized `a62f0dd`; this does not replace a distinct Verifier identity.
 - [ ] Independent verification by a distinct reviewer identity on the exact remediated SHA.
 - [ ] Independent FULL authorization/security review on the exact remediated SHA.
-- [ ] Representative MySQL migration/concurrency validation.
+- [x] MySQL 8 engine-level CI migration/concurrency validation.
+- [ ] Representative staging migration and distributed-load validation.
 - [ ] Approve access, retention and deletion policy for personal identifiers in `admin_audit_logs`.
 - HIGH `SEC-BC002-03 / CWE-400`: rotating email values bypassed the original `IP|email` authentication limiter and could force unbounded password-hash work from one source IP. PR #17 retains an aggregate-IP regression and now uses opaque HMAC bucket keys; exact-head CI and distinct independent FULL verification remain required.
 - HIGH `SEC-BC002-04 / CWE-400`: PR #17 now implements a MySQL-backed fixed-window store shared across Lambda instances, fails closed in production without that store or a 32-byte HMAC key, and adds a two-instance regression. CI now passes the migration and concurrent limiter/last-administrator/session-revocation tests on MySQL 8. The remediation is not accepted yet: representative staging/load evidence and a distinct independent FULL security review are `TRACE-GAP`.
@@ -144,7 +145,7 @@ As a paying user, I want subscription payments and renewals handled by an extern
 - Depends on: -
 - SRS: RF-DOC-04, RF-DOCMGMT-01, RNF-SEC-02, RNF-SCALE-02, RNF-MAINT-01
 - Design/mockup: docs/proposals/BC-006-private-document-storage.md (proposed, not approved)
-- PR: #14 (merged 2026-11-02; test tooling/proposal only)
+- PR: #14, #17, #18, #19, #20, #21 and #23 (merged artifacts; delivery gate remains BLOCKED)
 
 **Story**  
 As the platform, I want a structured documentary data model and protected document storage so that historical publications can be ingested and served securely.
@@ -157,20 +158,22 @@ As the platform, I want a structured documentary data model and protected docume
 - [ ] Architecture supports adding new publications without redesigning the core data model.
 
 **Gate status**
-- PR #14 added owner-authorized private test-corpus tooling and a proposed S3/SSE-KMS/IAM/backend-authorized-access architecture.
-- PR #17 retrieved the three owner-authorized originals without persisting or publishing them and verified the received bytes twice in CI. Recorded SHA-256 values are: issue 766 `bd3fb59f977e33ee1291f651393bcb07d8588408680bd9db03e19dbc8bc43b2f` (2,399,080 bytes), issue 767 `d054fba67c81e1c00e5dabfd4c78990e0de02b2ce145b8a002c53335fcdcd62f` (2,269,063 bytes), and issue 768 `a55356d0b23bba4be681877942a4e9db764418dd1f2661c2327210900fea8b8f` (3,003,344 bytes).
-- PR #17 adds the bounded non-persistent source-hash verifier and adopts S3 private, SSE-KMS, backend proxy and separated minimum-privilege roles as proposed defaults. Corpus CI passed on exact SHA `e105577`; distinct independent review is still pending.
-- No S3 bucket, KMS key, IAM policy, backend document-access integration, IaC or representative AWS verification exists.
-- Cloud/privacy decisions and independent FULL review remain pending. BC-006 stays `BLOCKED`; PR #14 does not implement BC-006, BC-007 or BC-008.
+- PR #17 merged on 2026-11-10 despite its recorded `BLOCKED / TRACE-GAP — do not merge` gate and zero submitted reviews. Its source-hash verifier and the three authorized catalog SHA-256 values are now on `main`.
+- PR #18 records owner-supplied AWS-console evidence for a private S3 bucket, Block Public Access, versioning, SSE-S3 and a manual upload in progress. This is documentary evidence, not an independently verified deployment.
+- PR #19 adds annual-key parsing. PR #20 adds archive schema/import/search/viewer components. PR #21 adds a disabled-by-default administrator S3 header probe. PR #23 mounts the search and document routes behind disabled-by-default feature flags.
+- Producer CI passed on PR #17, #19, #20, #21 and #23; PR #18 had no workflow. None of PR #17–#23 has a submitted review.
+- No repository evidence shows a successful Lambda `GetObject`, archive migration, real ingestion into RDS, representative backend document read, IaC deployment, negative AWS access tests or independent FULL review.
+- The owner-supplied environment uses SSE-S3 while the current BC-006 proposal requires SSE-KMS; the encryption baseline and remaining cloud/privacy decisions are unresolved.
+- BC-006 remains `BLOCKED`. Merges and disabled diagnostic/prototype code do not satisfy its acceptance criteria.
 
 ### BC-007 — Document upload and ingestion pipeline
 - Priority: P1
-- Status: READY
+- Status: BLOCKED
 - Owner role: Developer
 - Depends on: BC-002, BC-006
 - SRS: RF-DOCMGMT-01, RF-DOCMGMT-02, RF-DOCMGMT-04
 - Design/mockup: TBD
-- PR: -
+- PR: #19 and #20 (merged 2026-11-10; partial tooling only)
 
 **Story**  
 As a Documentary manager, I want to upload historical publication PDFs and ingest their OCR content so that they become searchable.
@@ -183,14 +186,20 @@ As a Documentary manager, I want to upload historical publication PDFs and inges
 - [ ] OCR corrections retain an audit trail and update affected search data.
 - [ ] Failed ingestion leaves a diagnosable/retryable state rather than silently succeeding.
 
+**Gate status**
+- Parser, archive schema, one-PDF importer and text-extraction helpers are present on `main`.
+- The migration and importer have not been executed against a representative AWS/RDS environment; no real annual PDF has been independently shown as ingested or searchable.
+- Upload authorization, ingestion retry/diagnostics, OCR correction and correction audit-trail acceptance criteria remain unevidenced.
+- Dependencies BC-002 and BC-006 are not `DONE`; independent functional/security review is absent.
+
 ### BC-008 — Keyword, phrase and logical search
 - Priority: P1
-- Status: READY
+- Status: BLOCKED
 - Owner role: Developer
 - Depends on: BC-007
 - SRS: RF-SEARCH-01, RF-SEARCH-02, RF-SEARCH-03, RF-SEARCH-04, RNF-PERF-01
 - Design/mockup: TBD
-- PR: -
+- PR: #20 and #23 (merged 2026-11-10; feature disabled by default)
 
 **Story**  
 As a registered user, I want to search the OCR corpus using words, exact phrases and logical operators so that I can locate relevant historical content.
@@ -204,14 +213,20 @@ As a registered user, I want to search the OCR corpus using words, exact phrases
 - [ ] Indexed search target is under 2 seconds under the defined normal test conditions.
 - [ ] Search syntax and edge cases have automated tests.
 
+**Gate status**
+- A MySQL FULLTEXT word-search prototype, annual filter, ten-result preview and React integration are present on `main`, but `ARCHIVE_PUBLIC_SEARCH_ENABLED` / `VITE_ARCHIVE_SEARCH` remain disabled by default.
+- No real archive migration/ingestion, representative query evidence, performance evidence, exact-phrase support or explicit AND/OR support has been verified.
+- The anonymous-search behavior introduced by PR #20 conflicts with RF-USER-03 and the current criterion that unauthenticated users cannot execute a search. It remains a `TRACE-GAP` until the approved SRS/backlog baseline is changed or the implementation is aligned.
+- Public anti-abuse/rate-limit controls and independent functional/security review are missing.
+
 ### BC-009 — Preserve query through authentication
 - Priority: P1
-- Status: READY
+- Status: BLOCKED
 - Owner role: Developer
 - Depends on: BC-001, BC-008
 - SRS: RF-USER-03
 - Design/mockup: TBD
-- PR: -
+- PR: #20 and #23 (merged 2026-11-10; scope conflict and feature flag)
 
 **Story**  
 As an unauthenticated visitor, I want my entered search retained while I log in/register so that it executes after successful authentication.
@@ -223,6 +238,11 @@ As an unauthenticated visitor, I want my entered search retained while I log in/
 - [ ] Query executes automatically after successful authentication.
 - [ ] Temporary query data is not retained longer than necessary.
 
+**Gate status**
+- The feature-flagged frontend retains a selected document/page through login, but this is not an end-to-end verified preservation of the entered query required by RF-USER-03.
+- The merged anonymous-search flow executes search before authentication, contradicting the current SRS/backlog baseline.
+- BC-008 is `BLOCKED`; product-baseline approval and independent verification are pending.
+
 ### BC-010 — Documentary search filters
 - Priority: P1
 - Status: READY
@@ -230,7 +250,7 @@ As an unauthenticated visitor, I want my entered search retained while I log in/
 - Depends on: BC-008
 - SRS: RF-SEARCH-05, RF-SEARCH-06, RF-SEARCH-07, RF-SEARCH-08, RF-SEARCH-09
 - Design/mockup: TBD
-- PR: -
+- PR: #20 (merged partial annual filter only; story remains incomplete)
 
 **Story**  
 As a registered user, I want to filter search results by documentary metadata so that I can narrow the corpus efficiently.
@@ -250,7 +270,7 @@ As a registered user, I want to filter search results by documentary metadata so
 - Depends on: BC-008, BC-010
 - SRS: RF-SEARCH-10, RF-SEARCH-11, RF-SEARCH-12, RNF-USE-02
 - Design/mockup: TBD
-- PR: -
+- PR: #20 (merged partial preview only; story remains incomplete)
 
 **Story**  
 As a registered user, I want search results to show highlighted fragments and source metadata so that I can evaluate relevance and open the original source.
@@ -264,12 +284,12 @@ As a registered user, I want search results to show highlighted fragments and so
 
 ### BC-012 — Protected integrated PDF viewer
 - Priority: P1
-- Status: READY
+- Status: BLOCKED
 - Owner role: Developer
 - Depends on: BC-006, BC-011
 - SRS: RF-DOC-01, RF-DOC-02, RF-DOC-03, RF-DOC-04, RNF-SEC-02
 - Design/mockup: TBD
-- PR: -
+- PR: #20 and #23 (merged prototype; disabled by default)
 
 **Story**  
 As a registered user, I want to view original documents inside BoscoChat on the relevant page without receiving a direct downloadable document URL.
@@ -281,6 +301,12 @@ As a registered user, I want to view original documents inside BoscoChat on the 
 - [ ] Backend verifies authorization before serving content.
 - [ ] Viewer does not expose a direct download action.
 - [ ] Invisible user-associated watermarking required by RF-DOC-03 is implemented and verified.
+
+**Gate status**
+- Authenticated page-text retrieval and a bounded S3 byte-range PDF proxy prototype are present on `main`.
+- `ARCHIVE_PDF_VIEW_ENABLED` / `VITE_ARCHIVE_PDF_VIEW` remain disabled by default.
+- No successful real S3 read, API Gateway/Lambda binary-range test, cross-site cookie/CSP validation, large-PDF test, source-page end-to-end validation, per-user range-request abuse/cost control or watermark evidence exists.
+- BC-006 and BC-011 are not `DONE`; independent functional/security review is missing.
 
 ### BC-013 — Administration monitoring
 - Priority: P2
