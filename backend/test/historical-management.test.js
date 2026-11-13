@@ -106,7 +106,7 @@ test('BC-017 manager can view filtered inventory and statuses; normal users cann
   assert.equal(data.total, 1);
   assert.equal(data.documents[0].status, 'indexed');
   assert.equal(data.documents[0].pages, 228);
-  const waiting = await fetch(base + '/documents?q=2025', { headers: cookie('admin') });
+  const waiting = await fetch(base + '/documents?q=2025', { headers: cookie('manager') });
   assert.equal((await waiting.json()).documents[0].status, 'pending');
 }));
 
@@ -117,13 +117,13 @@ test('BC-017 prevents overwriting existing annual and invalid uploads', async ()
   });
   assert.equal(existing.status, 409);
   const valid = await fetch(base + '/uploads', {
-    method: 'POST', headers: { ...cookie('admin'), 'Content-Type': 'application/json' },
+    method: 'POST', headers: { ...cookie('manager'), 'Content-Type': 'application/json' },
     body: JSON.stringify({ filename: 'Don Bosco en España_2026.pdf', sizeBytes: 240000 }),
   });
   assert.equal(valid.status, 201);
   assert.equal((await valid.json()).upload.key, 'originals/Don Bosco en España_2026.pdf');
   const invalid = await fetch(base + '/uploads', {
-    method: 'POST', headers: { ...cookie('admin'), 'Content-Type': 'application/json' },
+    method: 'POST', headers: { ...cookie('manager'), 'Content-Type': 'application/json' },
     body: JSON.stringify({ filename: '../../secret.pdf', sizeBytes: 2 }),
   });
   assert.equal(invalid.status, 400);
