@@ -27,7 +27,7 @@ test('BC-007 worker preserves empty physical pages and commits only after verify
   };
   const pdf = Buffer.from('%PDF-1.7\nmock-pdf');
   const s3 = { async send(command) {
-    if (command.input.head) return { ContentLength: pdf.length };
+    if (command.input.head) return { ContentLength: pdf.length, VersionId: 'source-version-1' };
     return { Body: Readable.from([pdf]) };
   }};
   const result = await ingestOne({
