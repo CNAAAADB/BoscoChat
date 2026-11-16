@@ -1,3 +1,9 @@
+## BC-017 — Evidencia real de reparación de MySQL (2026-11-16)
+- Fallo: CloudWatch `DELETE /api/admin/historical/documents` `ER_NO_SUCH_TABLE (42S02)`; diagnóstico `inspect-archive-schema` identificó exclusivamente `admin_audit_logs` ausente.
+- Respaldo: snapshot cifrado `boscochat-pre-audit-repair-20261116` AVAILABLE. Operación `repair-archive-audit-schema` verificada sin alterar otras tablas; inspección posterior reportó `missing=[]`. Lambda privada temporal eliminada.
+- PR #61 merge `4d71163ef31894bed609ab3c99c4178e4af095ef`: diagnóstico/repair en `backend/worker/archive-audit-schema.js`, pruebas, aviso y errores por archivo en `frontend/src/HistoricalManagement.jsx`. Amplify main job 58 SUCCEED.
+- TRACE-GAP: E2E autenticado con PDF de prueba, procesamiento asíncrono de indexación real y revisión de seguridad independiente siguen pendientes.
+
 ## BC-017 — Incidencia funcional, evidencia AWS (2026-11-16)
 - CloudWatch 2026-11-16 registra `method: DELETE`, `path: /api/admin/historical/documents`, `code: ER_NO_SUCH_TABLE`, `sqlState: 42S02`. Diagnóstico de tabla específica pendiente de Lambda privada.
 - Ruta de diagnóstico/DDL sólo mediante `backend/worker/archive-audit-schema.js` invocable en VPC y nunca expuesta a HTTP; validación en `backend/test/archive-audit-schema.test.js`.
