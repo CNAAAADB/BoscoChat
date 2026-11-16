@@ -70,7 +70,7 @@ export async function ingestOne({ key, catalog = null, s3, S3GetCommand, S3HeadC
   const year = catalog?.year;
   if (catalog && (parsed.status === 'recognized' || typeof publication !== 'string'
     || publication.length < 2 || publication.length > 180 || publication.trim() !== publication
-    || /[\\u0000-\\u001f]/u.test(publication)
+    || /[\x00-\x1f]/u.test(publication)
     || !Number.isInteger(year) || year < 1800 || year > 2100)) throw new Error('Invalid manual catalogue');
   const metadata = catalog ? { key, publication: publication.normalize('NFC'), year } : parsed;
   if (parsed.status !== 'recognized' && !catalog) throw new Error('Unsupported archive PDF key');
