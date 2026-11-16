@@ -53,7 +53,7 @@ const mockS3 = {
       ] };
     }
     if (command instanceof HeadObjectCommand) {
-      if (command.Key.endsWith('2025.pdf') || command.Key.endsWith('1923.pdf') || command.Key.endsWith('casa 1950.pdf')) return { ContentLength: 25000, ETag: '"example-etag"' };
+      if (command.Key.endsWith('2025.pdf') || command.Key.endsWith('1923.pdf') || command.Key.endsWith('casa 1950.pdf')) return { ContentLength: 25000, ETag: '"example-etag"', VersionId: 'version-1' };
       const err = new Error('not found');
       err.name = 'NotFound';
       throw err;
@@ -214,7 +214,7 @@ test('BC-017 permits historian and administrator to delete S3 original and index
     };
     const s3 = {
       async send(cmd) {
-        if (cmd instanceof HeadObjectCommand) return { ContentLength: 25000, ETag: '"abc123"' };
+        if (cmd instanceof HeadObjectCommand) return { ContentLength: 25000, ETag: '"abc123"', VersionId: 'version-1' };
         if (cmd instanceof DeleteObjectCommand) {
           operations.push({ deleted: cmd.Key, etag: cmd.IfMatch });
           return { DeleteMarker: true };
@@ -233,10 +233,12 @@ test('BC-017 permits historian and administrator to delete S3 original and index
     }, { db, s3 });
     assert.equal(operations[0], 'begin');
     assert.match(operations[1].sql, /SELECT id FROM archive_documents/);
-    assert.deepEqual(operations[2], { deleted: 'originals/Don Bosco en España_1923.pdf', etag: '"abc123"' });
-    assert.match(operations[3].sql, /DELETE FROM archive_documents WHERE s3_key = \?/);
-    assert.deepEqual(operations[3].params, ['originals/Don Bosco en España_1923.pdf']);
-    assert.deepEqual(operations.slice(4), ['commit', 'release']);
+    assert.match(operations[2].sql, /INSERT INTO archive_deleted_sources/);
+    assert.deepEqual(operations[2].params, ['originals/Don Bosco en España_1923.pdf', 'version-1']);
+    assert.deepEqual(operations[3], { deleted: 'originals/Don Bosco en España_1923.pdf', etag: '"abc123"' });
+    assert.match(operations[4].sql, /DELETE FROM archive_documents WHERE s3_key/);
+    assert.deepEqual(operations[4].params, ['originals/Don Bosco en España_1923.pdf']);
+    assert.deepEqual(operations.slice(5), ['commit', 'release']);
   }
 });
 
@@ -255,7 +257,7 @@ test('BC-017 does not delete indexed rows if S3 deletion fails', async () => {
   };
   const s3 = {
     async send(cmd) {
-      if (cmd instanceof HeadObjectCommand) return { ContentLength: 25000, ETag: '"abc123"' };
+      if (cmd instanceof HeadObjectCommand) return { ContentLength: 25000, ETag: '"abc123"', VersionId: 'version-1' };
       if (cmd instanceof DeleteObjectCommand) {
         const error = new Error('precondition failed');
         error.$metadata = { httpStatusCode: 412 };
