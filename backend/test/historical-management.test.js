@@ -87,11 +87,11 @@ const signer = {
   download: ({ key }) => ({ url: 'https://download.example.invalid/' + encodeURIComponent(key), expiresIn: 60 }),
 };
 
-async function withApp(fn, { db = pool, s3 = mockS3, invokeIngestor = async () => {}, deletionEnabled = true, manualIndexEnabled = true } = {}) {
+async function withApp(fn, { db = pool, s3 = mockS3, invokeIngestor = async () => {}, deletionEnabled = true, manualIndexEnabled = true, unindexEnabled = true } = {}) {
   const app = express();
   app.use(express.json());
   app.use('/api/admin/historical', createHistoricalManagementRouter(db, auth, {
-    s3Client: s3, s3Commands: commands, signer, invokeIngestor, deletionEnabled, manualIndexEnabled,
+    s3Client: s3, s3Commands: commands, signer, invokeIngestor, deletionEnabled, manualIndexEnabled, unindexEnabled,
   }));
   const server = await new Promise((resolve) => {
     const instance = app.listen(0, '127.0.0.1', () => resolve(instance));
@@ -103,7 +103,7 @@ function cookie(role) { return { cookie: 'boscochat_session=' + role + '-session
 
 test('BC-017 rejects anonymous and normal users for all management endpoints', async () => withApp(async (base) => {
   for (const [method, path] of [
-    ['GET', '/documents'], ['POST', '/uploads'], ['POST', '/documents/index'], ['DELETE', '/documents'], ['GET', '/documents/1923/download'], ['GET', '/documents/download?filename=Bolet%C3%ADn%20de%20la%20casa%201950.pdf'],
+    ['GET', '/documents'], ['POST', '/uploads'], ['POST', '/documents/unindex'], ['POST', '/documents/index'], ['POST', '/documents/unindex'], ['DELETE', '/documents'], ['GET', '/documents/1923/download'], ['GET', '/documents/download?filename=Bolet%C3%ADn%20de%20la%20casa%201950.pdf'],
   ]) {
     const anonymous = await fetch(base + path, { method });
     assert.equal(anonymous.status, 401, method + ' ' + path);
@@ -359,4 +359,87 @@ test('BC-017 destructive and manual indexing actions fail closed while release f
       assert.equal(response.status, 503);
     }
   }, { deletionEnabled: false, manualIndexEnabled: false });
+});
+
+test('BC-017 unindex preserves the original and removes indexed pages for administrators and historians', async () => {
+  for (const role of ['admin', 'manager']) {
+    const calls = [];
+    const db = {
+      async getConnection() {
+        return {
+          async beginTransaction() { calls.push('begin'); },
+          async execute(sql, params) {
+            calls.push({ sql, params });
+            if (sql.startsWith('SELECT id, indexed_at')) return [[{ id: 8, indexed_at: now }]];
+            return [[]];
+          },
+          async commit() { calls.push('commit'); },
+          async rollback() { calls.push('rollback'); },
+          release() { calls.push('release'); },
+        };
+      },
+    };
+    const s3 = { async send(command) {
+      assert.ok(command instanceof HeadObjectCommand, 'must not remove S3 original');
+      return { ContentLength: 25000, VersionId: 'version-1' };
+    } };
+    await withApp(async base => {
+      const response = await fetch(base + '/documents/unindex', {
+        method: 'POST', headers: { ...cookie(role), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: 'Don Bosco en España_1923.pdf' }),
+      });
+      assert.equal(response.status, 200);
+      assert.equal((await response.json()).originalRetained, true);
+    }, { db, s3 });
+    assert.match(calls[2].sql, /archive_deleted_sources/);
+    assert.match(calls[3].sql, /DELETE FROM archive_pages/);
+    assert.match(calls[4].sql, /UPDATE archive_documents SET indexed_at = NULL/);
+    assert.match(calls[5].sql, /INSERT INTO admin_audit_logs/);
+    assert.deepEqual(calls.slice(6), ['commit', 'release']);
+  }
+});
+
+test('BC-017 unindex refuses an already-unindexed original and unsafe name', async () => {
+  const db = { async getConnection() { return {
+    async beginTransaction() {},
+    async execute() { return [[]]; },
+    async rollback() {},
+    release() {},
+  }; } };
+  await withApp(async base => {
+    for (const [filename, expected] of [['Don Bosco en España_1923.pdf', 409], ['../private.pdf', 400]]) {
+      const response = await fetch(base + '/documents/unindex', {
+        method: 'POST', headers: { ...cookie('admin'), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename }),
+      });
+      assert.equal(response.status, expected);
+    }
+  }, { db });
+});
+
+test('BC-017 reindex accepts a previous unindex and removes source-version suppression', async () => {
+  const statements = [];
+  const db = {
+    async execute() { return [[]]; },
+    async getConnection() { return {
+      async beginTransaction() {},
+      async execute(sql, params) {
+        statements.push({ sql, params });
+        if (sql.includes('SELECT requested_at')) return [[]];
+        return [[]];
+      },
+      async commit() {},
+      async rollback() {},
+      release() {},
+    }; },
+  };
+  await withApp(async base => {
+    const response = await fetch(base + '/documents/index', {
+      method: 'POST', headers: { ...cookie('admin'), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: 'Don Bosco en España_1923.pdf' }),
+    });
+    assert.equal(response.status, 202);
+  }, { db });
+  const clear = statements.find(x => x.sql.startsWith('DELETE FROM archive_deleted_sources'));
+  assert.deepEqual(clear.params, ['originals/Don Bosco en España_1923.pdf', 'version-1']);
 });

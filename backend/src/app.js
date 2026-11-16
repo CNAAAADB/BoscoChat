@@ -106,6 +106,7 @@ export function createApp({
       app.use('/api/admin/historical', createHistoricalManagementRouter(pool, service, {
         deletionEnabled: environment.ARCHIVE_DOCUMENT_DELETE_ENABLED === 'true',
         manualIndexEnabled: environment.ARCHIVE_MANUAL_INDEX_ENABLED === 'true',
+        unindexEnabled: environment.ARCHIVE_UNINDEX_ENABLED === 'true',
       }));
     }
     app.use('/api/archive/documents', createArchiveDocumentRouter(pool, service, {
