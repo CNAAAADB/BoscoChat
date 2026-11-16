@@ -344,7 +344,7 @@ export default function App() {
           {results.map((result) => (
             <article key={`${result.document_id ?? result.title}-${result.page_number}`} style={{ padding: '20px', background: '#1a1a2e', borderRadius: '20px', marginBottom: '10px' }}>
               <h3 style={{ color: '#E6D7AA' }}>{ARCHIVE_SEARCH_ENABLED ? `${result.publication} (${result.publication_year})` : result.title} (Pág. {result.page_number})</h3>
-              <p>{ARCHIVE_SEARCH_ENABLED ? highlightSearchTerms(result.text_content, search) : result.text_content}</p>
+              <p>{ARCHIVE_SEARCH_ENABLED ? highlightSearchTerms(result.text_content, submittedSearch?.q ?? search) : result.text_content}</p>
               {ARCHIVE_SEARCH_ENABLED ? <button style={styles.btnPrimary} type="button" onClick={() => openSearchResult(result)}>Consultar página {result.page_number}</button> : null}
             </article>
           ))}
