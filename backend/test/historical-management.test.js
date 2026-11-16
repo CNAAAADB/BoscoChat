@@ -360,3 +360,40 @@ test('BC-017 destructive and manual indexing actions fail closed while release f
     }
   }, { deletionEnabled: false, manualIndexEnabled: false });
 });
+
+test('BC-017 unindex preserves the original and removes indexed pages for administrators and historians', async () => {
+  for (const role of ['admin', 'manager']) {
+    const calls = [];
+    const db = {
+      async getConnection() {
+        return {
+          async beginTransaction() { calls.push('begin'); },
+          async execute(sql, params) {
+            calls.push({ sql, params });
+            if (sql.startsWith('SELECT id, indexed_at')) return [[{ id: 8, indexed_at: now }]];
+            return [[]];
+          },
+          async commit() { calls.push('commit'); },
+          async rollback() { calls.push('rollback'); },
+          release() { calls.push('release'); },
+        };
+      },
+    };
+    const s3 = { async send(command) {
+      assert.ok(command instanceof HeadObjectCommand, 'must not remove S3 original');
+      return { ContentLength: 25000, VersionId: 'version-1' };
+    } };
+    await withApp(async base => {
+      const response = await fetch(base + '/documents/unindex', {
+        method: 'POST', headers: { ...cookie(role), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: 'Don Bosco en España_1923.pdf' }),
+      });
+      assert.equal(response.status, 200);
+      assert.equal((await response.json()).originalRetained, true);
+    }, { db, s3 });
+    assert.match(calls[2].sql, /archive_deleted_sources/);
+    assert.match(calls[3].sql, /DELETE FROM archive_documents/);
+    assert.match(calls[4].sql, /INSERT INTO admin_audit_logs/);
+    assert.deepEqual(calls.slice(5), ['commit', 'release']);
+  }
+});
