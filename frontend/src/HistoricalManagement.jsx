@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { historicalDocuments, historicalDownload, historicalUpload, historicalDelete, historicalIndex } from './api/historical.js';
+import { historicalDocuments, historicalDownload, historicalUpload, historicalDelete, historicalIndex, historicalUnindex } from './api/historical.js';
 
 const panel = { background: 'rgba(25,25,45,0.9)', border: '1px solid #28295E', borderRadius: 30, padding: 'clamp(20px, 4vw, 42px)', maxWidth: 1100, margin: '0 auto 40px' };
 const control = { background: '#111', border: '1px solid #777', borderRadius: 12, color: '#fff', padding: 12, boxSizing: 'border-box', maxWidth: '100%' };
@@ -8,6 +8,7 @@ const heading = { color: '#E6D7AA', marginTop: 0, borderLeft: '6px solid #E6D7AA
 const fileLimit = 350 * 1024 * 1024;
 const CAN_DELETE = import.meta.env.VITE_ARCHIVE_DOCUMENT_DELETE === 'true';
 const CAN_INDEX = import.meta.env.VITE_ARCHIVE_MANUAL_INDEX === 'true';
+const CAN_UNINDEX = import.meta.env.VITE_ARCHIVE_UNINDEX === 'true';
 
 function sizeLabel(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
@@ -94,6 +95,19 @@ export default function HistoricalManagement() {
     finally { setBusy(false); }
   };
 
+  const unindex = async (filename) => {
+    if (!window.confirm('¿Desindexar "' + filename + '"? El PDF original seguirá guardado, pero sus páginas ya no aparecerán en búsquedas.')) return;
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      await historicalUnindex(filename);
+      await refresh();
+      setMessage('PDF desindexado. El original permanece almacenado y puede indexarse de nuevo.');
+    } catch (failure) { setError(failure.message); }
+    finally { setBusy(false); }
+  };
+
   const download = async (filename) => {
     setError('');
     // Create the window during the user's click, before awaiting the authenticated request.
@@ -138,6 +152,7 @@ export default function HistoricalManagement() {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               <button type="button" disabled={busy} onClick={() => download(doc.filename)} style={button}>Descargar original</button>
               {CAN_INDEX && doc.status === 'pending' ? <button type="button" disabled={busy} onClick={() => index(doc.filename)} style={button}>Indexar PDF</button> : null}
+              {CAN_UNINDEX && doc.status === 'indexed' ? <button type="button" disabled={busy} onClick={() => unindex(doc.filename)} style={button}>Desindexar PDF</button> : null}
               {CAN_DELETE ? <button type="button" disabled={busy} onClick={() => remove(doc.filename)} style={{ ...button, background: '#ff9797' }}>Eliminar PDF</button> : null}
             </div>
           </article>
