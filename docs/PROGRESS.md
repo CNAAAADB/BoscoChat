@@ -1,3 +1,9 @@
+## BC-017 — Preparación de migración privada RDS (2026-11-16)
+- Copia manual cifrada confirmada AVAILABLE: `boscochat-pre-bc017-index-delete-20261116` en us-east-1, antes de cambiar MySQL.
+- RDS `boscochat-db` es MySQL 8.4.9, `PubliclyAccessible=false`; no usa Aurora/RDS Data API. No abrir puerto público.
+- Migración propuesta en PR separado: `src/db/archive-migration.js` define sólo `CREATE TABLE IF NOT EXISTS` de `archive_deleted_sources` y `archive_manual_index_requests`; handler temporal `worker/archive-migration.js` en VPC para ejecutarla sin secretos fuera de AWS.
+- Validación automatizada de columnas/PK y FK `archive_pages -> archive_documents ON DELETE CASCADE`. Pendiente CI, despliegue del worker revisado y ejecución/consulta en RDS. Hasta verificar, las flags de borrado e indexación siguen apagadas.
+
 ## BC-017 — Eliminar e indexar archivos desde Gestión histórica (2026-11-16)
 - Implementación propuesta: eliminación confirmada del original actual en S3 y registro MySQL `archive_documents`, con borrado en cascada de `archive_pages`; reindexación manual asíncrona para PDF anuales reconocidos, usando la Lambda ingesta existente.
 - PDFs de otras publicaciones siguen requiriendo catalogación; no se muestra un botón de indexación engañoso.
