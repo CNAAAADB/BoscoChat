@@ -444,3 +444,48 @@ test('BC-017 reindex accepts a previous unindex and removes source-version suppr
   const clear = statements.find(x => x.sql.startsWith('DELETE FROM archive_deleted_sources'));
   assert.deepEqual(clear.params, ['originals/Don Bosco en España_1923.pdf', 'version-1']);
 });
+
+test('BC-017 can request indexing of nonannual PDF with explicitly validated catalogue metadata', async () => {
+  const invoked = [];
+  const db = {
+    async execute(sql) {
+      if (sql.includes('SELECT publication, publication_year, indexed_at')) return [[]];
+      return [[]];
+    },
+    async getConnection() {
+      return {
+        async beginTransaction() {},
+        async execute(sql) {
+          if (sql.includes('SELECT requested_at')) return [[]];
+          return [[]];
+        },
+        async commit() {},
+        async rollback() {},
+        release() {},
+      };
+    },
+  };
+  await withApp(async base => {
+    const endpoint = base + '/documents/index';
+    const headers = { ...cookie('admin'), 'Content-Type': 'application/json' };
+    const yes = await fetch(endpoint, {
+      method: 'POST', headers,
+      body: JSON.stringify({ filename: 'Boletín de la casa 1950.pdf', publication: 'Boletín de la casa', year: 1950 }),
+    });
+    assert.equal(yes.status, 202);
+    const noYear = await fetch(endpoint, {
+      method: 'POST', headers,
+      body: JSON.stringify({ filename: 'Boletín de la casa 1950.pdf', publication: 'Boletín de la casa' }),
+    });
+    assert.equal(noYear.status, 400);
+    const badTitle = await fetch(endpoint, {
+      method: 'POST', headers,
+      body: JSON.stringify({ filename: 'Boletín de la casa 1950.pdf', publication: 'A', year: 1950 }),
+    });
+    assert.equal(badTitle.status, 400);
+  }, { db, invokeIngestor: async (key, catalog) => invoked.push({ key, catalog }) });
+  assert.deepEqual(invoked, [{
+    key: 'originals/Boletín de la casa 1950.pdf',
+    catalog: { publication: 'Boletín de la casa', year: 1950 },
+  }]);
+});
