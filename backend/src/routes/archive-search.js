@@ -9,6 +9,8 @@ export function createArchiveSearchRouter(pool) {
     res.set('Cache-Control', 'private, no-store');
     try {
       const result = await searchArchivePages(pool, req.query.q, { year: req.query.year, mode: req.query.mode, page: req.query.page, pageSize: req.query.pageSize });
+      // Explicit protocol marker for diagnosing frontend/backend deployment drift.
+      res.set('X-BoscoChat-Search-API', 'paginated-v1');
       return res.json(result);
     } catch (error) {
       return next(error);
