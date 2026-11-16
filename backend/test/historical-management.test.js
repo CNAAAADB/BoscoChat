@@ -315,3 +315,46 @@ test('BC-017 manual indexing accepts recognized pending PDF and rejects generic 
     assert.equal((await response.json()).error.code, 'DOCUMENT_ALREADY_INDEXED');
   }, { db: { async execute() { return [[{ indexed_at: now }]]; } } });
 });
+
+test('BC-017 manual indexing is rate limited for the same PDF across sessions', async () => {
+  const invoked = [];
+  const recent = new Date();
+  const db = {
+    async execute() { return [[]]; },
+    async getConnection() {
+      return {
+        async beginTransaction() {},
+        async execute(sql) {
+          if (sql.includes('SELECT requested_at FROM archive_manual_index_requests')) return [[{ requested_at: recent }]];
+          return [[]];
+        },
+        async rollback() {},
+        async commit() { throw new Error('must not commit throttled retry'); },
+        release() {},
+      };
+    },
+  };
+  await withApp(async base => {
+    const response = await fetch(base + '/documents/index', {
+      method: 'POST', headers: { ...cookie('manager'), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: 'Don Bosco en España_1923.pdf' }),
+    });
+    assert.equal(response.status, 429);
+    assert.equal(response.headers.get('retry-after'), '600');
+    assert.equal((await response.json()).error.code, 'INDEX_ALREADY_REQUESTED');
+  }, { db, invokeIngestor: async key => invoked.push(key) });
+  assert.deepEqual(invoked, []);
+});
+
+test('BC-017 destructive and manual indexing actions fail closed while release flags are off', async () => {
+  await withApp(async base => {
+    for (const method of ['POST', 'DELETE']) {
+      const path = method === 'POST' ? '/documents/index' : '/documents';
+      const response = await fetch(base + path, {
+        method, headers: { ...cookie('admin'), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: 'Don Bosco en España_1923.pdf' }),
+      });
+      assert.equal(response.status, 503);
+    }
+  }, { deletionEnabled: false, manualIndexEnabled: false });
+});
