@@ -16,7 +16,7 @@ const BUCKET = 'boscochat-archivo-pdfs';
 const LIMIT_PDF_BYTES = 350 * 1024 * 1024;
 const LIMIT_TEXT_BYTES = 150 * 1024 * 1024;
 
-async function saveDocument(pool, metadata, contentBytes, pages, sourceVersionId) {
+export async function saveDocument(pool, metadata, contentBytes, pages, sourceVersionId) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
