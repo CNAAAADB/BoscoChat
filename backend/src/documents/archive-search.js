@@ -51,31 +51,47 @@ export function excerptNearMatch(text, words, maxLength = 280) {
   return (start ? '…' : '') + value.slice(start, end) + (end < value.length ? '…' : '');
 }
 
-export async function searchArchivePages(pool, rawQuery, { year = null, limit = 10, mode = 'relevance' } = {}) {
+export async function searchArchivePages(pool, rawQuery, { year = null, page = 1, pageSize = 10, mode = 'relevance' } = {}) {
   const plan = searchPlan(rawQuery, mode);
   const parsedYear = year == null || year === '' ? null : Number(year);
   if (parsedYear !== null && (!Number.isInteger(parsedYear) || parsedYear < 1922 || parsedYear > 2100)) {
     throw searchError('INVALID_SEARCH_YEAR', 'El año de búsqueda no es válido.');
   }
-  const safeLimit = 10;
+  // Bound the amount of work per request; pages remain independently retrievable.
+  const safePage = Number(page);
+  const safePageSize = Number(pageSize);
+  if (!Number.isSafeInteger(safePage) || safePage < 1 || safePage > 1000000) {
+    throw searchError('INVALID_SEARCH_PAGE', 'La página solicitada no es válida.');
+  }
+  if (![10, 20, 50].includes(safePageSize)) {
+    throw searchError('INVALID_SEARCH_PAGE_SIZE', 'Selecciona 10, 20 o 50 resultados por página.');
+  }
+  const offset = (safePage - 1) * safePageSize;
   const sqlMode = plan.sqlMode; // An internal constant, not supplied by a caller.
+  const where = `FROM archive_pages p JOIN archive_documents d ON d.id = p.document_id
+      WHERE d.indexed_at IS NOT NULL
+        AND MATCH(p.text_content) AGAINST (? IN ${sqlMode} MODE)
+        AND (? IS NULL OR d.publication_year = ?)`;
+  const [countRows] = await pool.execute(
+    `SELECT COUNT(*) AS total ${where}`,
+    [plan.expression, parsedYear, parsedYear],
+  );
+  const total = Number(countRows[0]?.total ?? 0);
   const [rows] = await pool.execute(
     `SELECT d.id AS document_id, d.publication, d.publication_year,
             p.page_number, LEFT(p.text_content, 1600) AS text_content,
             MATCH(p.text_content) AGAINST (? IN ${sqlMode} MODE) AS relevance
-       FROM archive_pages p JOIN archive_documents d ON d.id = p.document_id
-      WHERE d.indexed_at IS NOT NULL
-        AND MATCH(p.text_content) AGAINST (? IN ${sqlMode} MODE)
-        AND (? IS NULL OR d.publication_year = ?)
-      ORDER BY relevance DESC, d.publication_year ASC, p.page_number ASC
-      LIMIT ?`,
-    [plan.expression, plan.expression, parsedYear, parsedYear, safeLimit],
+       ${where}
+      ORDER BY relevance DESC, d.publication_year ASC, d.id ASC, p.page_number ASC
+      LIMIT ? OFFSET ?`,
+    [plan.expression, plan.expression, parsedYear, parsedYear, safePageSize, offset],
   );
-  return rows.map((row) => ({
+  const results = rows.map((row) => ({
     document_id: row.document_id,
     publication: row.publication,
     publication_year: row.publication_year,
     page_number: row.page_number,
     text_content: excerptNearMatch(row.text_content, plan.words),
   }));
+  return { results, total, page: safePage, pageSize: safePageSize, totalPages: Math.ceil(total / safePageSize) };
 }
