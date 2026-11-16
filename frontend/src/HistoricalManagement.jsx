@@ -6,6 +6,8 @@ const control = { background: '#111', border: '1px solid #777', borderRadius: 12
 const button = { border: 0, background: '#E6D7AA', color: '#161616', borderRadius: 22, padding: '13px 22px', cursor: 'pointer', fontWeight: 800 };
 const heading = { color: '#E6D7AA', marginTop: 0, borderLeft: '6px solid #E6D7AA', paddingLeft: 18, fontSize: 'clamp(1.7rem, 4vw, 2.3rem)' };
 const fileLimit = 350 * 1024 * 1024;
+const CAN_DELETE = import.meta.env.VITE_ARCHIVE_DOCUMENT_DELETE === 'true';
+const CAN_INDEX = import.meta.env.VITE_ARCHIVE_MANUAL_INDEX === 'true';
 
 function sizeLabel(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
@@ -135,8 +137,8 @@ export default function HistoricalManagement() {
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               <button type="button" disabled={busy} onClick={() => download(doc.filename)} style={button}>Descargar original</button>
-              {doc.status === 'pending' ? <button type="button" disabled={busy} onClick={() => index(doc.filename)} style={button}>Indexar PDF</button> : null}
-              <button type="button" disabled={busy} onClick={() => remove(doc.filename)} style={{ ...button, background: '#ff9797' }}>Eliminar PDF</button>
+              {CAN_INDEX && doc.status === 'pending' ? <button type="button" disabled={busy} onClick={() => index(doc.filename)} style={button}>Indexar PDF</button> : null}
+              {CAN_DELETE ? <button type="button" disabled={busy} onClick={() => remove(doc.filename)} style={{ ...button, background: '#ff9797' }}>Eliminar PDF</button> : null}
             </div>
           </article>
         ))}
