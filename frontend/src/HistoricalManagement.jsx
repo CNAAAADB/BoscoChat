@@ -25,6 +25,7 @@ export default function HistoricalManagement() {
   const [busy, setBusy] = useState(false);
   const [activeAction, setActiveAction] = useState(null);
   const [actionError, setActionError] = useState(null);
+  const [actionSuccess, setActionSuccess] = useState(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
@@ -80,6 +81,7 @@ export default function HistoricalManagement() {
     setBusy(true);
     setActiveAction({ filename, label: 'Eliminando PDF y retirando su índice…' });
     setActionError(null);
+    setActionSuccess(null);
     setError('');
     setMessage('');
     try {
@@ -94,12 +96,14 @@ export default function HistoricalManagement() {
     setBusy(true);
     setActiveAction({ filename, label: 'Enviando solicitud de indexación…' });
     setActionError(null);
+    setActionSuccess(null);
     setError('');
     setMessage('');
     try {
       const response = await historicalIndex(filename, catalog);
       setCatalogFile(null);
       setMessage(response.message);
+      setActionSuccess({ filename, message: 'Solicitud aceptada. El documento seguirá pendiente hasta que el indexador termine; pulsa «Actualizar estado» más adelante.' });
       await refresh();
     } catch (failure) { setError(failure.message); setActionError({ filename, message: failure.message }); }
     finally { setBusy(false); setActiveAction(null); }
@@ -110,6 +114,7 @@ export default function HistoricalManagement() {
     setBusy(true);
     setActiveAction({ filename, label: 'Retirando páginas del índice…' });
     setActionError(null);
+    setActionSuccess(null);
     setError('');
     setMessage('');
     try {
@@ -174,6 +179,7 @@ export default function HistoricalManagement() {
             </div>
             {activeAction?.filename === doc.filename ? <p role="status" style={{ width: '100%', color: '#efcd80', margin: 0 }}>{activeAction.label}</p> : null}
             {actionError?.filename === doc.filename ? <p role="alert" style={{ width: '100%', color: '#ff9898', margin: 0 }}>Operación fallida: {actionError.message}</p> : null}
+            {actionSuccess?.filename === doc.filename && doc.status !== 'indexed' ? <p role="status" style={{ width: '100%', color: '#a4dfb4', margin: 0 }}>{actionSuccess.message}</p> : null}
             {catalogFile === doc.filename && doc.status === 'stored' && CAN_INDEX ? (
               <form onSubmit={(event) => {
                 event.preventDefault();
