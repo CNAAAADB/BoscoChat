@@ -79,6 +79,9 @@ export async function ingestOne({ key, s3, S3GetCommand, S3HeadCommand, pool, pd
     if ((await stat(textPath)).size > LIMIT_TEXT_BYTES) throw new Error('Extracted text exceeds limit');
     const pages = splitExtractedPages(await readFile(textPath, 'utf8'));
     if (pages.length !== expectedPages) throw new Error('Physical PDF pages and extracted page count differ');
+    // A queued event may finish after an administrator removes the original.
+    // Refuse to publish an index if its S3 source disappeared mid-processing.
+    await s3.send(new S3HeadCommand({ Bucket: BUCKET, Key: key }));
     await saveDocument(pool, metadata, contentBytes, pages);
     return { year: metadata.year, pages: pages.length, needsReview: pages.filter(page => page.quality === 'needs_review').length };
   } finally {
@@ -89,6 +92,15 @@ export async function ingestOne({ key, s3, S3GetCommand, S3HeadCommand, pool, pd
 // SQS event source mapping uses batch size 1 and ReportBatchItemFailures.
 // Repeated S3 notifications reindex the same object transactionally: no duplicate rows.
 export async function handler(event) {
+  if (event?.action === 'index-archive-pdf') {
+    if (parseArchiveKey(event.key).status !== 'recognized') throw new Error('INVALID_MANUAL_INDEX_KEY');
+    const { S3Client, GetObjectCommand, HeadObjectCommand } = await import('@aws-sdk/client-s3');
+    const s3 = new S3Client({ region: 'us-east-1', maxAttempts: 3 });
+    const pool = mysql.createPool(databaseConfig({ ...process.env, DB_CONNECTION_LIMIT: '1' }));
+    try {
+      return await ingestOne({ key: event.key, s3, S3GetCommand: GetObjectCommand, S3HeadCommand: HeadObjectCommand, pool });
+    } finally { await pool.end(); s3.destroy(); }
+  }
   let pool, s3;
   try {
     const { S3Client, GetObjectCommand, HeadObjectCommand } = await import('@aws-sdk/client-s3');
