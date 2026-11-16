@@ -103,7 +103,7 @@ function cookie(role) { return { cookie: 'boscochat_session=' + role + '-session
 
 test('BC-017 rejects anonymous and normal users for all management endpoints', async () => withApp(async (base) => {
   for (const [method, path] of [
-    ['GET', '/documents'], ['POST', '/uploads'], ['POST', '/documents/index'], ['POST', '/documents/unindex'], ['DELETE', '/documents'], ['GET', '/documents/1923/download'], ['GET', '/documents/download?filename=Bolet%C3%ADn%20de%20la%20casa%201950.pdf'],
+    ['GET', '/documents'], ['POST', '/uploads'], ['POST', '/documents/unindex'], ['POST', '/documents/index'], ['POST', '/documents/unindex'], ['DELETE', '/documents'], ['GET', '/documents/1923/download'], ['GET', '/documents/download?filename=Bolet%C3%ADn%20de%20la%20casa%201950.pdf'],
   ]) {
     const anonymous = await fetch(base + path, { method });
     assert.equal(anonymous.status, 401, method + ' ' + path);
