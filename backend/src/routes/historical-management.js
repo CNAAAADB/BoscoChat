@@ -28,6 +28,7 @@ export function createHistoricalManagementRouter(pool, authService, {
   invokeIngestor = null,
   deletionEnabled = false,
   manualIndexEnabled = false,
+  unindexEnabled = false,
 } = {}) {
   const router = express.Router();
   router.use(requireAuthorization(authService, allowed));
@@ -170,6 +171,9 @@ export function createHistoricalManagementRouter(pool, authService, {
             if (response.StatusCode !== 202) throw new Error('ARCHIVE_INDEX_INVOCATION_FAILED');
           } finally { client.destroy(); }
         }
+        // A manually unindexed PDF is suppressed by its current source VersionId.
+        // Clear suppression only after accepting an explicit reindex request.
+        await connection.execute('DELETE FROM archive_deleted_sources WHERE s3_key = ? AND source_version_id = ?', [key, head.VersionId]);
         await connection.execute(
           'INSERT INTO archive_manual_index_requests (s3_key, requested_at) VALUES (?, UTC_TIMESTAMP(3)) ON DUPLICATE KEY UPDATE requested_at = UTC_TIMESTAMP(3)',
           [key],
@@ -184,6 +188,52 @@ export function createHistoricalManagementRouter(pool, authService, {
       res.set('Cache-Control', 'private, no-store');
       return res.status(202).json({ status: 'queued', filename, message: 'Indexación solicitada. Actualiza el estado en unos momentos.' });
     } catch (error) { return next(error); }
+  });
+
+  // Remove only the search index, never the private S3 original.
+  // A version-specific tombstone stops delayed SQS events from republishing pages.
+  router.post('/documents/unindex', (req, res, next) => {
+    if (!unindexEnabled) return replyError(res, 503, 'UNINDEX_NOT_ENABLED', 'La desindexación todavía no está habilitada.');
+    return next();
+  }, async (req, res, next) => {
+    const filename = req.body?.filename;
+    const key = safeArchivePdfKey(filename);
+    if (!key) return replyError(res, 400, 'INVALID_DOCUMENT_FILENAME', 'Nombre de documento no válido.');
+    let connection;
+    try {
+      const head = await withS3(async (client, { HeadObjectCommand }) => {
+        try { return await client.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key })); }
+        catch (error) { if (isAbsentObject(error)) return null; throw error; }
+      });
+      if (!head) return replyError(res, 404, 'DOCUMENT_NOT_FOUND', 'No se ha encontrado el PDF original.');
+      if (!head.VersionId || head.VersionId === 'null') {
+        return replyError(res, 409, 'ARCHIVE_VERSIONING_REQUIRED', 'El PDF no tiene una versión identificable. No es seguro desindexarlo.');
+      }
+      connection = await pool.getConnection();
+      await connection.beginTransaction();
+      const [[doc]] = await connection.execute('SELECT id, indexed_at FROM archive_documents WHERE s3_key = ? FOR UPDATE', [key]);
+      if (!doc?.indexed_at) {
+        await connection.rollback();
+        return replyError(res, 409, 'DOCUMENT_NOT_INDEXED', 'El documento ya está fuera del buscador.');
+      }
+      await connection.execute(
+        'INSERT INTO archive_deleted_sources (s3_key, source_version_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE source_version_id = VALUES(source_version_id), deleted_at = UTC_TIMESTAMP(3)',
+        [key, head.VersionId],
+      );
+      await connection.execute('DELETE FROM archive_documents WHERE id = ?', [doc.id]);
+      await connection.execute(
+        'INSERT INTO admin_audit_logs (actor_user_id, target_user_id, action, outcome, details_json) VALUES (?, NULL, ?, ?, CAST(? AS JSON))',
+        [req.user.id, 'archive.document.unindex', 'success', JSON.stringify({ filename, sourceVersionId: head.VersionId })],
+      );
+      await connection.commit();
+      res.set('Cache-Control', 'private, no-store');
+      return res.json({ unindexed: true, filename, originalRetained: true });
+    } catch (error) {
+      if (connection) await connection.rollback().catch(() => {});
+      return next(error);
+    } finally {
+      if (connection) connection.release();
+    }
   });
 
   // Remove the searchable MySQL document (including its CASCADE pages) and
