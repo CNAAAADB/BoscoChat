@@ -1,3 +1,8 @@
+## BC-017 — Eliminar e indexar PDF (2026-11-16)
+- Alcance: borrado confirmado del original visible en S3 y filas de MySQL de documento y páginas en cascada; petición asíncrona de indexación mediante Lambda existente para anualidades reconocidas.
+- Código: `backend/src/routes/historical-management.js`, `backend/worker/handler.js`, `frontend/src/api/historical.js`, `frontend/src/HistoricalManagement.jsx`; pruebas en `backend/test/historical-management.test.js`.
+- TRACE-GAP: pruebas con S3 versionado y RDS, IAM/VPC endpoint de Lambda, riesgos de carrera de ingesta/borrado, seguridad independiente y política de auditoría/retención.
+ 
 ## BC-008/BC-011/BC-002/BC-017 — Desfase frontend/Lambda (2026-11-16)
 - Evidencia usuario: NaN/undefined en paginación y 403 de Gestión histórica con administrador. AWS `GetFunction` comprobó `boscochat-backend` sin actualizar desde 2026-11-13 frente a Amplify actualizado 2026-11-16.
 - Cambios: `frontend/src/App.jsx` valida el contrato y condiciona el texto de login; `backend/src/routes/archive-search.js` añade marcador del contrato; `backend/test/archive-public-access.test.js` verifica dicho marcador.
