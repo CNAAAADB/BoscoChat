@@ -22,12 +22,13 @@ test('public archive discovery paginates results without a session', async () =>
       assert.deepEqual(params, ['Bosco', null, null]);
       return [[{ total: 81 }]];
     }
-    assert.match(sql, /LIMIT \\? OFFSET \\?/);
+    assert.match(sql, /LIMIT \? OFFSET \?/);
     return [[{ document_id: 7, publication: 'Don Bosco en España', publication_year: 1922, page_number: 12, text_content: 'Bosco' }]];
   } };
   await withServer(createArchiveSearchRouter(pool), '/api/archive', async (base) => {
     const response = await fetch(base + '/api/archive/search?q=Bosco');
     assert.equal(response.status, 200);
+    assert.equal(response.headers.get('x-boscochat-search-api'), 'paginated-v1');
     const payload = await response.json();
     assert.equal(payload.results.length, 1);
     assert.equal(payload.results[0].page_number, 12);

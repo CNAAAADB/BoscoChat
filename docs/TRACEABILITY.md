@@ -1,3 +1,8 @@
+## BC-008/BC-011/BC-002/BC-017 — Desfase frontend/Lambda (2026-11-16)
+- Evidencia usuario: NaN/undefined en paginación y 403 de Gestión histórica con administrador. AWS `GetFunction` comprobó `boscochat-backend` sin actualizar desde 2026-11-13 frente a Amplify actualizado 2026-11-16.
+- Cambios: `frontend/src/App.jsx` valida el contrato y condiciona el texto de login; `backend/src/routes/archive-search.js` añade marcador del contrato; `backend/test/archive-public-access.test.js` verifica dicho marcador.
+- TRACE-GAP: completar CI, merge, despliegue Lambda y smoke de búsqueda paginada, más acceso positivo de administrador en navegador y revisión independiente.
+
 ## BC-008 / BC-011 — Resultados paginados (2026-11-16)
 - Decisión de producto: diez por página de forma predeterminada; 10/20/50 seleccionables, contador total y navegación sin límite fijo de diez coincidencias globales.
 - Código propuesto: `backend/src/documents/archive-search.js`, `backend/src/routes/archive-search.js`, `frontend/src/App.jsx`; pruebas `backend/test/archive-search.test.js`.

@@ -1,3 +1,9 @@
+## BC-008/BC-011 y BC-002/BC-017 — Incidencia de versiones en AWS (2026-11-16)
+- Capturas en producción: indicador de paginación NaN–NaN/undefined, cambio de 10 a 20/50 sin efecto, mensaje para iniciar sesión pese a usuario autenticado y HTTP 403 en Gestión histórica como administrador.
+- AWS Lambda `boscochat-backend` reportaba `LastModified=2026-11-13T16:58:45Z` mientras Amplify main se había actualizado el 2026-11-16. Causa primaria confirmada: frontend actualizado con backend antiguo.
+- Corrección propuesta: frontend valida estrictamente el contrato paginado y evita datos engañosos; mensaje de autenticación condicionado a ausencia real de sesión; backend añade marcador de versión y el cambio en backend dispara el workflow de despliegue al fusionar en main.
+- TRACE-GAP: comprobar workflow push main + Lambda LastModified, respuesta pública paginada real 10/20/50, prueba autenticada del administrador sobre S3 y revisión independiente de seguridad. No marcar DONE ni declarar despliegue antes de verificarlos.
+
 ## BC-002 / BC-017 — Decisión de administrador con permisos completos (2026-11-13)
 - El propietario autoriza expresamente que `administrator` tenga todos los permisos funcionales de la plataforma, incluidos los de `documentary_manager` en Gestión histórica, manteniendo la separación de permisos de cuentas para historiadores y usuarios normales.
 - Implementación propuesta en PR: ampliar control de acceso backend y navegación frontend; actualizar pruebas de lectura, subida, descarga y denegación a usuarios sin privilegios.

@@ -189,12 +189,28 @@ export default function App() {
       const response = await fetch(`${API_URL}${endpoint}?${query}`, { credentials: 'include' });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error?.message ?? 'No se ha podido ejecutar la búsqueda.');
+      if (ARCHIVE_SEARCH_ENABLED) {
+        // A stale Lambda deployment can still return { results } without pagination metadata.
+        // Never render NaN/undefined or present a truncated first page as the full corpus.
+        const valid = Array.isArray(data?.results)
+          && Number.isSafeInteger(data.total) && data.total >= 0
+          && Number.isSafeInteger(data.page) && data.page === page
+          && [10, 20, 50].includes(data.pageSize) && data.pageSize === pageSize
+          && Number.isSafeInteger(data.totalPages)
+          && data.totalPages === Math.ceil(data.total / data.pageSize);
+        if (!valid) throw new Error('El buscador todavía no está actualizado en el servidor. No se puede mostrar la paginación. Inténtalo de nuevo después de actualizar el servicio.');
+      } else if (!Array.isArray(data)) {
+        throw new Error('La respuesta del buscador no es válida.');
+      }
       setResults(ARCHIVE_SEARCH_ENABLED ? data.results : data);
       setSubmittedSearch(criteria);
       if (ARCHIVE_SEARCH_ENABLED) setSearchPagination({
         page: data.page, pageSize: data.pageSize, total: data.total, totalPages: data.totalPages,
       });
     } catch (error) {
+      // Never leave stale search results or a misleading pager on errors.
+      setResults([]);
+      setSubmittedSearch(null);
       setSearchError(error.message);
     } finally {
       setSearchBusy(false);
@@ -327,7 +343,7 @@ export default function App() {
             {ARCHIVE_SEARCH_ENABLED ? <select aria-label="Tipo de búsqueda" style={{ ...styles.input, width: '220px', marginBottom: 0 }} value={searchMode} onChange={(event) => setSearchMode(event.target.value)}>{SEARCH_MODES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select> : null}
             <button style={styles.btnPrimary} disabled={searchBusy || (sessionLoading)} type="submit">{searchBusy ? 'Buscando…' : 'Buscar'}</button>
           </form>
-          {ARCHIVE_SEARCH_ENABLED ? <p>La búsqueda es pública. Para consultar el documento original tendrás que iniciar sesión o registrarte.</p> : !user ? <p>Inicia sesión para buscar en el archivo.</p> : null}
+          {ARCHIVE_SEARCH_ENABLED && !user && !sessionLoading ? <p>La búsqueda es pública. Para consultar el documento original tendrás que iniciar sesión o registrarte.</p> : !ARCHIVE_SEARCH_ENABLED && !user && !sessionLoading ? <p>Inicia sesión para buscar en el archivo.</p> : null}
           {searchError ? <p role="alert" style={styles.error}>{searchError}</p> : null}
           {ARCHIVE_SEARCH_ENABLED && submittedSearch && !searchError ? (
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16, marginBottom: 20 }}>
