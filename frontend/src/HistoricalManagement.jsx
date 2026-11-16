@@ -18,6 +18,9 @@ export default function HistoricalManagement() {
   const [documents, setDocuments] = useState([]);
   const [query, setQuery] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
+  const [catalogFile, setCatalogFile] = useState(null);
+  const [catalogPublication, setCatalogPublication] = useState('');
+  const [catalogYear, setCatalogYear] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -83,12 +86,13 @@ export default function HistoricalManagement() {
     finally { setBusy(false); }
   };
 
-  const index = async (filename) => {
+  const index = async (filename, catalog = null) => {
     setBusy(true);
     setError('');
     setMessage('');
     try {
-      const response = await historicalIndex(filename);
+      const response = await historicalIndex(filename, catalog);
+      setCatalogFile(null);
       setMessage(response.message);
       await refresh();
     } catch (failure) { setError(failure.message); }
@@ -152,9 +156,29 @@ export default function HistoricalManagement() {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               <button type="button" disabled={busy} onClick={() => download(doc.filename)} style={button}>Descargar original</button>
               {CAN_INDEX && doc.status === 'pending' ? <button type="button" disabled={busy} onClick={() => index(doc.filename)} style={button}>Indexar PDF</button> : null}
+              {CAN_INDEX && doc.status === 'stored' ? <button type="button" disabled={busy} onClick={() => {
+                setCatalogFile(catalogFile === doc.filename ? null : doc.filename);
+                setCatalogPublication(doc.publication ?? doc.filename.replace(/\\.pdf$/i, ''));
+                setCatalogYear(doc.year ? String(doc.year) : '');
+              }} style={button}>Catalogar e indexar</button> : null}
               {CAN_UNINDEX && doc.status === 'indexed' ? <button type="button" disabled={busy} onClick={() => unindex(doc.filename)} style={button}>Desindexar PDF</button> : null}
               {CAN_DELETE ? <button type="button" disabled={busy} onClick={() => remove(doc.filename)} style={{ ...button, background: '#ff9797' }}>Eliminar PDF</button> : null}
             </div>
+            {catalogFile === doc.filename && doc.status === 'stored' && CAN_INDEX ? (
+              <form onSubmit={(event) => {
+                event.preventDefault();
+                index(doc.filename, { publication: catalogPublication.trim(), year: Number(catalogYear) });
+              }} style={{ width: '100%', display: 'flex', flexWrap: 'wrap', alignItems: 'end', gap: 10, borderTop: '1px solid #353554', paddingTop: 12 }}>
+                <label style={{ display: 'grid', gap: 5, flex: '2 1 240px' }}>Publicación
+                  <input type="text" maxLength={180} required value={catalogPublication} onChange={(event) => setCatalogPublication(event.target.value)} style={control} />
+                </label>
+                <label style={{ display: 'grid', gap: 5, flex: '1 1 130px' }}>Año
+                  <input type="number" min={1800} max={2100} required value={catalogYear} onChange={(event) => setCatalogYear(event.target.value)} style={control} />
+                </label>
+                <button type="submit" disabled={busy || catalogPublication.trim().length < 2 || !catalogYear} style={button}>Solicitar indexación</button>
+                <button type="button" disabled={busy} onClick={() => setCatalogFile(null)} style={button}>Cancelar</button>
+              </form>
+            ) : null}
           </article>
         ))}
       </div>
@@ -166,7 +190,7 @@ export default function HistoricalManagement() {
           <input id="historical-pdf" type="file" accept=".pdf,application/pdf" disabled={busy} onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)} style={{ ...control, flex: '1 1 300px' }} />
           <button type="submit" disabled={busy || !selectedFile} style={{ ...button, opacity: busy || !selectedFile ? 0.5 : 1 }}>{busy ? 'Subiendo…' : 'Subir PDF'}</button>
         </div>
-        <p style={{ fontSize: 13, opacity: 0.8 }}>El archivo se sube directamente al S3 privado. Las anualidades «Don Bosco en España_YYYY.pdf» se indexan automáticamente o pueden reintentarse mediante «Indexar PDF». Otros PDF quedan almacenados hasta completar su catalogación.</p>
+        <p style={{ fontSize: 13, opacity: 0.8 }}>El archivo se sube directamente al S3 privado. Las anualidades «Don Bosco en España_YYYY.pdf» se indexan automáticamente o pueden reintentarse mediante «Indexar PDF». Otros PDF pueden catalogarse indicando publicación y año y solicitar su indexación manual.</p>
       </form>
 
 
