@@ -1,3 +1,9 @@
+## BC-017 — Acción inversa según estado del PDF (2026-11-16)
+- Nueva operación independiente `POST /api/admin/historical/documents/unindex`: elimina la entrada indexada y páginas en MySQL mediante CASCADE, preservando S3; añade marca de versión para bloquear ingestas rezagadas y escribe auditoría.
+- Indexación manual de PDF previamente desindexados elimina su marca de supresión al aceptar la nueva petición. Frontend muestra «Indexar PDF» para anualidades pendientes y «Desindexar PDF» para indexadas.
+- Configuración independiente de flags `ARCHIVE_UNINDEX_ENABLED` y `VITE_ARCHIVE_UNINDEX`, inicialmente OFF hasta pruebas y despliegue. El borrado completo sigue siendo acción distinta.
+- TRACE-GAP: pruebas RDS+S3 de concurrencia, IAM, E2E y revisión independiente antes de activar funciones reales.
+
 ## BC-017 — Esquema MySQL actualizado en RDS (2026-11-16)
 - Copia cifrada `boscochat-pre-bc017-index-delete-20261116`: AWS RDS confirma `available` antes y después de la operación.
 - PR #55 fusionado. Se publicó el worker en ECR por digest inmutable y se ejecutó desde la VPC privada la Lambda efímera `boscochat-bc017-schema-migration-20261116` con operación `apply-bc017-additive-schema`.
