@@ -65,7 +65,7 @@ export function createHistoricalManagementRouter(pool, authService, {
         return found;
       });
       const [statusRows] = await pool.execute(
-        'SELECT d.s3_key, d.indexed_at, COUNT(p.page_number) AS pages FROM archive_documents d LEFT JOIN archive_pages p ON p.document_id = d.id WHERE d.s3_key LIKE \'originals/%\' GROUP BY d.id',
+        'SELECT d.s3_key, d.publication, d.publication_year, d.indexed_at, COUNT(p.page_number) AS pages FROM archive_documents d LEFT JOIN archive_pages p ON p.document_id = d.id WHERE d.s3_key LIKE \'originals/%\' GROUP BY d.id',
       );
       const indexed = new Map(statusRows.map((row) => [row.s3_key, row]));
       const query = filter.toLocaleLowerCase('es');
@@ -76,7 +76,8 @@ export function createHistoricalManagementRouter(pool, authService, {
           const db = indexed.get(o.Key);
           return {
             filename: o.Key.slice('originals/'.length),
-            year: meta.status === 'recognized' ? meta.year : null,
+            year: db?.publication_year ?? (meta.status === 'recognized' ? meta.year : null),
+            publication: db?.publication ?? (meta.status === 'recognized' ? meta.publication : null),
             sizeBytes: o.Size,
             lastModified: o.LastModified ? new Date(o.LastModified).toISOString() : null,
             status: db?.indexed_at && Number(db.pages) > 0 ? 'indexed' : meta.status === 'recognized' ? 'pending' : 'stored',
@@ -126,10 +127,24 @@ export function createHistoricalManagementRouter(pool, authService, {
     const filename = req.body?.filename;
     const key = safeArchivePdfKey(filename);
     if (!key) return replyError(res, 400, 'INVALID_DOCUMENT_FILENAME', 'Nombre de documento no válido.');
-    if (parseArchiveKey(key).status !== 'recognized') {
-      return replyError(res, 409, 'DOCUMENT_NEEDS_CATALOGUING', 'Este PDF necesita catalogación de publicación y año antes de poder indexarse.');
-    }
+    const auto = parseArchiveKey(key);
     try {
+      const [catalogRows] = await pool.execute(
+        'SELECT publication, publication_year, indexed_at FROM archive_documents WHERE s3_key = ?', [key],
+      );
+      if (catalogRows[0]?.indexed_at) return replyError(res, 409, 'DOCUMENT_ALREADY_INDEXED', 'Este documento ya está indexado.');
+      let catalog = null;
+      if (auto.status !== 'recognized') {
+        const publication = req.body?.publication ?? catalogRows[0]?.publication;
+        const year = req.body?.year ?? catalogRows[0]?.publication_year;
+        if (typeof publication !== 'string' || publication.trim() !== publication
+          || publication.length < 2 || publication.length > 180
+          || /[\\u0000-\\u001f]/u.test(publication)
+          || !Number.isInteger(Number(year)) || Number(year) < 1800 || Number(year) > 2100) {
+          return replyError(res, 400, 'DOCUMENT_CATALOG_REQUIRED', 'Indica una publicación y un año válido (1800–2100) para indexar este PDF.');
+        }
+        catalog = { publication: publication.normalize('NFC'), year: Number(year) };
+      }
       const head = await withS3(async (client, { HeadObjectCommand }) => {
         try { return await client.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key })); }
         catch (error) { if (isAbsentObject(error)) return null; throw error; }
@@ -140,8 +155,6 @@ export function createHistoricalManagementRouter(pool, authService, {
       if (!Number.isSafeInteger(bytes) || bytes < 1 || bytes > MAX_PDF_BYTES) {
         return replyError(res, 400, 'INVALID_DOCUMENT_SIZE', 'El PDF supera el tamaño permitido para indexación.');
       }
-      const [rows] = await pool.execute('SELECT indexed_at FROM archive_documents WHERE s3_key = ?', [key]);
-      if (rows[0]?.indexed_at) return replyError(res, 409, 'DOCUMENT_ALREADY_INDEXED', 'Este documento ya está indexado.');
       // Serialize manual reindex requests across backend instances.
       let connection;
       try {
@@ -157,17 +170,17 @@ export function createHistoricalManagementRouter(pool, authService, {
         }
         await connection.execute(
           'INSERT INTO admin_audit_logs (actor_user_id, target_user_id, action, outcome, details_json) VALUES (?, NULL, ?, ?, CAST(? AS JSON))',
-          [req.user.id, 'archive.index.request', 'accepted', JSON.stringify({ filename })],
+          [req.user.id, 'archive.index.request', 'accepted', JSON.stringify({ filename, ...(catalog ? { catalog } : {}) })],
         );
         if (invokeIngestor) {
-          await invokeIngestor(key);
+          await invokeIngestor(key, catalog);
         } else {
           const { LambdaClient, InvokeCommand } = await import('@aws-sdk/client-lambda');
           const client = new LambdaClient({ region: REGION, maxAttempts: 2 });
           try {
             const response = await client.send(new InvokeCommand({
               FunctionName: 'boscochat-pdf-ingestor', InvocationType: 'Event',
-              Payload: Buffer.from(JSON.stringify({ action: 'index-archive-pdf', key })),
+              Payload: Buffer.from(JSON.stringify({ action: 'index-archive-pdf', key, ...(catalog ? { catalog } : {}) })),
             }));
             if (response.StatusCode !== 202) throw new Error('ARCHIVE_INDEX_INVOCATION_FAILED');
           } finally { client.destroy(); }
@@ -187,7 +200,7 @@ export function createHistoricalManagementRouter(pool, authService, {
         if (connection) connection.release();
       }
       res.set('Cache-Control', 'private, no-store');
-      return res.status(202).json({ status: 'queued', filename, message: 'Indexación solicitada. Actualiza el estado en unos momentos.' });
+      return res.status(202).json({ status: 'queued', filename, message: 'Indexación solicitada. El proceso puede tardar varios minutos; actualiza el estado más tarde.' });
     } catch (error) { return next(error); }
   });
 
