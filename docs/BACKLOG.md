@@ -368,6 +368,7 @@ As an authorized archive administrator or documentary manager, I want to upload 
 - [ ] Successful upload triggers the automatic ingestion pipeline; show pending/processed/failed state and retry for authorized managers.
 - [x] Authorize original-PDF downloads via a controlled private mechanism; never expose a public bucket.
 - [ ] Audit operations, prevent IDOR/path traversal, enforce limits and test permissions, failures and concurrency.
+- [ ] Enable administrator/historian deletion of original PDFs and their indexed data with explicit confirmation, and manual indexing of eligible nonindexed PDFs; finish staging race testing, IAM and independent review.
 - [x] Separate public search, authenticated reading and privileged upload/download access.
 
 **Implementation/release evidence (2026-11-13)**
