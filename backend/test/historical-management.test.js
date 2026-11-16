@@ -63,6 +63,7 @@ const mockS3 = {
 };
 const pool = {
   async execute(sql) {
+    if (sql.includes('SELECT publication, publication_year, indexed_at FROM archive_documents')) return [[]];
     if (sql.includes('SELECT indexed_at FROM archive_documents')) return [[]];
     return [[{ s3_key: 'originals/Don Bosco en España_1923.pdf', indexed_at: now, pages: 228 }]];
   },
@@ -299,8 +300,8 @@ test('BC-017 manual indexing accepts recognized pending PDF and rejects generic 
       method: 'POST', headers: { ...cookie('admin'), 'Content-Type': 'application/json' },
       body: JSON.stringify({ filename: 'Boletín de la casa 1950.pdf' }),
     });
-    assert.equal(generic.status, 409);
-    assert.equal((await generic.json()).error.code, 'DOCUMENT_NEEDS_CATALOGUING');
+    assert.equal(generic.status, 400);
+    assert.equal((await generic.json()).error.code, 'DOCUMENT_CATALOG_REQUIRED');
     const traversal = await fetch(base + '/documents/index', {
       method: 'POST', headers: { ...cookie('admin'), 'Content-Type': 'application/json' },
       body: JSON.stringify({ filename: '../secreto.pdf' }),
@@ -442,4 +443,49 @@ test('BC-017 reindex accepts a previous unindex and removes source-version suppr
   }, { db });
   const clear = statements.find(x => x.sql.startsWith('DELETE FROM archive_deleted_sources'));
   assert.deepEqual(clear.params, ['originals/Don Bosco en España_1923.pdf', 'version-1']);
+});
+
+test('BC-017 can request indexing of nonannual PDF with explicitly validated catalogue metadata', async () => {
+  const invoked = [];
+  const db = {
+    async execute(sql) {
+      if (sql.includes('SELECT publication, publication_year, indexed_at')) return [[]];
+      return [[]];
+    },
+    async getConnection() {
+      return {
+        async beginTransaction() {},
+        async execute(sql) {
+          if (sql.includes('SELECT requested_at')) return [[]];
+          return [[]];
+        },
+        async commit() {},
+        async rollback() {},
+        release() {},
+      };
+    },
+  };
+  await withApp(async base => {
+    const endpoint = base + '/documents/index';
+    const headers = { ...cookie('admin'), 'Content-Type': 'application/json' };
+    const yes = await fetch(endpoint, {
+      method: 'POST', headers,
+      body: JSON.stringify({ filename: 'Boletín de la casa 1950.pdf', publication: 'Boletín de la casa', year: 1950 }),
+    });
+    assert.equal(yes.status, 202);
+    const noYear = await fetch(endpoint, {
+      method: 'POST', headers,
+      body: JSON.stringify({ filename: 'Boletín de la casa 1950.pdf', publication: 'Boletín de la casa' }),
+    });
+    assert.equal(noYear.status, 400);
+    const badTitle = await fetch(endpoint, {
+      method: 'POST', headers,
+      body: JSON.stringify({ filename: 'Boletín de la casa 1950.pdf', publication: 'A', year: 1950 }),
+    });
+    assert.equal(badTitle.status, 400);
+  }, { db, invokeIngestor: async (key, catalog) => invoked.push({ key, catalog }) });
+  assert.deepEqual(invoked, [{
+    key: 'originals/Boletín de la casa 1950.pdf',
+    catalog: { publication: 'Boletín de la casa', year: 1950 },
+  }]);
 });

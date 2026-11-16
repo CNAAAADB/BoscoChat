@@ -1,3 +1,9 @@
+## BC-017 — Incidencia: botón Indexar ausente y eliminación con timeout (2026-11-16)
+- Frontend `frontend/src/HistoricalManagement.jsx` añade catalogación de `stored`; API `frontend/src/api/historical.js` envía publicación/año.
+- Backend `backend/src/routes/historical-management.js` admite catalogación validada de PDF no anuales; worker `backend/worker/handler.js` acepta metadata sólo en invocaciones manuales autorizadas, manteniendo parser automático de anuarios.
+- AWS detectado: Lambda backend timeout 15 s y entradas CloudWatch `Status: timeout`; configuración subida a 28 s (HTTP API IntegrationTimeout 30 s). TRACE-GAP: confirmar ruta del timeout con observabilidad adicional y verificar el borrado de un PDF sintético, nunca original real.
+- Pruebas en `backend/test/historical-management.test.js`, `backend/test/ingestion-worker.test.js`; CI y seguridad pendientes.
+
 ## BC-017 — Activación operativa de controles (2026-11-16)
 - PR #57 fusionado; `frontend/src/HistoricalManagement.jsx` muestra botón de la acción inversa según estado; `backend/src/routes/historical-management.js` implementa desindexación sin borrar original S3, preservando fila documental e invalidando páginas de búsqueda.
 - AWS: `boscochat-pdf-ingestor` actualizado por CloudFormation; funciones backend protegidas activadas, frontend desplegado mediante Amplify main job 55 SUCCEED; IAM limitado y verificado.

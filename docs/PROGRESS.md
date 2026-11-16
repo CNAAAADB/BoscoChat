@@ -1,3 +1,9 @@
+## BC-017 — Corrección de eliminación e indexación de PDF genéricos (2026-11-16)
+- Evidencia de producción: Lambda `boscochat-backend` con timeout de 15 segundos; CloudWatch registra respuestas de 15 segundos y `Status: timeout` durante las operaciones del archivo (correlación con la incidencia, pendiente traza de ruta). Se amplió a 28 s, manteniendo integración HTTP API de 30 s.
+- La gestión anterior sólo ofrecía Indexar para `pending` (anuarios reconocidos), mientras que PDF de otras publicaciones estaban en estado `stored` y carecían del botón.
+- Corrección propuesta: nueva acción «Catalogar e indexar» en PDF almacenados, con publicación/año validados y evento privado de ingesta; el worker sigue rechazando nombres inseguros. Los anuales conservan indexación automática/manual.
+- TRACE-GAP: CI, revisión independiente, despliegue de worker, validación E2E con PDF sintético, medición de tiempo real de borrado y conciliación ante timeout. No declarar corregido un borrado real sin prueba positiva.
+
 ## BC-017 — Acciones activadas en AWS (2026-11-16)
 - PR #57 fusionado, con CI de backend/frontend/worker en verde sobre el commit de la rama. Gestión histórica ofrece Indexar según estado pendiente, Desindexar según estado indexado, y Eliminar PDF como acción separada, con confirmación.
 - Worker de ingesta actualizado mediante CloudFormation al digest OCI amd64 `sha256:05f32c4c7a3e82cbf711d55e1b686962d41dc92715a23f7ee61466a475da0dc1`; stack `boscochat-archive-ingestion` UPDATE_COMPLETE.

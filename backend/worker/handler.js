@@ -8,6 +8,7 @@ import { promisify } from 'node:util';
 import mysql from 'mysql2/promise';
 import { databaseConfig } from '../src/config/database.js';
 import { parseArchiveKey } from '../src/documents/archive-keys.js';
+import { safeArchivePdfKey } from '../src/documents/archive-filenames.js';
 import { splitExtractedPages } from '../src/documents/extracted-pages.js';
 import { objectsFromQueueEvent } from './ingestion-events.js';
 
@@ -62,9 +63,17 @@ export async function saveDocument(pool, metadata, contentBytes, pages, sourceVe
   }
 }
 
-export async function ingestOne({ key, s3, S3GetCommand, S3HeadCommand, pool, pdfinfo = execFile, pdftotext = execFile }) {
-  const metadata = parseArchiveKey(key);
-  if (metadata.status !== 'recognized') throw new Error('Unsupported archive PDF key');
+export async function ingestOne({ key, catalog = null, s3, S3GetCommand, S3HeadCommand, pool, pdfinfo = execFile, pdftotext = execFile }) {
+  const parsed = parseArchiveKey(key);
+  if (safeArchivePdfKey(key?.slice('originals/'.length)) !== key) throw new Error('Unsafe archive PDF key');
+  const publication = catalog?.publication;
+  const year = catalog?.year;
+  if (catalog && (parsed.status === 'recognized' || typeof publication !== 'string'
+    || publication.length < 2 || publication.length > 180 || publication.trim() !== publication
+    || /[\x00-\x1f]/u.test(publication)
+    || !Number.isInteger(year) || year < 1800 || year > 2100)) throw new Error('Invalid manual catalogue');
+  const metadata = catalog ? { key, publication: publication.normalize('NFC'), year } : parsed;
+  if (parsed.status !== 'recognized' && !catalog) throw new Error('Unsupported archive PDF key');
   const dir = await mkdtemp(join(tmpdir(), 'boscochat-worker-'));
   try {
     const pdfPath = join(dir, 'source.pdf');
@@ -123,12 +132,12 @@ export async function ingestOne({ key, s3, S3GetCommand, S3HeadCommand, pool, pd
 // Repeated S3 notifications reindex the same object transactionally: no duplicate rows.
 export async function handler(event) {
   if (event?.action === 'index-archive-pdf') {
-    if (parseArchiveKey(event.key).status !== 'recognized') throw new Error('INVALID_MANUAL_INDEX_KEY');
+    if (typeof event.key !== 'string' || safeArchivePdfKey(event.key.slice('originals/'.length)) !== event.key) throw new Error('INVALID_MANUAL_INDEX_KEY');
     const { S3Client, GetObjectCommand, HeadObjectCommand } = await import('@aws-sdk/client-s3');
     const s3 = new S3Client({ region: 'us-east-1', maxAttempts: 3 });
     const pool = mysql.createPool(databaseConfig({ ...process.env, DB_CONNECTION_LIMIT: '1' }));
     try {
-      return await ingestOne({ key: event.key, s3, S3GetCommand: GetObjectCommand, S3HeadCommand: HeadObjectCommand, pool });
+      return await ingestOne({ key: event.key, catalog: event.catalog ?? null, s3, S3GetCommand: GetObjectCommand, S3HeadCommand: HeadObjectCommand, pool });
     } finally { await pool.end(); s3.destroy(); }
   }
   let pool, s3;
