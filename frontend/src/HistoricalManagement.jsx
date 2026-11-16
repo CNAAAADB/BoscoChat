@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { historicalDocuments, historicalDownload, historicalUpload } from './api/historical.js';
+import { historicalDocuments, historicalDownload, historicalUpload, historicalDelete, historicalIndex } from './api/historical.js';
 
 const panel = { background: 'rgba(25,25,45,0.9)', border: '1px solid #28295E', borderRadius: 30, padding: 'clamp(20px, 4vw, 42px)', maxWidth: 1100, margin: '0 auto 40px' };
 const control = { background: '#111', border: '1px solid #777', borderRadius: 12, color: '#fff', padding: 12, boxSizing: 'border-box', maxWidth: '100%' };
@@ -67,6 +67,31 @@ export default function HistoricalManagement() {
     }
   };
 
+  const remove = async (filename) => {
+    if (!window.confirm('¿Eliminar "' + filename + '" del almacenamiento y del índice de búsqueda? Esta acción retirará el PDF del directorio.')) return;
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      await historicalDelete(filename);
+      await refresh();
+      setMessage('Documento eliminado del directorio y del índice de búsqueda.');
+    } catch (failure) { setError(failure.message); }
+    finally { setBusy(false); }
+  };
+
+  const index = async (filename) => {
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      const response = await historicalIndex(filename);
+      setMessage(response.message);
+      await refresh();
+    } catch (failure) { setError(failure.message); }
+    finally { setBusy(false); }
+  };
+
   const download = async (filename) => {
     setError('');
     // Create the window during the user's click, before awaiting the authenticated request.
@@ -108,7 +133,11 @@ export default function HistoricalManagement() {
                 {doc.status === 'indexed' ? 'Indexado y disponible para búsqueda' : doc.status === 'stored' ? 'Almacenado · pendiente de catalogación' : 'Pendiente de indexación'}
               </div>
             </div>
-            <button type="button" onClick={() => download(doc.filename)} style={button}>Descargar original</button>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <button type="button" disabled={busy} onClick={() => download(doc.filename)} style={button}>Descargar original</button>
+              {doc.status === 'pending' ? <button type="button" disabled={busy} onClick={() => index(doc.filename)} style={button}>Indexar PDF</button> : null}
+              <button type="button" disabled={busy} onClick={() => remove(doc.filename)} style={{ ...button, background: '#ff9797' }}>Eliminar PDF</button>
+            </div>
           </article>
         ))}
       </div>
@@ -120,7 +149,7 @@ export default function HistoricalManagement() {
           <input id="historical-pdf" type="file" accept=".pdf,application/pdf" disabled={busy} onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)} style={{ ...control, flex: '1 1 300px' }} />
           <button type="submit" disabled={busy || !selectedFile} style={{ ...button, opacity: busy || !selectedFile ? 0.5 : 1 }}>{busy ? 'Subiendo…' : 'Subir PDF'}</button>
         </div>
-        <p style={{ fontSize: 13, opacity: 0.8 }}>El archivo se sube directamente al S3 privado. Las anualidades «Don Bosco en España_YYYY.pdf» se indexan automáticamente; otros PDF quedarán almacenados y pendientes de catalogación.</p>
+        <p style={{ fontSize: 13, opacity: 0.8 }}>El archivo se sube directamente al S3 privado. Las anualidades «Don Bosco en España_YYYY.pdf» se indexan automáticamente o pueden reintentarse mediante «Indexar PDF». Otros PDF quedan almacenados hasta completar su catalogación.</p>
       </form>
 
 
