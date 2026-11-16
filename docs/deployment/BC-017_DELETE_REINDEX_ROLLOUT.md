@@ -23,7 +23,7 @@
 - El bucket `boscochat-archivo-pdfs` tiene versioning habilitado (consulta AWS 2026-11-16). `DeleteObject` crea un marcador que oculta la versión actual. Versiones anteriores siguen retenidas, consumen almacenamiento y se gestionan aparte según política aprobada; la UI no debe afirmar un borrado físico irrecuperable.
 - `archive_deleted_sources` marca el `VersionId` borrado. El worker lo comprueba dentro de la transacción de indexación antes de escribir páginas. Una subida posterior con nuevo `VersionId` puede volver a indexarse. Se requiere el identificador de versión S3, evitando operar a ciegas sobre originales antiguos sin control de versiones.
 - `archive_manual_index_requests` aplica cooldown de diez minutos por original; HTTP 202 sólo significa que Lambda aceptó la petición asíncrona, no que haya terminado correctamente.
-- MySQL y S3 no ofrecen transacción distribuida: fallos entre `DeleteObject` y `COMMIT` pueden requerir conciliación/recuperación. No habilitar hasta probar explícitamente estos casos. Pendientes auditoría persistente y política formal de retención/borrado.
+- MySQL y S3 no ofrecen transacción distribuida: fallos entre `DeleteObject` y `COMMIT` pueden requerir conciliación/recuperación. No habilitar hasta probar explícitamente estos casos. La auditoría de solicitudes y borrados se registra en `admin_audit_logs`; siguen pendientes su política de retención/borrado y validación en AWS.
 - Las flags de backend y frontend parten desactivadas. La fusión del código sin activar flags **no** implica que las funciones estén disponibles.
 
 ## Validación de permisos y evidencia
