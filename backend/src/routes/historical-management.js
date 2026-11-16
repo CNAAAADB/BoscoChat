@@ -167,11 +167,18 @@ export function createHistoricalManagementRouter(pool, authService, {
         catch (error) { if (isAbsentObject(error)) return null; throw error; }
       });
       if (!head) return replyError(res, 404, 'DOCUMENT_NOT_FOUND', 'Documento no encontrado.');
-      // Hold a document-row lock while removing the original. Failure rolls
-      // back SQL, preventing partial DB deletion when S3 rejects the request.
+      // A versioned source ID is required to keep a reliable tombstone. It
+      // prevents an in-flight worker from restoring a deleted old version.
+      if (typeof head.VersionId !== 'string' || !head.VersionId) {
+        return replyError(res, 409, 'ARCHIVE_VERSIONING_REQUIRED', 'No se puede eliminar de forma segura: falta la versión del original.');
+      }
       connection = await pool.getConnection();
       await connection.beginTransaction();
       await connection.execute('SELECT id FROM archive_documents WHERE s3_key = ? FOR UPDATE', [key]);
+      await connection.execute(
+        'INSERT INTO archive_deleted_sources (s3_key, source_version_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE source_version_id = VALUES(source_version_id), deleted_at = UTC_TIMESTAMP(3)',
+        [key, head.VersionId],
+      );
       await withS3(async (client, { DeleteObjectCommand }) => {
         await client.send(new DeleteObjectCommand({
           Bucket: BUCKET, Key: key,
