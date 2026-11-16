@@ -1,3 +1,8 @@
+## BC-002 / BC-017 — Decisión de administrador con permisos completos (2026-11-13)
+- El propietario autoriza expresamente que `administrator` tenga todos los permisos funcionales de la plataforma, incluidos los de `documentary_manager` en Gestión histórica, manteniendo la separación de permisos de cuentas para historiadores y usuarios normales.
+- Implementación propuesta en PR: ampliar control de acceso backend y navegación frontend; actualizar pruebas de lectura, subida, descarga y denegación a usuarios sin privilegios.
+- TRACE-GAP: CI, revisión independiente de autorización y validación autenticada en AWS/Amplify. No se considera desplegado ni DONE antes de estos controles.
+
 ## BC-002 — Frontend admin 401 / first-party API proxy (2026-11-13)
 - Owner screenshot: role `administrator` visible in navigation, yet loading `/api/admin/users` returned `AUTHENTICATION_REQUIRED` (401), suggesting that the previously cross-site `execute-api` cookie was not available on subsequent requests. Historiador-only `Gestión histórica` correctly remains invisible to Administrador by design.
 - PR #49 merged (`6763f689e80edf8a59806e02245846cd375b7f8f`), frontend/CI successful. Frontend API clients now default to first-party `/api`; existing-user role selector correctly renders the three labels instead of object values. Backend sends `Cache-Control: private, no-store` for every API response.
