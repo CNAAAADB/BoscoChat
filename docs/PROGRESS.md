@@ -1,3 +1,8 @@
+## BC-008 / BC-011 — Paginación de resultados (2026-11-16)
+- Decisión del propietario: eliminar el límite global de diez coincidencias; mostrar diez por página por defecto, selector 10/20/50 y botones Anterior/Siguiente.
+- Implementación propuesta: consultas MySQL paginadas con total de coincidencias, orden estable y validación de parámetros; React conserva filtros y búsqueda enviada durante la navegación.
+- Pendientes: CI, revisión independiente, prueba real con múltiples páginas y verificación de rendimiento en corpus representativo. No marcar DONE ni afirmar despliegue.
+
 ## BC-002 — Frontend admin 401 / first-party API proxy (2026-11-13)
 - Owner screenshot: role `administrator` visible in navigation, yet loading `/api/admin/users` returned `AUTHENTICATION_REQUIRED` (401), suggesting that the previously cross-site `execute-api` cookie was not available on subsequent requests. Historiador-only `Gestión histórica` correctly remains invisible to Administrador by design.
 - PR #49 merged (`6763f689e80edf8a59806e02245846cd375b7f8f`), frontend/CI successful. Frontend API clients now default to first-party `/api`; existing-user role selector correctly renders the three labels instead of object values. Backend sends `Cache-Control: private, no-store` for every API response.
