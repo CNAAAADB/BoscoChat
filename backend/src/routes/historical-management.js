@@ -135,6 +135,7 @@ export function createHistoricalManagementRouter(pool, authService, {
         catch (error) { if (isAbsentObject(error)) return null; throw error; }
       });
       if (!head) return replyError(res, 404, 'DOCUMENT_NOT_FOUND', 'Documento no encontrado.');
+      if (typeof head.VersionId !== 'string' || !head.VersionId || head.VersionId === 'null') return replyError(res, 409, 'ARCHIVE_VERSIONING_REQUIRED', 'No se puede indexar sin comprobar la versión del original.');
       const bytes = Number(head.ContentLength);
       if (!Number.isSafeInteger(bytes) || bytes < 1 || bytes > MAX_PDF_BYTES) {
         return replyError(res, 400, 'INVALID_DOCUMENT_SIZE', 'El PDF supera el tamaño permitido para indexación.');
