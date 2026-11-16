@@ -221,7 +221,8 @@ export function createHistoricalManagementRouter(pool, authService, {
         'INSERT INTO archive_deleted_sources (s3_key, source_version_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE source_version_id = VALUES(source_version_id), deleted_at = UTC_TIMESTAMP(3)',
         [key, head.VersionId],
       );
-      await connection.execute('DELETE FROM archive_documents WHERE id = ?', [doc.id]);
+      await connection.execute('DELETE FROM archive_pages WHERE document_id = ?', [doc.id]);
+      await connection.execute('UPDATE archive_documents SET indexed_at = NULL WHERE id = ?', [doc.id]);
       await connection.execute(
         'INSERT INTO admin_audit_logs (actor_user_id, target_user_id, action, outcome, details_json) VALUES (?, NULL, ?, ?, CAST(? AS JSON))',
         [req.user.id, 'archive.document.unindex', 'success', JSON.stringify({ filename, sourceVersionId: head.VersionId })],
