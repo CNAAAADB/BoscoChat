@@ -235,10 +235,12 @@ test('BC-017 permits historian and administrator to delete S3 original and index
     assert.match(operations[1].sql, /SELECT id FROM archive_documents/);
     assert.match(operations[2].sql, /INSERT INTO archive_deleted_sources/);
     assert.deepEqual(operations[2].params, ['originals/Don Bosco en España_1923.pdf', 'version-1']);
-    assert.deepEqual(operations[3], { deleted: 'originals/Don Bosco en España_1923.pdf', etag: '"abc123"' });
-    assert.match(operations[4].sql, /DELETE FROM archive_documents WHERE s3_key/);
-    assert.deepEqual(operations[4].params, ['originals/Don Bosco en España_1923.pdf']);
-    assert.deepEqual(operations.slice(5), ['commit', 'release']);
+    assert.match(operations[3].sql, /INSERT INTO admin_audit_logs/);
+    assert.equal(operations[3].params[0], role === 'admin' ? 1 : 2);
+    assert.deepEqual(operations[4], { deleted: 'originals/Don Bosco en España_1923.pdf', etag: '"abc123"' });
+    assert.match(operations[5].sql, /DELETE FROM archive_documents WHERE s3_key/);
+    assert.deepEqual(operations[5].params, ['originals/Don Bosco en España_1923.pdf']);
+    assert.deepEqual(operations.slice(6), ['commit', 'release']);
   }
 });
 
