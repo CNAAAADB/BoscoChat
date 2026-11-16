@@ -139,7 +139,7 @@ export function createHistoricalManagementRouter(pool, authService, {
         const year = req.body?.year ?? catalogRows[0]?.publication_year;
         if (typeof publication !== 'string' || publication.trim() !== publication
           || publication.length < 2 || publication.length > 180
-          || /[\\u0000-\\u001f]/u.test(publication)
+          || /[\x00-\x1f]/u.test(publication)
           || !Number.isInteger(Number(year)) || Number(year) < 1800 || Number(year) > 2100) {
           return replyError(res, 400, 'DOCUMENT_CATALOG_REQUIRED', 'Indica una publicación y un año válido (1800–2100) para indexar este PDF.');
         }
