@@ -26,6 +26,8 @@ export function createHistoricalManagementRouter(pool, authService, {
   s3Commands = null,
   signer = { upload: signedArchiveUpload, download: signedArchiveDownload },
   invokeIngestor = null,
+  deletionEnabled = false,
+  manualIndexEnabled = false,
 } = {}) {
   const router = express.Router();
   router.use(requireAuthorization(authService, allowed));
@@ -116,7 +118,10 @@ export function createHistoricalManagementRouter(pool, authService, {
 
   // A manual retry enters the same trusted worker as automatic S3 ingestion.
   // This operation is asynchronous: HTTP 202 means accepted, not indexed.
-  router.post('/documents/index', async (req, res, next) => {
+  router.post('/documents/index', (req, res, next) => {
+    if (!manualIndexEnabled) return replyError(res, 503, 'INDEXING_NOT_ENABLED', 'La indexación manual todavía no está habilitada.');
+    return next();
+  }, async (req, res, next) => {
     const filename = req.body?.filename;
     const key = safeArchivePdfKey(filename);
     if (!key) return replyError(res, 400, 'INVALID_DOCUMENT_FILENAME', 'Nombre de documento no válido.');
@@ -156,7 +161,10 @@ export function createHistoricalManagementRouter(pool, authService, {
   // Remove the searchable MySQL document (including its CASCADE pages) and
   // hide the current original in versioned private S3. Older S3 versions are
   // retained by bucket versioning for recovery and require separate retention policy.
-  router.delete('/documents', async (req, res, next) => {
+  router.delete('/documents', (req, res, next) => {
+    if (!deletionEnabled) return replyError(res, 503, 'DELETION_NOT_ENABLED', 'La eliminación de documentos todavía no está habilitada.');
+    return next();
+  }, async (req, res, next) => {
     const filename = req.body?.filename;
     const key = safeArchivePdfKey(filename);
     if (!key) return replyError(res, 400, 'INVALID_DOCUMENT_FILENAME', 'Nombre de documento no válido.');
