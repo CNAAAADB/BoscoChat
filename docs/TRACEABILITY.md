@@ -1,3 +1,8 @@
+## BC-017 — Activación operativa de controles (2026-11-16)
+- PR #57 fusionado; `frontend/src/HistoricalManagement.jsx` muestra botón de la acción inversa según estado; `backend/src/routes/historical-management.js` implementa desindexación sin borrar original S3, preservando fila documental e invalidando páginas de búsqueda.
+- AWS: `boscochat-pdf-ingestor` actualizado por CloudFormation; funciones backend protegidas activadas, frontend desplegado mediante Amplify main job 55 SUCCEED; IAM limitado y verificado.
+- TRACE-GAP: aprobación independiente de la revisión de seguridad, pruebas E2E con documento sintético y revisión de consistencia ante fallos parciales SQL/S3. Estado de historia sin elevar automáticamente a DONE.
+
 ## BC-017 — Indexar/desindexar según estado (2026-11-16)
 - Backend: `backend/src/routes/historical-management.js` añade desindexación no destructiva del S3, protegida por rol y marca de versión; `backend/src/app.js` configura flag.
 - Frontend: `frontend/src/HistoricalManagement.jsx`, `frontend/src/api/historical.js` presentan la acción inversa del estado.
