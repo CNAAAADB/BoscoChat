@@ -1,3 +1,9 @@
+## BC-017 — Error real en eliminación y estado de indexación (2026-11-16)
+- CloudWatch del backend registra dos fallos `DELETE /api/admin/historical/documents` con `ER_NO_SUCH_TABLE` (`42S02`). El listado GET no fue el que falló.
+- Añadida comprobación privada de `information_schema` para identificar cuál de las tablas de archivo/auditoría falta; reparación aditiva limitada a `admin_audit_logs`, con tipo derivado de `users.id` y sin leer/modificar datos históricos.
+- Interfaz muestra progreso y errores junto al PDF seleccionado, en lugar de depender sólo de un aviso al principio del directorio.
+- TRACE-GAP: ejecutar diagnóstico en RDS, aplicar sólo reparaciones necesarias, verificar pruebas/CI, demostrar POST indexar y DELETE contra PDF sintético autenticado, revisión independiente antes de cerrar BC-017.
+
 ## BC-017 — Corrección de eliminación e indexación de PDF genéricos (2026-11-16)
 - Evidencia de producción: Lambda `boscochat-backend` con timeout de 15 segundos; CloudWatch registra respuestas de 15 segundos y `Status: timeout` durante las operaciones del archivo (correlación con la incidencia, pendiente traza de ruta). Se amplió a 28 s, manteniendo integración HTTP API de 30 s.
 - La gestión anterior sólo ofrecía Indexar para `pending` (anuarios reconocidos), mientras que PDF de otras publicaciones estaban en estado `stored` y carecían del botón.

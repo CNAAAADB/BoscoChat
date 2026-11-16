@@ -23,6 +23,9 @@ export default function HistoricalManagement() {
   const [catalogYear, setCatalogYear] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [activeAction, setActiveAction] = useState(null);
+  const [actionError, setActionError] = useState(null);
+  const [actionSuccess, setActionSuccess] = useState(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
@@ -76,40 +79,50 @@ export default function HistoricalManagement() {
   const remove = async (filename) => {
     if (!window.confirm('¿Eliminar "' + filename + '" del almacenamiento y del índice de búsqueda? Esta acción retirará el PDF del directorio.')) return;
     setBusy(true);
+    setActiveAction({ filename, label: 'Eliminando PDF y retirando su índice…' });
+    setActionError(null);
+    setActionSuccess(null);
     setError('');
     setMessage('');
     try {
       await historicalDelete(filename);
       await refresh();
       setMessage('Documento eliminado del directorio y del índice de búsqueda.');
-    } catch (failure) { setError(failure.message); }
-    finally { setBusy(false); }
+    } catch (failure) { setError(failure.message); setActionError({ filename, message: failure.message }); }
+    finally { setBusy(false); setActiveAction(null); }
   };
 
   const index = async (filename, catalog = null) => {
     setBusy(true);
+    setActiveAction({ filename, label: 'Enviando solicitud de indexación…' });
+    setActionError(null);
+    setActionSuccess(null);
     setError('');
     setMessage('');
     try {
       const response = await historicalIndex(filename, catalog);
       setCatalogFile(null);
       setMessage(response.message);
+      setActionSuccess({ filename, message: 'Solicitud aceptada. El documento seguirá pendiente hasta que el indexador termine; pulsa «Actualizar estado» más adelante.' });
       await refresh();
-    } catch (failure) { setError(failure.message); }
-    finally { setBusy(false); }
+    } catch (failure) { setError(failure.message); setActionError({ filename, message: failure.message }); }
+    finally { setBusy(false); setActiveAction(null); }
   };
 
   const unindex = async (filename) => {
     if (!window.confirm('¿Desindexar "' + filename + '"? El PDF original seguirá guardado, pero sus páginas ya no aparecerán en búsquedas.')) return;
     setBusy(true);
+    setActiveAction({ filename, label: 'Retirando páginas del índice…' });
+    setActionError(null);
+    setActionSuccess(null);
     setError('');
     setMessage('');
     try {
       await historicalUnindex(filename);
       await refresh();
       setMessage('PDF desindexado. El original permanece almacenado y puede indexarse de nuevo.');
-    } catch (failure) { setError(failure.message); }
-    finally { setBusy(false); }
+    } catch (failure) { setError(failure.message); setActionError({ filename, message: failure.message }); }
+    finally { setBusy(false); setActiveAction(null); }
   };
 
   const download = async (filename) => {
@@ -164,6 +177,9 @@ export default function HistoricalManagement() {
               {CAN_UNINDEX && doc.status === 'indexed' ? <button type="button" disabled={busy} onClick={() => unindex(doc.filename)} style={button}>Desindexar PDF</button> : null}
               {CAN_DELETE ? <button type="button" disabled={busy} onClick={() => remove(doc.filename)} style={{ ...button, background: '#ff9797' }}>Eliminar PDF</button> : null}
             </div>
+            {activeAction?.filename === doc.filename ? <p role="status" style={{ width: '100%', color: '#efcd80', margin: 0 }}>{activeAction.label}</p> : null}
+            {actionError?.filename === doc.filename ? <p role="alert" style={{ width: '100%', color: '#ff9898', margin: 0 }}>Operación fallida: {actionError.message}</p> : null}
+            {actionSuccess?.filename === doc.filename && doc.status !== 'indexed' ? <p role="status" style={{ width: '100%', color: '#a4dfb4', margin: 0 }}>{actionSuccess.message}</p> : null}
             {catalogFile === doc.filename && doc.status === 'stored' && CAN_INDEX ? (
               <form onSubmit={(event) => {
                 event.preventDefault();

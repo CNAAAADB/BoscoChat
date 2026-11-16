@@ -1,3 +1,9 @@
+## BC-017 — Incidencia funcional, evidencia AWS (2026-11-16)
+- CloudWatch 2026-11-16 registra `method: DELETE`, `path: /api/admin/historical/documents`, `code: ER_NO_SUCH_TABLE`, `sqlState: 42S02`. Diagnóstico de tabla específica pendiente de Lambda privada.
+- Ruta de diagnóstico/DDL sólo mediante `backend/worker/archive-audit-schema.js` invocable en VPC y nunca expuesta a HTTP; validación en `backend/test/archive-audit-schema.test.js`.
+- UX en `frontend/src/HistoricalManagement.jsx` muestra carga y error por documento; no declara indexación terminada al recibir sólo HTTP 202.
+- TRACE-GAP: verificación MySQL y E2E segura, no marcar acción como corregida hasta evidencia positiva.
+
 ## BC-017 — Incidencia: botón Indexar ausente y eliminación con timeout (2026-11-16)
 - Frontend `frontend/src/HistoricalManagement.jsx` añade catalogación de `stored`; API `frontend/src/api/historical.js` envía publicación/año.
 - Backend `backend/src/routes/historical-management.js` admite catalogación validada de PDF no anuales; worker `backend/worker/handler.js` acepta metadata sólo en invocaciones manuales autorizadas, manteniendo parser automático de anuarios.
