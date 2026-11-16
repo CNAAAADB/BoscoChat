@@ -300,8 +300,8 @@ test('BC-017 manual indexing accepts recognized pending PDF and rejects generic 
       method: 'POST', headers: { ...cookie('admin'), 'Content-Type': 'application/json' },
       body: JSON.stringify({ filename: 'Boletín de la casa 1950.pdf' }),
     });
-    assert.equal(generic.status, 409);
-    assert.equal((await generic.json()).error.code, 'DOCUMENT_NEEDS_CATALOGUING');
+    assert.equal(generic.status, 400);
+    assert.equal((await generic.json()).error.code, 'DOCUMENT_CATALOG_REQUIRED');
     const traversal = await fetch(base + '/documents/index', {
       method: 'POST', headers: { ...cookie('admin'), 'Content-Type': 'application/json' },
       body: JSON.stringify({ filename: '../secreto.pdf' }),
