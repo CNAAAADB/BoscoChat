@@ -22,7 +22,7 @@ test('public archive discovery paginates results without a session', async () =>
       assert.deepEqual(params, ['Bosco', null, null]);
       return [[{ total: 81 }]];
     }
-    assert.match(sql, /LIMIT \\? OFFSET \\?/);
+    assert.match(sql, /LIMIT \? OFFSET \?/);
     return [[{ document_id: 7, publication: 'Don Bosco en España', publication_year: 1922, page_number: 12, text_content: 'Bosco' }]];
   } };
   await withServer(createArchiveSearchRouter(pool), '/api/archive', async (base) => {
