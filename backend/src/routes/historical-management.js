@@ -153,6 +153,10 @@ export function createHistoricalManagementRouter(pool, authService, {
           res.set('Retry-After', '600');
           return replyError(res, 429, 'INDEX_ALREADY_REQUESTED', 'Ya se ha solicitado esta indexación recientemente. Comprueba su estado antes de repetirla.');
         }
+        await connection.execute(
+          'INSERT INTO admin_audit_logs (actor_user_id, target_user_id, action, outcome, details_json) VALUES (?, NULL, ?, ?, CAST(? AS JSON))',
+          [req.user.id, 'archive.index.request', 'accepted', JSON.stringify({ filename })],
+        );
         if (invokeIngestor) {
           await invokeIngestor(key);
         } else {
@@ -201,7 +205,7 @@ export function createHistoricalManagementRouter(pool, authService, {
       if (!head) return replyError(res, 404, 'DOCUMENT_NOT_FOUND', 'Documento no encontrado.');
       // A versioned source ID is required to keep a reliable tombstone. It
       // prevents an in-flight worker from restoring a deleted old version.
-      if (typeof head.VersionId !== 'string' || !head.VersionId) {
+      if (typeof head.VersionId !== 'string' || !head.VersionId || head.VersionId === 'null' || !head.ETag) {
         return replyError(res, 409, 'ARCHIVE_VERSIONING_REQUIRED', 'No se puede eliminar de forma segura: falta la versión del original.');
       }
       connection = await pool.getConnection();
@@ -211,10 +215,14 @@ export function createHistoricalManagementRouter(pool, authService, {
         'INSERT INTO archive_deleted_sources (s3_key, source_version_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE source_version_id = VALUES(source_version_id), deleted_at = UTC_TIMESTAMP(3)',
         [key, head.VersionId],
       );
+      await connection.execute(
+        'INSERT INTO admin_audit_logs (actor_user_id, target_user_id, action, outcome, details_json) VALUES (?, NULL, ?, ?, CAST(? AS JSON))',
+        [req.user.id, 'archive.document.delete', 'success', JSON.stringify({ filename, sourceVersionId: head.VersionId })],
+      );
       await withS3(async (client, { DeleteObjectCommand }) => {
         await client.send(new DeleteObjectCommand({
           Bucket: BUCKET, Key: key,
-          ...(head.ETag ? { IfMatch: head.ETag } : {}),
+          IfMatch: head.ETag,
         }));
       });
       await connection.execute('DELETE FROM archive_documents WHERE s3_key = ?', [key]);
