@@ -1,3 +1,8 @@
+## BC-017 — Indexar/desindexar según estado (2026-11-16)
+- Backend: `backend/src/routes/historical-management.js` añade desindexación no destructiva del S3, protegida por rol y marca de versión; `backend/src/app.js` configura flag.
+- Frontend: `frontend/src/HistoricalManagement.jsx`, `frontend/src/api/historical.js` presentan la acción inversa del estado.
+- TRACE-GAP: validación E2E y concurrencia SQS/S3, revisión de seguridad independiente; no marcar DONE.
+
 ## BC-017 — Evidencia de aplicación real de esquema MySQL (2026-11-16)
 - PR #55: definición aditiva compartida `backend/src/db/archive-migration.js`, ejecutor en VPC `backend/worker/archive-migration.js` y pruebas de compatibilidad.
 - RDS `boscochat-db` privado, snapshot cifrado `boscochat-pre-bc017-index-delete-20261116` AVAILABLE.
