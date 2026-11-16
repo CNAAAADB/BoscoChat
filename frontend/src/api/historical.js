@@ -27,8 +27,8 @@ export function historicalUnindex(filename) {
   return request('/admin/historical/documents/unindex', { method: 'POST', body: JSON.stringify({ filename }) });
 }
 
-export function historicalIndex(filename) {
-  return request('/admin/historical/documents/index', { method: 'POST', body: JSON.stringify({ filename }) });
+export function historicalIndex(filename, catalog = null) {
+  return request('/admin/historical/documents/index', { method: 'POST', body: JSON.stringify({ filename, ...(catalog ?? {}) }) });
 }
 
 export async function historicalUpload(file, onProgress) {
