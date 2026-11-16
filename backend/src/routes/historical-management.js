@@ -140,18 +140,42 @@ export function createHistoricalManagementRouter(pool, authService, {
       }
       const [rows] = await pool.execute('SELECT indexed_at FROM archive_documents WHERE s3_key = ?', [key]);
       if (rows[0]?.indexed_at) return replyError(res, 409, 'DOCUMENT_ALREADY_INDEXED', 'Este documento ya está indexado.');
-      if (invokeIngestor) {
-        await invokeIngestor(key);
-      } else {
-        const { LambdaClient, InvokeCommand } = await import('@aws-sdk/client-lambda');
-        const client = new LambdaClient({ region: REGION, maxAttempts: 2 });
-        try {
-          const response = await client.send(new InvokeCommand({
-            FunctionName: 'boscochat-pdf-ingestor', InvocationType: 'Event',
-            Payload: Buffer.from(JSON.stringify({ action: 'index-archive-pdf', key })),
-          }));
-          if (response.StatusCode !== 202) throw new Error('ARCHIVE_INDEX_INVOCATION_FAILED');
-        } finally { client.destroy(); }
+      // Serialize manual reindex requests across backend instances.
+      let connection;
+      try {
+        connection = await pool.getConnection();
+        await connection.beginTransaction();
+        const [[prior]] = await connection.execute(
+          'SELECT requested_at FROM archive_manual_index_requests WHERE s3_key = ? FOR UPDATE', [key],
+        );
+        if (prior && Date.now() - new Date(prior.requested_at).getTime() < 10 * 60 * 1000) {
+          await connection.rollback();
+          res.set('Retry-After', '600');
+          return replyError(res, 429, 'INDEX_ALREADY_REQUESTED', 'Ya se ha solicitado esta indexación recientemente. Comprueba su estado antes de repetirla.');
+        }
+        if (invokeIngestor) {
+          await invokeIngestor(key);
+        } else {
+          const { LambdaClient, InvokeCommand } = await import('@aws-sdk/client-lambda');
+          const client = new LambdaClient({ region: REGION, maxAttempts: 2 });
+          try {
+            const response = await client.send(new InvokeCommand({
+              FunctionName: 'boscochat-pdf-ingestor', InvocationType: 'Event',
+              Payload: Buffer.from(JSON.stringify({ action: 'index-archive-pdf', key })),
+            }));
+            if (response.StatusCode !== 202) throw new Error('ARCHIVE_INDEX_INVOCATION_FAILED');
+          } finally { client.destroy(); }
+        }
+        await connection.execute(
+          'INSERT INTO archive_manual_index_requests (s3_key, requested_at) VALUES (?, UTC_TIMESTAMP(3)) ON DUPLICATE KEY UPDATE requested_at = UTC_TIMESTAMP(3)',
+          [key],
+        );
+        await connection.commit();
+      } catch (error) {
+        if (connection) await connection.rollback().catch(() => {});
+        throw error;
+      } finally {
+        if (connection) connection.release();
       }
       res.set('Cache-Control', 'private, no-store');
       return res.status(202).json({ status: 'queued', filename, message: 'Indexación solicitada. Actualiza el estado en unos momentos.' });
