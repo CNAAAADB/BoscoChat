@@ -392,9 +392,10 @@ test('BC-017 unindex preserves the original and removes indexed pages for admini
       assert.equal((await response.json()).originalRetained, true);
     }, { db, s3 });
     assert.match(calls[2].sql, /archive_deleted_sources/);
-    assert.match(calls[3].sql, /DELETE FROM archive_documents/);
-    assert.match(calls[4].sql, /INSERT INTO admin_audit_logs/);
-    assert.deepEqual(calls.slice(5), ['commit', 'release']);
+    assert.match(calls[3].sql, /DELETE FROM archive_pages/);
+    assert.match(calls[4].sql, /UPDATE archive_documents SET indexed_at = NULL/);
+    assert.match(calls[5].sql, /INSERT INTO admin_audit_logs/);
+    assert.deepEqual(calls.slice(6), ['commit', 'release']);
   }
 });
 
