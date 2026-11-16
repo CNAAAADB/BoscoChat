@@ -63,7 +63,7 @@ test('BC-007 worker refuses a page-count mismatch without writing to DB', async 
 
 test('BC-017 manual indexing can catalogue a safe nonannual PDF', async () => {
   const sqlCalls = [];
-  const pdf = Buffer.from('%PDF-1.7\\nmock-pdf');
+  const pdf = Buffer.from('%PDF-1.7\nmock-pdf');
   const s3 = { async send(command) {
     if (command.input.head) return { ContentLength: pdf.length, VersionId: 'catalog-v1' };
     return { Body: Readable.from([pdf]) };
@@ -89,9 +89,9 @@ test('BC-017 manual indexing can catalogue a safe nonannual PDF', async () => {
     S3HeadCommand: class { constructor(input) { this.input = { ...input, head: true }; } },
     S3GetCommand: class { constructor(input) { this.input = input; } },
     pool,
-    pdfinfo: async () => ({ stdout: 'Pages: 1\\n' }),
+    pdfinfo: async () => ({ stdout: 'Pages: 1\n' }),
     pdftotext: async (_cmd, args) => {
-      await writeFile(args.at(-1), 'Texto histórico de la publicación con información suficiente para indexar.\\f', 'utf8');
+      await writeFile(args.at(-1), 'Texto histórico de la publicación con información suficiente para indexar.\f', 'utf8');
     },
   });
   assert.equal(result.pages, 1);
