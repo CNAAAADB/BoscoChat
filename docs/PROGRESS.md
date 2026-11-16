@@ -1,3 +1,10 @@
+## BC-017 — Incidencia MySQL resuelta y UI desplegada (2026-11-16)
+- Confirmación de CloudWatch: peticiones `DELETE /api/admin/historical/documents` terminaban en `ER_NO_SUCH_TABLE` (SQLSTATE 42S02).
+- Diagnóstico privado de producción de seis tablas: `users`, `archive_documents`, `archive_pages`, `archive_deleted_sources` y `archive_manual_index_requests` existentes; **faltaba `admin_audit_logs`**.
+- Snapshot cifrado previo `boscochat-pre-audit-repair-20261116` disponible. Se aplicó el DDL aditivo de `admin_audit_logs` conforme a la migración existente con tipo de `users.id` detectado; invocación privada devolvió `status=verified, remainingMissing=[]`. Segunda inspección: seis tablas presentes, ninguna ausente. Lambda efímera de diagnóstico eliminada.
+- PR #61: errores y estado por PDF en la interfaz y diagnóstico de DB. Amplify job main 58 `SUCCEED`, commit `4d71163ef31894bed609ab3c99c4178e4af095ef`; flags backend indexar/desindexar/eliminar permanecen true.
+- TRACE-GAP: no existe todavía prueba E2E de POST indexar/DELETE con cookie real de administrador y PDF sintético. No afirmar validación funcional completa ni marcar BC-017 DONE antes de esa prueba y revisión independiente.
+
 ## BC-017 — Error real en eliminación y estado de indexación (2026-11-16)
 - CloudWatch del backend registra dos fallos `DELETE /api/admin/historical/documents` con `ER_NO_SUCH_TABLE` (`42S02`). El listado GET no fue el que falló.
 - Añadida comprobación privada de `information_schema` para identificar cuál de las tablas de archivo/auditoría falta; reparación aditiva limitada a `admin_audit_logs`, con tipo derivado de `users.id` y sin leer/modificar datos históricos.
