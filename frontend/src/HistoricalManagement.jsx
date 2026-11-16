@@ -158,7 +158,7 @@ export default function HistoricalManagement() {
               {CAN_INDEX && doc.status === 'pending' ? <button type="button" disabled={busy} onClick={() => index(doc.filename)} style={button}>Indexar PDF</button> : null}
               {CAN_INDEX && doc.status === 'stored' ? <button type="button" disabled={busy} onClick={() => {
                 setCatalogFile(catalogFile === doc.filename ? null : doc.filename);
-                setCatalogPublication(doc.publication ?? doc.filename.replace(/\\.pdf$/i, ''));
+                setCatalogPublication(doc.publication ?? doc.filename.replace(/\.pdf$/i, ''));
                 setCatalogYear(doc.year ? String(doc.year) : '');
               }} style={button}>Catalogar e indexar</button> : null}
               {CAN_UNINDEX && doc.status === 'indexed' ? <button type="button" disabled={busy} onClick={() => unindex(doc.filename)} style={button}>Desindexar PDF</button> : null}
