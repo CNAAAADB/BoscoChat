@@ -1,3 +1,10 @@
+## BC-017 — Esquema MySQL actualizado en RDS (2026-11-16)
+- Copia cifrada `boscochat-pre-bc017-index-delete-20261116`: AWS RDS confirma `available` antes y después de la operación.
+- PR #55 fusionado. Se publicó el worker en ECR por digest inmutable y se ejecutó desde la VPC privada la Lambda efímera `boscochat-bc017-schema-migration-20261116` con operación `apply-bc017-additive-schema`.
+- Evidencia de respuesta AWS Lambda Invoke 200: `{"status":"verified","tables":["archive_deleted_sources","archive_manual_index_requests"],"archivePagesOnDeleteCascade":true}`.
+- La función temporal se eliminó y se verificó `ResourceNotFound`; RDS sigue `available` y `PubliclyAccessible=false`.
+- No se modificó contenido documental. Las flags de eliminar/indexar siguen desactivadas; pendiente IAM, nueva imagen de ingesta en producción, pruebas E2E y revisión de seguridad antes de habilitarlas.
+
 ## BC-017 — Preparación de migración privada RDS (2026-11-16)
 - Copia manual cifrada confirmada AVAILABLE: `boscochat-pre-bc017-index-delete-20261116` en us-east-1, antes de cambiar MySQL.
 - RDS `boscochat-db` es MySQL 8.4.9, `PubliclyAccessible=false`; no usa Aurora/RDS Data API. No abrir puerto público.
