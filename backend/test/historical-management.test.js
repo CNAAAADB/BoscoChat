@@ -39,9 +39,11 @@ test('BC-017 signed download is limited to a matching original with 60-second to
 
 class ListObjectsV2Command { constructor(params) { Object.assign(this, params); } }
 class HeadObjectCommand { constructor(params) { Object.assign(this, params); } }
-const commands = { ListObjectsV2Command, HeadObjectCommand };
+class DeleteObjectCommand { constructor(params) { Object.assign(this, params); } }
+const commands = { ListObjectsV2Command, HeadObjectCommand, DeleteObjectCommand };
 const mockS3 = {
   async send(command) {
+    if (command instanceof DeleteObjectCommand) return { DeleteMarker: true };
     if (command instanceof ListObjectsV2Command) {
       return { Contents: [
         { Key: 'originals/Don Bosco en España_1923.pdf', Size: 12345, LastModified: now },
@@ -51,7 +53,7 @@ const mockS3 = {
       ] };
     }
     if (command instanceof HeadObjectCommand) {
-      if (command.Key.endsWith('2025.pdf') || command.Key.endsWith('1923.pdf') || command.Key.endsWith('casa 1950.pdf')) return { ContentLength: 25000 };
+      if (command.Key.endsWith('2025.pdf') || command.Key.endsWith('1923.pdf') || command.Key.endsWith('casa 1950.pdf')) return { ContentLength: 25000, ETag: '"example-etag"' };
       const err = new Error('not found');
       err.name = 'NotFound';
       throw err;
@@ -60,8 +62,18 @@ const mockS3 = {
   },
 };
 const pool = {
-  async execute() {
+  async execute(sql) {
+    if (sql.includes('SELECT indexed_at FROM archive_documents')) return [[]];
     return [[{ s3_key: 'originals/Don Bosco en España_1923.pdf', indexed_at: now, pages: 228 }]];
+  },
+  async getConnection() {
+    return {
+      async beginTransaction() {},
+      async execute() { return [[], []]; },
+      async commit() {},
+      async rollback() {},
+      release() {},
+    };
   },
 };
 const sessions = {
@@ -75,11 +87,11 @@ const signer = {
   download: ({ key }) => ({ url: 'https://download.example.invalid/' + encodeURIComponent(key), expiresIn: 60 }),
 };
 
-async function withApp(fn) {
+async function withApp(fn, { db = pool, s3 = mockS3, invokeIngestor = async () => {} } = {}) {
   const app = express();
   app.use(express.json());
-  app.use('/api/admin/historical', createHistoricalManagementRouter(pool, auth, {
-    s3Client: mockS3, s3Commands: commands, signer,
+  app.use('/api/admin/historical', createHistoricalManagementRouter(db, auth, {
+    s3Client: s3, s3Commands: commands, signer, invokeIngestor,
   }));
   const server = await new Promise((resolve) => {
     const instance = app.listen(0, '127.0.0.1', () => resolve(instance));
@@ -91,7 +103,7 @@ function cookie(role) { return { cookie: 'boscochat_session=' + role + '-session
 
 test('BC-017 rejects anonymous and normal users for all management endpoints', async () => withApp(async (base) => {
   for (const [method, path] of [
-    ['GET', '/documents'], ['POST', '/uploads'], ['GET', '/documents/1923/download'], ['GET', '/documents/download?filename=Bolet%C3%ADn%20de%20la%20casa%201950.pdf'],
+    ['GET', '/documents'], ['POST', '/uploads'], ['POST', '/documents/index'], ['DELETE', '/documents'], ['GET', '/documents/1923/download'], ['GET', '/documents/download?filename=Bolet%C3%ADn%20de%20la%20casa%201950.pdf'],
   ]) {
     const anonymous = await fetch(base + path, { method });
     assert.equal(anonymous.status, 401, method + ' ' + path);
@@ -185,3 +197,119 @@ test('BC-017 stores generic PDFs in the same originals prefix but marks them for
   const traversal = await fetch(base + '/documents/download?filename=..%2Fprivate.pdf', { headers: cookie('manager') });
   assert.equal(traversal.status, 400);
 }));
+
+test('BC-017 permits historian and administrator to delete S3 original and indexed rows atomically when S3 succeeds', async () => {
+  for (const role of ['manager', 'admin']) {
+    const operations = [];
+    const db = {
+      async getConnection() {
+        return {
+          async beginTransaction() { operations.push('begin'); },
+          async execute(sql, params) { operations.push({ sql, params }); return [[]]; },
+          async commit() { operations.push('commit'); },
+          async rollback() { operations.push('rollback'); },
+          release() { operations.push('release'); },
+        };
+      },
+    };
+    const s3 = {
+      async send(cmd) {
+        if (cmd instanceof HeadObjectCommand) return { ContentLength: 25000, ETag: '"abc123"' };
+        if (cmd instanceof DeleteObjectCommand) {
+          operations.push({ deleted: cmd.Key, etag: cmd.IfMatch });
+          return { DeleteMarker: true };
+        }
+        throw new Error('Unexpected command');
+      },
+    };
+    await withApp(async (base) => {
+      const response = await fetch(base + '/documents', {
+        method: 'DELETE',
+        headers: { ...cookie(role), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: 'Don Bosco en España_1923.pdf' }),
+      });
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), { deleted: true, filename: 'Don Bosco en España_1923.pdf' });
+    }, { db, s3 });
+    assert.equal(operations[0], 'begin');
+    assert.match(operations[1].sql, /SELECT id FROM archive_documents/);
+    assert.deepEqual(operations[2], { deleted: 'originals/Don Bosco en España_1923.pdf', etag: '"abc123"' });
+    assert.match(operations[3].sql, /DELETE FROM archive_documents WHERE s3_key = \?/);
+    assert.deepEqual(operations[3].params, ['originals/Don Bosco en España_1923.pdf']);
+    assert.deepEqual(operations.slice(4), ['commit', 'release']);
+  }
+});
+
+test('BC-017 does not delete indexed rows if S3 deletion fails', async () => {
+  const operations = [];
+  const db = {
+    async getConnection() {
+      return {
+        async beginTransaction() { operations.push('begin'); },
+        async execute(sql) { operations.push(sql); return [[]]; },
+        async commit() { operations.push('commit'); },
+        async rollback() { operations.push('rollback'); },
+        release() { operations.push('release'); },
+      };
+    },
+  };
+  const s3 = {
+    async send(cmd) {
+      if (cmd instanceof HeadObjectCommand) return { ContentLength: 25000, ETag: '"abc123"' };
+      if (cmd instanceof DeleteObjectCommand) {
+        const error = new Error('precondition failed');
+        error.$metadata = { httpStatusCode: 412 };
+        throw error;
+      }
+      throw new Error('unexpected S3 call');
+    },
+  };
+  await withApp(async (base) => {
+    const response = await fetch(base + '/documents', {
+      method: 'DELETE', headers: { ...cookie('admin'), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: 'Don Bosco en España_1923.pdf' }),
+    });
+    assert.equal(response.status, 409);
+    assert.equal((await response.json()).error.code, 'DOCUMENT_CHANGED');
+    const unsafe = await fetch(base + '/documents', {
+      method: 'DELETE', headers: { ...cookie('admin'), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: '../../private.pdf' }),
+    });
+    assert.equal(unsafe.status, 400);
+  }, { db, s3 });
+  assert.equal(operations.includes('commit'), false);
+  assert.equal(operations.some(value => typeof value === 'string' && value.startsWith('DELETE FROM')), false);
+  assert.equal(operations.includes('rollback'), true);
+});
+
+test('BC-017 manual indexing accepts recognized pending PDF and rejects generic or already-indexed documents', async () => {
+  const invoked = [];
+  await withApp(async (base) => {
+    const response = await fetch(base + '/documents/index', {
+      method: 'POST', headers: { ...cookie('admin'), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: 'Don Bosco en España_1923.pdf' }),
+    });
+    assert.equal(response.status, 202);
+    assert.equal((await response.json()).status, 'queued');
+    const generic = await fetch(base + '/documents/index', {
+      method: 'POST', headers: { ...cookie('admin'), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: 'Boletín de la casa 1950.pdf' }),
+    });
+    assert.equal(generic.status, 409);
+    assert.equal((await generic.json()).error.code, 'DOCUMENT_NEEDS_CATALOGUING');
+    const traversal = await fetch(base + '/documents/index', {
+      method: 'POST', headers: { ...cookie('admin'), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: '../secreto.pdf' }),
+    });
+    assert.equal(traversal.status, 400);
+  }, { invokeIngestor: async key => invoked.push(key) });
+  assert.deepEqual(invoked, ['originals/Don Bosco en España_1923.pdf']);
+  await withApp(async base => {
+    const response = await fetch(base + '/documents/index', {
+      method: 'POST', headers: { ...cookie('manager'), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: 'Don Bosco en España_1923.pdf' }),
+    });
+    assert.equal(response.status, 409);
+    assert.equal((await response.json()).error.code, 'DOCUMENT_ALREADY_INDEXED');
+  }, { db: { async execute() { return [[{ indexed_at: now }]]; } } });
+});
