@@ -87,11 +87,11 @@ const signer = {
   download: ({ key }) => ({ url: 'https://download.example.invalid/' + encodeURIComponent(key), expiresIn: 60 }),
 };
 
-async function withApp(fn, { db = pool, s3 = mockS3, invokeIngestor = async () => {}, deletionEnabled = true, manualIndexEnabled = true } = {}) {
+async function withApp(fn, { db = pool, s3 = mockS3, invokeIngestor = async () => {}, deletionEnabled = true, manualIndexEnabled = true, unindexEnabled = true } = {}) {
   const app = express();
   app.use(express.json());
   app.use('/api/admin/historical', createHistoricalManagementRouter(db, auth, {
-    s3Client: s3, s3Commands: commands, signer, invokeIngestor, deletionEnabled, manualIndexEnabled,
+    s3Client: s3, s3Commands: commands, signer, invokeIngestor, deletionEnabled, manualIndexEnabled, unindexEnabled,
   }));
   const server = await new Promise((resolve) => {
     const instance = app.listen(0, '127.0.0.1', () => resolve(instance));
