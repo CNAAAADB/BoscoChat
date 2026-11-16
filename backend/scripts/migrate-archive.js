@@ -23,6 +23,11 @@ const statements = [
     deleted_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     PRIMARY KEY (s3_key)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS archive_manual_index_requests (
+    s3_key VARCHAR(512) NOT NULL,
+    requested_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (s3_key)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
   `CREATE TABLE IF NOT EXISTS archive_pages (
     document_id BIGINT UNSIGNED NOT NULL,
     page_number INT UNSIGNED NOT NULL,
