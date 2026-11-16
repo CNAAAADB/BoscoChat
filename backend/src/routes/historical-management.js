@@ -7,7 +7,7 @@ import { signedArchiveUpload, signedArchiveDownload, MAX_PDF_BYTES } from '../do
 
 const BUCKET = 'boscochat-archivo-pdfs';
 const REGION = 'us-east-1';
-const allowed = new Set([ROLES.DOCUMENTARY_MANAGER]);
+const allowed = new Set([ROLES.DOCUMENTARY_MANAGER, ROLES.ADMINISTRATOR]);
 
 function replyError(res, status, code, message) {
   return res.status(status).json({ error: { code, message } });
