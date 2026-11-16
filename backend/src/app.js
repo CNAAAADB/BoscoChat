@@ -103,7 +103,10 @@ export function createApp({
       throw new Error('ARCHIVE_WATERMARK_HMAC_KEY_REQUIRED');
     }
     if (environment.HISTORICAL_MANAGEMENT_ENABLED === 'true') {
-      app.use('/api/admin/historical', createHistoricalManagementRouter(pool, service));
+      app.use('/api/admin/historical', createHistoricalManagementRouter(pool, service, {
+        deletionEnabled: environment.ARCHIVE_DOCUMENT_DELETE_ENABLED === 'true',
+        manualIndexEnabled: environment.ARCHIVE_MANUAL_INDEX_ENABLED === 'true',
+      }));
     }
     app.use('/api/archive/documents', createArchiveDocumentRouter(pool, service, {
       pdfViewerEnabled: environment.ARCHIVE_PDF_VIEW_ENABLED === 'true',

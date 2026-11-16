@@ -25,6 +25,9 @@ export function createHistoricalManagementRouter(pool, authService, {
   s3Client = null,
   s3Commands = null,
   signer = { upload: signedArchiveUpload, download: signedArchiveDownload },
+  invokeIngestor = null,
+  deletionEnabled = false,
+  manualIndexEnabled = false,
 } = {}) {
   const router = express.Router();
   router.use(requireAuthorization(authService, allowed));
@@ -111,6 +114,130 @@ export function createHistoricalManagementRouter(pool, authService, {
       res.set('Cache-Control', 'private, no-store');
       return res.status(201).json({ upload, year: meta?.status === 'recognized' ? meta.year : null, filename, willIndexAutomatically: meta?.status === 'recognized' });
     } catch (error) { return next(error); }
+  });
+
+  // A manual retry enters the same trusted worker as automatic S3 ingestion.
+  // This operation is asynchronous: HTTP 202 means accepted, not indexed.
+  router.post('/documents/index', (req, res, next) => {
+    if (!manualIndexEnabled) return replyError(res, 503, 'INDEXING_NOT_ENABLED', 'La indexación manual todavía no está habilitada.');
+    return next();
+  }, async (req, res, next) => {
+    const filename = req.body?.filename;
+    const key = safeArchivePdfKey(filename);
+    if (!key) return replyError(res, 400, 'INVALID_DOCUMENT_FILENAME', 'Nombre de documento no válido.');
+    if (parseArchiveKey(key).status !== 'recognized') {
+      return replyError(res, 409, 'DOCUMENT_NEEDS_CATALOGUING', 'Este PDF necesita catalogación de publicación y año antes de poder indexarse.');
+    }
+    try {
+      const head = await withS3(async (client, { HeadObjectCommand }) => {
+        try { return await client.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key })); }
+        catch (error) { if (isAbsentObject(error)) return null; throw error; }
+      });
+      if (!head) return replyError(res, 404, 'DOCUMENT_NOT_FOUND', 'Documento no encontrado.');
+      const bytes = Number(head.ContentLength);
+      if (!Number.isSafeInteger(bytes) || bytes < 1 || bytes > MAX_PDF_BYTES) {
+        return replyError(res, 400, 'INVALID_DOCUMENT_SIZE', 'El PDF supera el tamaño permitido para indexación.');
+      }
+      const [rows] = await pool.execute('SELECT indexed_at FROM archive_documents WHERE s3_key = ?', [key]);
+      if (rows[0]?.indexed_at) return replyError(res, 409, 'DOCUMENT_ALREADY_INDEXED', 'Este documento ya está indexado.');
+      // Serialize manual reindex requests across backend instances.
+      let connection;
+      try {
+        connection = await pool.getConnection();
+        await connection.beginTransaction();
+        const [[prior]] = await connection.execute(
+          'SELECT requested_at FROM archive_manual_index_requests WHERE s3_key = ? FOR UPDATE', [key],
+        );
+        if (prior && Date.now() - new Date(prior.requested_at).getTime() < 10 * 60 * 1000) {
+          await connection.rollback();
+          res.set('Retry-After', '600');
+          return replyError(res, 429, 'INDEX_ALREADY_REQUESTED', 'Ya se ha solicitado esta indexación recientemente. Comprueba su estado antes de repetirla.');
+        }
+        await connection.execute(
+          'INSERT INTO admin_audit_logs (actor_user_id, target_user_id, action, outcome, details_json) VALUES (?, NULL, ?, ?, CAST(? AS JSON))',
+          [req.user.id, 'archive.index.request', 'accepted', JSON.stringify({ filename })],
+        );
+        if (invokeIngestor) {
+          await invokeIngestor(key);
+        } else {
+          const { LambdaClient, InvokeCommand } = await import('@aws-sdk/client-lambda');
+          const client = new LambdaClient({ region: REGION, maxAttempts: 2 });
+          try {
+            const response = await client.send(new InvokeCommand({
+              FunctionName: 'boscochat-pdf-ingestor', InvocationType: 'Event',
+              Payload: Buffer.from(JSON.stringify({ action: 'index-archive-pdf', key })),
+            }));
+            if (response.StatusCode !== 202) throw new Error('ARCHIVE_INDEX_INVOCATION_FAILED');
+          } finally { client.destroy(); }
+        }
+        await connection.execute(
+          'INSERT INTO archive_manual_index_requests (s3_key, requested_at) VALUES (?, UTC_TIMESTAMP(3)) ON DUPLICATE KEY UPDATE requested_at = UTC_TIMESTAMP(3)',
+          [key],
+        );
+        await connection.commit();
+      } catch (error) {
+        if (connection) await connection.rollback().catch(() => {});
+        throw error;
+      } finally {
+        if (connection) connection.release();
+      }
+      res.set('Cache-Control', 'private, no-store');
+      return res.status(202).json({ status: 'queued', filename, message: 'Indexación solicitada. Actualiza el estado en unos momentos.' });
+    } catch (error) { return next(error); }
+  });
+
+  // Remove the searchable MySQL document (including its CASCADE pages) and
+  // hide the current original in versioned private S3. Older S3 versions are
+  // retained by bucket versioning for recovery and require separate retention policy.
+  router.delete('/documents', (req, res, next) => {
+    if (!deletionEnabled) return replyError(res, 503, 'DELETION_NOT_ENABLED', 'La eliminación de documentos todavía no está habilitada.');
+    return next();
+  }, async (req, res, next) => {
+    const filename = req.body?.filename;
+    const key = safeArchivePdfKey(filename);
+    if (!key) return replyError(res, 400, 'INVALID_DOCUMENT_FILENAME', 'Nombre de documento no válido.');
+    let connection;
+    try {
+      const head = await withS3(async (client, { HeadObjectCommand }) => {
+        try { return await client.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key })); }
+        catch (error) { if (isAbsentObject(error)) return null; throw error; }
+      });
+      if (!head) return replyError(res, 404, 'DOCUMENT_NOT_FOUND', 'Documento no encontrado.');
+      // A versioned source ID is required to keep a reliable tombstone. It
+      // prevents an in-flight worker from restoring a deleted old version.
+      if (typeof head.VersionId !== 'string' || !head.VersionId || head.VersionId === 'null' || !head.ETag) {
+        return replyError(res, 409, 'ARCHIVE_VERSIONING_REQUIRED', 'No se puede eliminar de forma segura: falta la versión del original.');
+      }
+      connection = await pool.getConnection();
+      await connection.beginTransaction();
+      await connection.execute('SELECT id FROM archive_documents WHERE s3_key = ? FOR UPDATE', [key]);
+      await connection.execute(
+        'INSERT INTO archive_deleted_sources (s3_key, source_version_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE source_version_id = VALUES(source_version_id), deleted_at = UTC_TIMESTAMP(3)',
+        [key, head.VersionId],
+      );
+      await connection.execute(
+        'INSERT INTO admin_audit_logs (actor_user_id, target_user_id, action, outcome, details_json) VALUES (?, NULL, ?, ?, CAST(? AS JSON))',
+        [req.user.id, 'archive.document.delete', 'success', JSON.stringify({ filename, sourceVersionId: head.VersionId })],
+      );
+      await withS3(async (client, { DeleteObjectCommand }) => {
+        await client.send(new DeleteObjectCommand({
+          Bucket: BUCKET, Key: key,
+          IfMatch: head.ETag,
+        }));
+      });
+      await connection.execute('DELETE FROM archive_documents WHERE s3_key = ?', [key]);
+      await connection.commit();
+      res.set('Cache-Control', 'private, no-store');
+      return res.json({ deleted: true, filename });
+    } catch (error) {
+      if (connection) await connection.rollback().catch(() => {});
+      if (error?.$metadata?.httpStatusCode === 412) {
+        return replyError(res, 409, 'DOCUMENT_CHANGED', 'El documento ha cambiado. Actualiza el directorio antes de eliminarlo.');
+      }
+      return next(error);
+    } finally {
+      if (connection) connection.release();
+    }
   });
 
   router.get('/documents/download', async (req, res, next) => {

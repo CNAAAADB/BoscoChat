@@ -15,6 +15,19 @@ const statements = [
     UNIQUE KEY ux_archive_documents_s3_key (s3_key),
     KEY ix_archive_documents_year (publication_year)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  // A deletion marker prevents an in-flight PDF worker from re-publishing an
+  // older S3 object version after the administrator removed it.
+  `CREATE TABLE IF NOT EXISTS archive_deleted_sources (
+    s3_key VARCHAR(512) NOT NULL,
+    source_version_id VARCHAR(255) NOT NULL,
+    deleted_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (s3_key)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS archive_manual_index_requests (
+    s3_key VARCHAR(512) NOT NULL,
+    requested_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (s3_key)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
   `CREATE TABLE IF NOT EXISTS archive_pages (
     document_id BIGINT UNSIGNED NOT NULL,
     page_number INT UNSIGNED NOT NULL,

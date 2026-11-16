@@ -1,3 +1,9 @@
+## BC-017 — Eliminar e indexar archivos desde Gestión histórica (2026-11-16)
+- Implementación propuesta: eliminación confirmada del original actual en S3 y registro MySQL `archive_documents`, con borrado en cascada de `archive_pages`; reindexación manual asíncrona para PDF anuales reconocidos, usando la Lambda ingesta existente.
+- PDFs de otras publicaciones siguen requiriendo catalogación; no se muestra un botón de indexación engañoso.
+- Requiere provisioning explícito: backend IAM `s3:DeleteObject`, `lambda:InvokeFunction` sobre ingestor y autorización del endpoint privado de Lambda, además de prueba end-to-end. La eliminación no purga versiones previas S3, que se conservan para recuperación conforme a política de retención.
+- Se han añadido controles de concurrencia por VersionId y auditoría de solicitud/borrado en admin_audit_logs. TRACE-GAP: prueba real de carreras de ingesta/borrado, retención de auditoría, reconciliación S3/MySQL, revisión independiente FULL y despliegue verificado. No fusionar/desplegar hasta cerrar los gates.
+
 ## BC-008/BC-011 y BC-002/BC-017 — Incidencia de versiones en AWS (2026-11-16)
 - Capturas en producción: indicador de paginación NaN–NaN/undefined, cambio de 10 a 20/50 sin efecto, mensaje para iniciar sesión pese a usuario autenticado y HTTP 403 en Gestión histórica como administrador.
 - AWS Lambda `boscochat-backend` reportaba `LastModified=2026-11-13T16:58:45Z` mientras Amplify main se había actualizado el 2026-11-16. Causa primaria confirmada: frontend actualizado con backend antiguo.

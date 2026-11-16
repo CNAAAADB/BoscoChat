@@ -16,10 +16,18 @@ const BUCKET = 'boscochat-archivo-pdfs';
 const LIMIT_PDF_BYTES = 350 * 1024 * 1024;
 const LIMIT_TEXT_BYTES = 150 * 1024 * 1024;
 
-async function saveDocument(pool, metadata, contentBytes, pages) {
+export async function saveDocument(pool, metadata, contentBytes, pages, sourceVersionId) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
+    const [[deleted]] = await connection.execute(
+      'SELECT source_version_id FROM archive_deleted_sources WHERE s3_key = ? FOR UPDATE',
+      [metadata.key],
+    );
+    if (deleted?.source_version_id === sourceVersionId) {
+      await connection.rollback();
+      return false; // Old S3 version was intentionally deleted.
+    }
     await connection.execute(
       `INSERT INTO archive_documents
        (s3_key, publication, publication_year, file_size_bytes, indexed_at)
@@ -45,6 +53,7 @@ async function saveDocument(pool, metadata, contentBytes, pages) {
     if (Number(count.total) !== pages.length) throw new Error('Persisted page count mismatch');
     await connection.execute('UPDATE archive_documents SET indexed_at = UTC_TIMESTAMP(3) WHERE id = ?', [doc.id]);
     await connection.commit();
+    return true;
   } catch (error) {
     await connection.rollback();
     throw error;
@@ -60,8 +69,17 @@ export async function ingestOne({ key, s3, S3GetCommand, S3HeadCommand, pool, pd
   try {
     const pdfPath = join(dir, 'source.pdf');
     const textPath = join(dir, 'source.txt');
-    const head = await s3.send(new S3HeadCommand({ Bucket: BUCKET, Key: key }));
+    let head;
+    try {
+      head = await s3.send(new S3HeadCommand({ Bucket: BUCKET, Key: key }));
+    } catch (error) {
+      if (error?.name === 'NotFound' || error?.name === 'NoSuchKey' || error?.$metadata?.httpStatusCode === 404) {
+        return { year: metadata.year, skipped: 'source_absent' };
+      }
+      throw error;
+    }
     const contentBytes = Number(head.ContentLength);
+    const sourceVersionId = head.VersionId;
     if (!Number.isSafeInteger(contentBytes) || contentBytes < 1 || contentBytes > LIMIT_PDF_BYTES) {
       throw new Error('PDF size exceeds processing limits');
     }
@@ -79,7 +97,22 @@ export async function ingestOne({ key, s3, S3GetCommand, S3HeadCommand, pool, pd
     if ((await stat(textPath)).size > LIMIT_TEXT_BYTES) throw new Error('Extracted text exceeds limit');
     const pages = splitExtractedPages(await readFile(textPath, 'utf8'));
     if (pages.length !== expectedPages) throw new Error('Physical PDF pages and extracted page count differ');
-    await saveDocument(pool, metadata, contentBytes, pages);
+    // A queued event may finish after an administrator removes the original.
+    // Refuse to publish an index if its S3 source disappeared mid-processing.
+    let current;
+    try {
+      current = await s3.send(new S3HeadCommand({ Bucket: BUCKET, Key: key }));
+    } catch (error) {
+      if (error?.name === 'NotFound' || error?.name === 'NoSuchKey' || error?.$metadata?.httpStatusCode === 404) {
+        return { year: metadata.year, skipped: 'source_removed_during_ingestion' };
+      }
+      throw error;
+    }
+    if (!sourceVersionId || current.VersionId !== sourceVersionId) {
+      return { year: metadata.year, skipped: 'source_version_changed' };
+    }
+    const persisted = await saveDocument(pool, metadata, contentBytes, pages, sourceVersionId);
+    if (!persisted) return { year: metadata.year, skipped: 'source_version_deleted' };
     return { year: metadata.year, pages: pages.length, needsReview: pages.filter(page => page.quality === 'needs_review').length };
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -89,6 +122,15 @@ export async function ingestOne({ key, s3, S3GetCommand, S3HeadCommand, pool, pd
 // SQS event source mapping uses batch size 1 and ReportBatchItemFailures.
 // Repeated S3 notifications reindex the same object transactionally: no duplicate rows.
 export async function handler(event) {
+  if (event?.action === 'index-archive-pdf') {
+    if (parseArchiveKey(event.key).status !== 'recognized') throw new Error('INVALID_MANUAL_INDEX_KEY');
+    const { S3Client, GetObjectCommand, HeadObjectCommand } = await import('@aws-sdk/client-s3');
+    const s3 = new S3Client({ region: 'us-east-1', maxAttempts: 3 });
+    const pool = mysql.createPool(databaseConfig({ ...process.env, DB_CONNECTION_LIMIT: '1' }));
+    try {
+      return await ingestOne({ key: event.key, s3, S3GetCommand: GetObjectCommand, S3HeadCommand: HeadObjectCommand, pool });
+    } finally { await pool.end(); s3.destroy(); }
+  }
   let pool, s3;
   try {
     const { S3Client, GetObjectCommand, HeadObjectCommand } = await import('@aws-sdk/client-s3');
