@@ -283,6 +283,7 @@ As a registered user, I want search results to show highlighted fragments and so
 - [ ] Show publication, issue number, publication date and page number.
 - [ ] Provide an action to open the original in the integrated viewer.
 - [ ] Presentation is clear and understandable.
+- [ ] Results support server-side pagination, 10 by default, with 10/20/50 per page, total count and previous/next navigation (implementation PR pending verification).
 
 ### BC-012 — Protected integrated PDF viewer
 - Priority: P1
