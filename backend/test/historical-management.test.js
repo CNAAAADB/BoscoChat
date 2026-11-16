@@ -63,6 +63,7 @@ const mockS3 = {
 };
 const pool = {
   async execute(sql) {
+    if (sql.includes('SELECT publication, publication_year, indexed_at FROM archive_documents')) return [[]];
     if (sql.includes('SELECT indexed_at FROM archive_documents')) return [[]];
     return [[{ s3_key: 'originals/Don Bosco en España_1923.pdf', indexed_at: now, pages: 228 }]];
   },
