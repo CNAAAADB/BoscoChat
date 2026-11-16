@@ -22,7 +22,7 @@ test('BC-017 audit repair uses the exact users.id type and additive DDL', async 
   const pool = {
     async execute(sql) {
       executed.push(sql);
-      if (sql.includes('COLUMN_TYPE FROM information_schema.COLUMNS')) return [[{ COLUMN_TYPE: 'bigint unsigned' }]];
+      if (sql.trimStart().startsWith('SELECT COLUMN_TYPE')) return [[{ COLUMN_TYPE: 'bigint unsigned' }]];
       return [[
         'id', 'actor_user_id', 'target_user_id', 'action', 'outcome', 'details_json', 'created_at',
       ].map(COLUMN_NAME => ({ COLUMN_NAME, COLUMN_TYPE: COLUMN_NAME === 'actor_user_id' ? 'bigint unsigned' : 'varchar(48)' }))];
