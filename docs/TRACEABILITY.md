@@ -1,3 +1,8 @@
+## BC-008 / BC-011 — Resultados paginados (2026-11-16)
+- Decisión de producto: diez por página de forma predeterminada; 10/20/50 seleccionables, contador total y navegación sin límite fijo de diez coincidencias globales.
+- Código propuesto: `backend/src/documents/archive-search.js`, `backend/src/routes/archive-search.js`, `frontend/src/App.jsx`; pruebas `backend/test/archive-search.test.js`.
+- TRACE-GAP: CI, independiente FULL review y ejecución AWS/usuario autenticado con corpus y medición de latencia.
+
 # BoscoChat Traceability
 
 Traceability is maintained from SRS requirement -> backlog story -> design -> implementation -> tests -> PR -> independent verification/security evidence.

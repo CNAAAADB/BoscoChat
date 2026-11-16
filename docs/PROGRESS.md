@@ -2,6 +2,10 @@
 - El propietario autoriza expresamente que `administrator` tenga todos los permisos funcionales de la plataforma, incluidos los de `documentary_manager` en Gestión histórica, manteniendo la separación de permisos de cuentas para historiadores y usuarios normales.
 - Implementación propuesta en PR: ampliar control de acceso backend y navegación frontend; actualizar pruebas de lectura, subida, descarga y denegación a usuarios sin privilegios.
 - TRACE-GAP: CI, revisión independiente de autorización y validación autenticada en AWS/Amplify. No se considera desplegado ni DONE antes de estos controles.
+## BC-008 / BC-011 — Paginación de resultados (2026-11-16)
+- Decisión del propietario: eliminar el límite global de diez coincidencias; mostrar diez por página por defecto, selector 10/20/50 y botones Anterior/Siguiente.
+- Implementación propuesta: consultas MySQL paginadas con total de coincidencias, orden estable y validación de parámetros; React conserva filtros y búsqueda enviada durante la navegación.
+- Pendientes: CI, revisión independiente, prueba real con múltiples páginas y verificación de rendimiento en corpus representativo. No marcar DONE ni afirmar despliegue.
 
 ## BC-002 — Frontend admin 401 / first-party API proxy (2026-11-13)
 - Owner screenshot: role `administrator` visible in navigation, yet loading `/api/admin/users` returned `AUTHENTICATION_REQUIRED` (401), suggesting that the previously cross-site `execute-api` cookie was not available on subsequent requests. Historiador-only `Gestión histórica` correctly remains invisible to Administrador by design.
