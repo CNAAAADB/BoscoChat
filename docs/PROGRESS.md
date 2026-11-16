@@ -1,3 +1,10 @@
+## BC-017 — Acciones activadas en AWS (2026-11-16)
+- PR #57 fusionado, con CI de backend/frontend/worker en verde sobre el commit de la rama. Gestión histórica ofrece Indexar según estado pendiente, Desindexar según estado indexado, y Eliminar PDF como acción separada, con confirmación.
+- Worker de ingesta actualizado mediante CloudFormation al digest OCI amd64 `sha256:05f32c4c7a3e82cbf711d55e1b686962d41dc92715a23f7ee61466a475da0dc1`; stack `boscochat-archive-ingestion` UPDATE_COMPLETE.
+- IAM backend ampliado únicamente a `s3:DeleteObject` de `originals/*` y `lambda:InvokeFunction` de `boscochat-pdf-ingestor`; endpoint privado Lambda ampliado sólo al ingestor; simulador IAM confirma allowed en recursos previstos y implicitDeny en recursos ajenos.
+- Flags Lambda `ARCHIVE_DOCUMENT_DELETE_ENABLED`, `ARCHIVE_MANUAL_INDEX_ENABLED`, `ARCHIVE_UNINDEX_ENABLED` en true, configuración Successful. Amplify flags correspondientes en true y deployment `main` job 55 SUCCEED (BUILD/DEPLOY/VERIFY).
+- Limitación pendiente: indexación manual de PDFs genéricos sin catalogación; sigue restringida a anualidades reconocidas. TRACE-GAP: validación E2E con cuenta de administrador/historiador y PDF de prueba, revisión de seguridad independiente y control de fallos distribuidos de borrado S3/MySQL. No marcar BC-017 DONE únicamente por activación.
+
 ## BC-017 — Acción inversa según estado del PDF (2026-11-16)
 - Nueva operación independiente `POST /api/admin/historical/documents/unindex`: elimina la entrada indexada y páginas en MySQL mediante CASCADE, preservando S3; añade marca de versión para bloquear ingestas rezagadas y escribe auditoría.
 - Indexación manual de PDF previamente desindexados elimina su marca de supresión al aceptar la nueva petición. Frontend muestra «Indexar PDF» para anualidades pendientes y «Desindexar PDF» para indexadas.
