@@ -69,7 +69,15 @@ export async function ingestOne({ key, s3, S3GetCommand, S3HeadCommand, pool, pd
   try {
     const pdfPath = join(dir, 'source.pdf');
     const textPath = join(dir, 'source.txt');
-    const head = await s3.send(new S3HeadCommand({ Bucket: BUCKET, Key: key }));
+    let head;
+    try {
+      head = await s3.send(new S3HeadCommand({ Bucket: BUCKET, Key: key }));
+    } catch (error) {
+      if (error?.name === 'NotFound' || error?.name === 'NoSuchKey' || error?.$metadata?.httpStatusCode === 404) {
+        return { year: metadata.year, skipped: 'source_absent' };
+      }
+      throw error;
+    }
     const contentBytes = Number(head.ContentLength);
     const sourceVersionId = head.VersionId;
     if (!Number.isSafeInteger(contentBytes) || contentBytes < 1 || contentBytes > LIMIT_PDF_BYTES) {
@@ -91,8 +99,16 @@ export async function ingestOne({ key, s3, S3GetCommand, S3HeadCommand, pool, pd
     if (pages.length !== expectedPages) throw new Error('Physical PDF pages and extracted page count differ');
     // A queued event may finish after an administrator removes the original.
     // Refuse to publish an index if its S3 source disappeared mid-processing.
-    const current = await s3.send(new S3HeadCommand({ Bucket: BUCKET, Key: key }));
-    if (current.VersionId !== sourceVersionId) {
+    let current;
+    try {
+      current = await s3.send(new S3HeadCommand({ Bucket: BUCKET, Key: key }));
+    } catch (error) {
+      if (error?.name === 'NotFound' || error?.name === 'NoSuchKey' || error?.$metadata?.httpStatusCode === 404) {
+        return { year: metadata.year, skipped: 'source_removed_during_ingestion' };
+      }
+      throw error;
+    }
+    if (!sourceVersionId || current.VersionId !== sourceVersionId) {
       return { year: metadata.year, skipped: 'source_version_changed' };
     }
     const persisted = await saveDocument(pool, metadata, contentBytes, pages, sourceVersionId);
