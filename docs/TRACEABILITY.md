@@ -1,3 +1,8 @@
+## BC-017 — Migración privada RDS (2026-11-16)
+- Snapshot cifrado AVAILABLE `boscochat-pre-bc017-index-delete-20261116` antes de DDL. Instancia RDS MySQL 8.4.9 privada.
+- Definición aditiva común: `backend/src/db/archive-migration.js`; ejecutor en VPC: `backend/worker/archive-migration.js`; CLI compatible: `backend/scripts/migrate-archive.js`; pruebas: `backend/test/archive-migration.test.js`.
+- TRACE-GAP: ejecutar la migración real y verificar columnas, índices y `archive_pages` CASCADE. Mantener flags destructivas desactivadas hasta cerrar este control.
+
 ## BC-017 — Eliminar e indexar PDF (2026-11-16)
 - Alcance: borrado confirmado del original visible en S3 y filas de MySQL de documento y páginas en cascada; petición asíncrona de indexación mediante Lambda existente para anualidades reconocidas.
 - Código: `backend/src/routes/historical-management.js`, `backend/worker/handler.js`, `frontend/src/api/historical.js`, `frontend/src/HistoricalManagement.jsx`; pruebas en `backend/test/historical-management.test.js`.
