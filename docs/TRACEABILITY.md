@@ -1,3 +1,9 @@
+## BC-017 — Evidencia de aplicación real de esquema MySQL (2026-11-16)
+- PR #55: definición aditiva compartida `backend/src/db/archive-migration.js`, ejecutor en VPC `backend/worker/archive-migration.js` y pruebas de compatibilidad.
+- RDS `boscochat-db` privado, snapshot cifrado `boscochat-pre-bc017-index-delete-20261116` AVAILABLE.
+- Invocación real de Lambda privada: `status=verified`, tablas `archive_deleted_sources` y `archive_manual_index_requests` verificadas y FK de `archive_pages` `ON DELETE CASCADE` verificada. Función de migración eliminada después de ejecutarse.
+- Persisten TRACE-GAP operativos para activar BC-017: IAM de borrado e invocación de ingestor, actualización de contenedor y pruebas funcionales/seguridad. No confundir esquema aplicado con funcionalidad habilitada.
+
 ## BC-017 — Migración privada RDS (2026-11-16)
 - Snapshot cifrado AVAILABLE `boscochat-pre-bc017-index-delete-20261116` antes de DDL. Instancia RDS MySQL 8.4.9 privada.
 - Definición aditiva común: `backend/src/db/archive-migration.js`; ejecutor en VPC: `backend/worker/archive-migration.js`; CLI compatible: `backend/scripts/migrate-archive.js`; pruebas: `backend/test/archive-migration.test.js`.
