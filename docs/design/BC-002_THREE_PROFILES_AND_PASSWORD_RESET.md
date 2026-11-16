@@ -4,7 +4,7 @@ Decisión del propietario (2026-11-13): tres **perfiles de producto**: **Adminis
 
 | Perfil visible | Valor persistido | Gestión de cuentas | Gestión histórica | Búsqueda / visor |
 | --- | --- | --- | --- | --- |
-| Administrador de plataforma | `administrator` | Alta, baja, suspensión, concesión de roles, emisión de restablecimientos de contraseña | No | Sí |
+| Administrador de plataforma | `administrator` | Alta, baja, suspensión, concesión de roles, emisión de restablecimientos de contraseña | Sí: inventario, subida, consulta y descarga privada de originales | Sí |
 | Historiador | `documentary_manager` | No | Sí: inventario, subida, consulta y descarga privada de originales | Sí |
 | Usuario | `free` | No | No (403 incluso invocando la API) | Sí |
 
@@ -22,7 +22,7 @@ Los valores históricos `pro`, `premium` y `advanced` siguen siendo válidos **p
 
 ## Integración con BC-017 Gestión histórica
 
-PR #41 (todavía independiente) debe limitar su ruta protegida `/api/admin/historical` exclusivamente al historiador; el administrador de plataforma **no** gestiona originales por defecto. Un usuario normal no ve la pestaña ni accede a endpoints incluso si conoce la URL. La publicación y los permisos AWS de BC-017 siguen bajo revisión de seguridad.
+**Decisión actualizada del propietario (2026-11-13):** el administrador de plataforma hereda todos los permisos funcionales del historiador, incluida la ruta protegida `/api/admin/historical`, además de los permisos de administración de cuentas. Se aplican las mismas validaciones, firmas temporales y restricciones de no sobrescritura a ambos roles. No se permite omitir controles de seguridad ni suplantar identidades. Un usuario normal no ve la pestaña ni accede a endpoints incluso si conoce la URL. La publicación y los permisos AWS de BC-017 siguen bajo revisión de seguridad.
 
 ## Evidencia pendiente
 

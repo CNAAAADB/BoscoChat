@@ -89,7 +89,7 @@ async function withApp(fn) {
 }
 function cookie(role) { return { cookie: 'boscochat_session=' + role + '-session' }; }
 
-test('BC-017 rejects anonymous, platform administrators and normal users for all management endpoints', async () => withApp(async (base) => {
+test('BC-017 rejects anonymous and normal users for all management endpoints', async () => withApp(async (base) => {
   for (const [method, path] of [
     ['GET', '/documents'], ['POST', '/uploads'], ['GET', '/documents/1923/download'], ['GET', '/documents/download?filename=Bolet%C3%ADn%20de%20la%20casa%201950.pdf'],
   ]) {
@@ -97,12 +97,10 @@ test('BC-017 rejects anonymous, platform administrators and normal users for all
     assert.equal(anonymous.status, 401, method + ' ' + path);
     const normal = await fetch(base + path, { method, headers: cookie('free') });
     assert.equal(normal.status, 403, method + ' ' + path);
-    const platformAdmin = await fetch(base + path, { method, headers: cookie('admin') });
-    assert.equal(platformAdmin.status, 403, method + ' ' + path);
   }
 }));
 
-test('BC-017 manager can view filtered inventory and statuses; normal users cannot', async () => withApp(async (base) => {
+test('BC-017 historians and administrators can view filtered inventory and statuses; normal users cannot', async () => withApp(async (base) => {
   const response = await fetch(base + '/documents?q=1923', { headers: cookie('manager') });
   assert.equal(response.status, 200);
   assert.equal(response.headers.get('cache-control'), 'private, no-store');
@@ -110,6 +108,9 @@ test('BC-017 manager can view filtered inventory and statuses; normal users cann
   assert.equal(data.total, 1);
   assert.equal(data.documents[0].status, 'indexed');
   assert.equal(data.documents[0].pages, 228);
+  const adminResponse = await fetch(base + '/documents?q=1923', { headers: cookie('admin') });
+  assert.equal(adminResponse.status, 200);
+  assert.equal((await adminResponse.json()).documents[0].status, 'indexed');
   const waiting = await fetch(base + '/documents?q=2025', { headers: cookie('manager') });
   assert.equal((await waiting.json()).documents[0].status, 'pending');
 }));
@@ -126,6 +127,11 @@ test('BC-017 prevents overwriting existing annual and invalid uploads', async ()
   });
   assert.equal(valid.status, 201);
   assert.equal((await valid.json()).upload.key, 'originals/Don Bosco en España_2026.pdf');
+  const adminUpload = await fetch(base + '/uploads', {
+    method: 'POST', headers: { ...cookie('admin'), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename: 'Don Bosco en España_2026.pdf', sizeBytes: 240000 }),
+  });
+  assert.equal(adminUpload.status, 201);
   const invalid = await fetch(base + '/uploads', {
     method: 'POST', headers: { ...cookie('manager'), 'Content-Type': 'application/json' },
     body: JSON.stringify({ filename: '../../secret.pdf', sizeBytes: 2 }),
@@ -137,6 +143,9 @@ test('BC-017 only permits authorized downloads of existing years', async () => w
   const allowed = await fetch(base + '/documents/1923/download', { headers: cookie('manager') });
   assert.equal(allowed.status, 200);
   assert.equal((await allowed.json()).download.expiresIn, 60);
+  const adminDownload = await fetch(base + '/documents/1923/download', { headers: cookie('admin') });
+  assert.equal(adminDownload.status, 200);
+  assert.equal((await adminDownload.json()).download.expiresIn, 60);
   const absent = await fetch(base + '/documents/2026/download', { headers: cookie('manager') });
   assert.equal(absent.status, 404);
   const invalid = await fetch(base + '/documents/not-a-year/download', { headers: cookie('manager') });
@@ -169,6 +178,9 @@ test('BC-017 stores generic PDFs in the same originals prefix but marks them for
   const download = await fetch(base + '/documents/download?filename=Bolet%C3%ADn%20de%20la%20casa%201950.pdf', { headers: cookie('manager') });
   assert.equal(download.status, 200);
   assert.equal((await download.json()).download.expiresIn, 60);
+  const adminDownload = await fetch(base + '/documents/download?filename=Bolet%C3%ADn%20de%20la%20casa%201950.pdf', { headers: cookie('admin') });
+  assert.equal(adminDownload.status, 200);
+  assert.equal((await adminDownload.json()).download.expiresIn, 60);
 
   const traversal = await fetch(base + '/documents/download?filename=..%2Fprivate.pdf', { headers: cookie('manager') });
   assert.equal(traversal.status, 400);

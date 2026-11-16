@@ -85,7 +85,7 @@ export default function HistoricalManagement() {
   return (
     <section style={panel}>
       <h2 style={heading}>Gestión histórica</h2>
-      <p style={{ lineHeight: 1.6 }}>Directorio privado de documentos originales. Acceso exclusivo para historiadores.</p>
+      <p style={{ lineHeight: 1.6 }}>Directorio privado de documentos originales. Acceso para historiadores y administradores de la plataforma.</p>
       {error ? <p role="alert" style={{ background: '#471b1b', border: '1px solid #eb6868', borderRadius: 12, padding: 14 }}>{error}</p> : null}
       {message ? <p role="status" style={{ background: '#223527', borderRadius: 12, padding: 14 }}>{message}</p> : null}
 
