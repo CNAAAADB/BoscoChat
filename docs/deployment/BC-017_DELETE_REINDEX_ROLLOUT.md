@@ -1,3 +1,9 @@
+## Estado de preparación MySQL — 2026-11-16
+
+La migración de esquema descrita en el paso 1 **ya se ha ejecutado y verificado** sobre RDS `boscochat-db` mediante una Lambda efímera en VPC. Evidencia: respuesta `status=verified` para `archive_deleted_sources`, `archive_manual_index_requests` y clave foránea `archive_pages ON DELETE CASCADE`. Copia cifrada previa `boscochat-pre-bc017-index-delete-20261116` disponible. La Lambda temporal fue eliminada. No volver a ejecutar el paso 1 en producción salvo que una comprobación de esquema justifique una nueva ejecución.
+
+Los pasos de IAM, worker, pruebas E2E, revisión independiente y activación de flags **siguen pendientes**. No se ha activado ningún borrado de originales.
+
 # BC-017 — Despliegue controlado de eliminar e indexar PDF
 
 ## Alcance
