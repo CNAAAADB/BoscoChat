@@ -38,6 +38,8 @@ export default function App() {
   const [authError, setAuthError] = useState('');
   const [search, setSearch] = useState('');
   const [results, setResults] = useState([]);
+  const [submittedSearch, setSubmittedSearch] = useState(null);
+  const [searchPagination, setSearchPagination] = useState({ page: 1, pageSize: 10, total: 0, totalPages: 0 });
   const [searchError, setSearchError] = useState('');
   const [searchBusy, setSearchBusy] = useState(false);
   const [searchYear, setSearchYear] = useState('');
@@ -171,6 +173,34 @@ export default function App() {
     }
   };
 
+  const runSearch = async (criteria, page = 1, pageSize = searchPagination.pageSize) => {
+    if (!criteria) return;
+    setSearchBusy(true);
+    setSearchError('');
+    try {
+      const query = new URLSearchParams({ q: criteria.q });
+      if (ARCHIVE_SEARCH_ENABLED) {
+        if (criteria.year) query.set('year', criteria.year);
+        query.set('mode', criteria.mode);
+        query.set('page', String(page));
+        query.set('pageSize', String(pageSize));
+      }
+      const endpoint = ARCHIVE_SEARCH_ENABLED ? '/archive/search' : '/search';
+      const response = await fetch(`${API_URL}${endpoint}?${query}`, { credentials: 'include' });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error?.message ?? 'No se ha podido ejecutar la búsqueda.');
+      setResults(ARCHIVE_SEARCH_ENABLED ? data.results : data);
+      setSubmittedSearch(criteria);
+      if (ARCHIVE_SEARCH_ENABLED) setSearchPagination({
+        page: data.page, pageSize: data.pageSize, total: data.total, totalPages: data.totalPages,
+      });
+    } catch (error) {
+      setSearchError(error.message);
+    } finally {
+      setSearchBusy(false);
+    }
+  };
+
   const openSearchResult = (result) => {
     if (!ARCHIVE_SEARCH_ENABLED) return;
     setSelectedPage({ documentId: result.document_id, pageNumber: result.page_number, title: result.publication, year: result.publication_year });
@@ -285,22 +315,12 @@ export default function App() {
       {view === 'buscador' ? (
         <section style={styles.card}>
           <h2 style={styles.sectionTitle}>Buscador Histórico</h2>
-          <form style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '20px' }} onSubmit={async (event) => {
+          <form style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '20px' }} onSubmit={(event) => {
             event.preventDefault();
-            setSearchBusy(true);
-            setSearchError('');
+            const criteria = { q: search, year: searchYear, mode: searchMode };
+            setSubmittedSearch(null);
             setResults([]);
-            try {
-              const query = new URLSearchParams({ q: search });
-              if (ARCHIVE_SEARCH_ENABLED && searchYear) query.set('year', searchYear);
-              if (ARCHIVE_SEARCH_ENABLED) query.set('mode', searchMode);
-              const endpoint = ARCHIVE_SEARCH_ENABLED ? '/archive/search' : '/search';
-              const response = await fetch(`${API_URL}${endpoint}?${query}`, { credentials: 'include' });
-              const data = await response.json().catch(() => null);
-              if (!response.ok) throw new Error(data?.error?.message ?? 'No se ha podido ejecutar la búsqueda.');
-              setResults(ARCHIVE_SEARCH_ENABLED ? data.results : data);
-            } catch (error) { setSearchError(error.message); }
-            finally { setSearchBusy(false); }
+            runSearch(criteria, 1);
           }}>
             <input required minLength="2" style={{ ...styles.input, flex: '1 1 260px', width: 'auto', marginBottom: 0 }} aria-label="Consulta" placeholder="Buscar..." value={search} onChange={(event) => setSearch(event.target.value)} />
             {ARCHIVE_SEARCH_ENABLED ? <input style={{ ...styles.input, width: '130px', marginBottom: 0 }} aria-label="Filtrar por año" type="number" min="1922" max="2100" placeholder="Año" value={searchYear} onChange={(event) => setSearchYear(event.target.value)} /> : null}
@@ -309,7 +329,18 @@ export default function App() {
           </form>
           {ARCHIVE_SEARCH_ENABLED ? <p>La búsqueda es pública. Para consultar el documento original tendrás que iniciar sesión o registrarte.</p> : !user ? <p>Inicia sesión para buscar en el archivo.</p> : null}
           {searchError ? <p role="alert" style={styles.error}>{searchError}</p> : null}
-          {ARCHIVE_SEARCH_ENABLED && results.length === 0 && !searchBusy && !searchError ? <p>Las búsquedas muestran un máximo de 10 coincidencias.</p> : null}
+          {ARCHIVE_SEARCH_ENABLED && submittedSearch && !searchError ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16, marginBottom: 20 }}>
+              <p role="status" style={{ margin: 0 }}>{searchPagination.total === 0
+                ? 'No se han encontrado coincidencias.'
+                : `Mostrando ${(searchPagination.page - 1) * searchPagination.pageSize + 1}–${Math.min(searchPagination.page * searchPagination.pageSize, searchPagination.total)} de ${searchPagination.total} resultados`}</p>
+              <label htmlFor="search-page-size">Resultados por página:{' '}
+                <select id="search-page-size" value={searchPagination.pageSize} disabled={searchBusy} onChange={(event) => runSearch(submittedSearch, 1, Number(event.target.value))}>
+                  {[10, 20, 50].map((size) => <option key={size} value={size}>{size}</option>)}
+                </select>
+              </label>
+            </div>
+          ) : null}
           {results.map((result) => (
             <article key={`${result.document_id ?? result.title}-${result.page_number}`} style={{ padding: '20px', background: '#1a1a2e', borderRadius: '20px', marginBottom: '10px' }}>
               <h3 style={{ color: '#E6D7AA' }}>{ARCHIVE_SEARCH_ENABLED ? `${result.publication} (${result.publication_year})` : result.title} (Pág. {result.page_number})</h3>
@@ -317,6 +348,13 @@ export default function App() {
               {ARCHIVE_SEARCH_ENABLED ? <button style={styles.btnPrimary} type="button" onClick={() => openSearchResult(result)}>Consultar página {result.page_number}</button> : null}
             </article>
           ))}
+          {ARCHIVE_SEARCH_ENABLED && submittedSearch && searchPagination.totalPages > 1 && !searchError ? (
+            <nav aria-label="Paginación de resultados" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginTop: 24 }}>
+              <button type="button" style={styles.btnPrimary} disabled={searchBusy || searchPagination.page <= 1} onClick={() => runSearch(submittedSearch, searchPagination.page - 1)}>Anterior</button>
+              <span>Página {searchPagination.page} de {searchPagination.totalPages}</span>
+              <button type="button" style={styles.btnPrimary} disabled={searchBusy || searchPagination.page >= searchPagination.totalPages} onClick={() => runSearch(submittedSearch, searchPagination.page + 1)}>Siguiente</button>
+            </nav>
+          ) : null}
         </section>
       ) : null}
 
