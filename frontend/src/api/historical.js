@@ -19,6 +19,14 @@ export function historicalDownload(filename) {
   return request('/admin/historical/documents/download?filename=' + encodeURIComponent(filename));
 }
 
+export function historicalDelete(filename) {
+  return request('/admin/historical/documents', { method: 'DELETE', body: JSON.stringify({ filename }) });
+}
+
+export function historicalIndex(filename) {
+  return request('/admin/historical/documents/index', { method: 'POST', body: JSON.stringify({ filename }) });
+}
+
 export async function historicalUpload(file, onProgress) {
   if (!file || file.size < 1 || file.size > 350 * 1024 * 1024 || !/^[\p{L}\p{N}][\p{L}\p{N} ._()-]{0,155}\.pdf$/iu.test(file.name) || file.name.includes('..')) {
     throw new Error('Selecciona un archivo PDF con un nombre válido y un tamaño máximo de 350 MB.');
