@@ -1,3 +1,8 @@
+## BoscoChat — logotipo permanente en la cabecera (2026-11-18)
+- Solicitud del propietario: situar el emblema a la izquierda de «BoscoChat» en la cabecera global, visible en todas las vistas y estados de autenticación, retirándolo del cuerpo exclusivo de Inicio.
+- Implementado en `frontend/src/App.jsx` mediante contenedor flex responsive; favicon existente empleado a tamaño apropiado para evitar ampliarlo a 192 px, sin introducir nuevas dependencias.
+- TRACE-GAP: validación de CI y despliegue Amplify, comprobación visual en móvil y escritorio.
+
 ## Seguridad de dependencias — BoscoChat (2026-11-18)
 - Para publicar la identidad visual del PR #63 sin saltarse los controles, se sustituyó Vite 8 y su plugin React por esbuild 0.28.2 para empaquetar React y CSS; se retiró `nodemon` y se usa `node --watch` en el backend.
 - La compilación conserva `VITE_*` como variables del entorno de Amplify, genera `dist/index.html` y los recursos `dist/assets/app.js` y `dist/assets/app.css` sin cambiar las rutas públicas de los originales.
