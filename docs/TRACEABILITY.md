@@ -1,3 +1,8 @@
+## Brand — nombre, favicon y logo de BoscoChat (2026-11-18)
+- Solicitud explícita del propietario y fichero original aportado en el chat: `Favicon BoscoChat con retrato(1).png`.
+- Implementación: `frontend/index.html` (`lang=es`, título `BoscoChat`, favicon cache-busted, metadatos), `frontend/public/favicon.svg` (marca oficial autocontenida), `frontend/src/App.jsx` (nombre visible `BoscoChat` y logo de la marca en la portada con texto alternativo y dimensiones estables).
+- TRACE-GAP: confirmar visualmente favicon y portada en distintos navegadores después de la fusión y despliegue.
+
 ## BC-017 — Evidencia real de reparación de MySQL (2026-11-16)
 - Fallo: CloudWatch `DELETE /api/admin/historical/documents` `ER_NO_SUCH_TABLE (42S02)`; diagnóstico `inspect-archive-schema` identificó exclusivamente `admin_audit_logs` ausente.
 - Respaldo: snapshot cifrado `boscochat-pre-audit-repair-20261116` AVAILABLE. Operación `repair-archive-audit-schema` verificada sin alterar otras tablas; inspección posterior reportó `missing=[]`. Lambda privada temporal eliminada.
