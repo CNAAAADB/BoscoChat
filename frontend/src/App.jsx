@@ -90,7 +90,9 @@ export default function App() {
   const styles = {
     container: { backgroundColor: '#0a0a0a', color: '#fff', minHeight: '100vh', fontFamily: 'Montserrat, sans-serif', padding: '40px 20px' },
     header: { textAlign: 'center', marginBottom: '60px' },
-    mainTitle: { fontSize: 'clamp(3rem, 10vw, 6rem)', fontWeight: 900, margin: 0, letterSpacing: '-4px' },
+    brand: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'clamp(10px, 2vw, 20px)', maxWidth: '100%', minWidth: 0 },
+    brandLogo: { display: 'block', width: 'clamp(52px, 10vw, 80px)', height: 'auto', flexShrink: 0 },
+    mainTitle: { fontSize: 'clamp(2.25rem, 8vw, 6rem)', fontWeight: 900, margin: 0, letterSpacing: 'clamp(-4px, -0.4vw, -1px)', minWidth: 0 },
     subTitle: { color: '#E6D7AA', letterSpacing: 'clamp(5px, 2vw, 18px)', fontWeight: 'bold', fontSize: '1.2rem', marginTop: '25px', display: 'block', textTransform: 'uppercase' },
     nav: { display: 'flex', flexWrap: 'wrap', gap: '30px', justifyContent: 'center', padding: '20px 0', borderTop: '1px solid #28295E', borderBottom: '1px solid #28295E', marginBottom: '50px' },
     navBtn: { background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '0.85rem' },
@@ -275,7 +277,18 @@ export default function App() {
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <h1 style={styles.mainTitle}>BoscoChat</h1>
+        <div style={styles.brand}>
+          <img
+            src="/favicon.svg?v=boscochat-20261118"
+            alt=""
+            aria-hidden="true"
+            width="80"
+            height="80"
+            decoding="async"
+            style={styles.brandLogo}
+          />
+          <h1 style={styles.mainTitle}>BoscoChat</h1>
+        </div>
         <span style={styles.subTitle}>PRAEIT AC TUETUR</span>
       </header>
 
@@ -299,14 +312,6 @@ export default function App() {
 
       {view === 'home' ? (
         <section style={styles.card}>
-          <img
-            src="/favicon.svg?v=boscochat-20261118"
-            alt="Logo de BoscoChat: retrato de Don Bosco en dorado sobre fondo azul"
-            width="192"
-            height="192"
-            decoding="async"
-            style={{ display: 'block', width: 'clamp(140px, 25vw, 192px)', height: 'auto', margin: '0 auto 28px' }}
-          />
           <h2 style={styles.sectionTitle}>Identidad Salesiana</h2>
           <p style={{ lineHeight: 1.9, fontSize: '1.2rem' }}>Los antiguos alumnos salesianos somos personas basadas en el Sistema Preventivo: <strong>razón, religión y amorevolezza.</strong></p>
           {user ? <p>Sesión iniciada como <strong>{user.username}</strong> ({ROLE_LABELS[user.role] ?? 'Usuario'}).</p> : null}
