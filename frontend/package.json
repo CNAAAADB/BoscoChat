@@ -1,12 +1,12 @@
 {
-  "name": "frontend",
+  "name": "boscochat-frontend",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "node scripts/build.mjs --serve",
     "build": "node scripts/build.mjs",
-    "lint": "eslint .",
+    "lint": "node --check scripts/build.mjs && eslint .",
     "preview": "node scripts/build.mjs --serve"
   },
   "dependencies": {
