@@ -2,7 +2,6 @@
 // AWS Amplify provides the VITE_* variables at build time.
 import { build, context } from 'esbuild';
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 
 const root = new URL('../', import.meta.url);
 const folder = (relative) => new URL(relative, root);
