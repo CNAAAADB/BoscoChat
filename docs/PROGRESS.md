@@ -1,3 +1,14 @@
+## Seguridad de dependencias — BoscoChat (2026-11-18)
+- Para publicar la identidad visual del PR #63 sin saltarse los controles, se sustituyó Vite 8 y su plugin React por esbuild 0.28.2 para empaquetar React y CSS; se retiró `nodemon` y se usa `node --watch` en el backend.
+- La compilación conserva `VITE_*` como variables del entorno de Amplify, genera `dist/index.html` y los recursos `dist/assets/app.js` y `dist/assets/app.css` sin cambiar las rutas públicas de los originales.
+- GitHub Actions, workflow temporal de regeneración de lockfiles, completó `npm ci`, lint, build, tests de backend y `npm audit --audit-level=high` en frontend y backend sin fallos, y retiró el propio workflow temporal.
+- Pendiente validación del CI formal de la rama y despliegue final de Amplify para cerrar PR #63. La eliminación de hallazgos se ha comprobado con npm audit; esto no equivale a garantía absoluta frente a futuras vulnerabilidades.
+
+## Brand — identidad BoscoChat (2026-11-18)
+- Cambio de presentación solicitado por la entidad: nombre canónico **BoscoChat**, título de pestaña y metadatos HTML en español, favicon con retrato aportado por el usuario en sustitución del icono predeterminado de Vite, y presencia del retrato en la portada.
+- El mismo archivo `frontend/public/favicon.svg` incorpora una versión optimizada, transparente y autocontenida del original suministrado (WebP embebido), utilizada por el icono de la pestaña y la imagen de inicio. Se evita depender de URLs de terceros.
+- Archivos: `frontend/index.html`, `frontend/public/favicon.svg`, `frontend/src/App.jsx`. Pendiente CI y comprobación visual tras despliegue; no afecta a datos, autenticación ni API.
+
 ## BC-017 — Incidencia MySQL resuelta y UI desplegada (2026-11-16)
 - Confirmación de CloudWatch: peticiones `DELETE /api/admin/historical/documents` terminaban en `ER_NO_SUCH_TABLE` (SQLSTATE 42S02).
 - Diagnóstico privado de producción de seis tablas: `users`, `archive_documents`, `archive_pages`, `archive_deleted_sources` y `archive_manual_index_requests` existentes; **faltaba `admin_audit_logs`**.
