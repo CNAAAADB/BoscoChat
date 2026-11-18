@@ -1,0 +1,44 @@
+name: One-time safe dependency lockfile regeneration
+
+on:
+  pull_request:
+    paths: [.github/workflows/one-time-safe-dependency-lock-refresh.yml]
+  push:
+    branches: [feat/bc-brand-boscochat-logo-20261118]
+    paths: [.github/workflows/one-time-safe-dependency-lock-refresh.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-and-verify:
+    if: github.event_name == 'pull_request' && github.head_ref == 'feat/bc-brand-boscochat-logo-20261118' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/bc-brand-boscochat-logo-20261118
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate exact lockfiles from reviewed package manifests
+        run: |
+          set -euo pipefail
+          (cd frontend && npm install --package-lock-only --ignore-scripts --no-audit)
+          (cd backend && npm install --package-lock-only --ignore-scripts --no-audit)
+      - name: Verify browser and server builds, tests, and security audits
+        run: |
+          set -euo pipefail
+          (cd frontend && npm ci && npm run lint && npm run build && npm audit --audit-level=high)
+          (cd backend && npm ci && npm run build && npm test && npm audit --audit-level=high)
+      - name: Commit verified lockfiles and remove one-time workflow
+        run: |
+          set -euo pipefail
+          git config user.name 'boscochat-dependency-maintenance[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/one-time-safe-dependency-lock-refresh.yml
+          git add frontend/package.json frontend/package-lock.json backend/package.json backend/package-lock.json
+          git commit -m 'chore(security): remove vulnerable Vite/nodemon dependency trees'
+          git push origin HEAD:feat/bc-brand-boscochat-logo-20261118
