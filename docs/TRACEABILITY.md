@@ -1,3 +1,8 @@
+## BoscoChat — logo persistente junto al nombre (2026-11-18)
+- Requisito de diseño: el retrato debe aparecer en la cabecera junto a «BoscoChat» siempre, no sólo en la portada.
+- Código: `frontend/src/App.jsx` renderiza la marca fuera de condiciones de `view` y `user`; imagen decorativa con texto del H1 como nombre accesible; se retira duplicado de Inicio.
+- TRACE-GAP: pruebas de compilación, visualización responsive y publicación Amplify.
+
 ## Seguridad de dependencias y frontend (2026-11-18)
 - La identidad visual BoscoChat se integra junto con la sustitución de Vite por esbuild 0.28.2, eliminación de nodemon y generación de lockfiles auditados; artefactos: `frontend/scripts/build.mjs`, `frontend/package.json`, `frontend/package-lock.json`, `backend/package.json`, `backend/package-lock.json`.
 - Evidencia: workflow temporal de GitHub `refresh-and-verify` concluido en SUCCESS tras `npm ci`, compilación, pruebas, lint y `npm audit --audit-level=high` de ambos proyectos. Workflow temporal retirado automáticamente de la rama.
