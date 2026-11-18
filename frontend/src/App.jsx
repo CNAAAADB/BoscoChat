@@ -275,7 +275,7 @@ export default function App() {
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <h1 style={styles.mainTitle}>BOSCOCHAT</h1>
+        <h1 style={styles.mainTitle}>BoscoChat</h1>
         <span style={styles.subTitle}>PRAEIT AC TUETUR</span>
       </header>
 
@@ -299,6 +299,14 @@ export default function App() {
 
       {view === 'home' ? (
         <section style={styles.card}>
+          <img
+            src="/favicon.svg?v=boscochat-20261118"
+            alt="Logo de BoscoChat: retrato de Don Bosco en dorado sobre fondo azul"
+            width="192"
+            height="192"
+            decoding="async"
+            style={{ display: 'block', width: 'clamp(140px, 25vw, 192px)', height: 'auto', margin: '0 auto 28px' }}
+          />
           <h2 style={styles.sectionTitle}>Identidad Salesiana</h2>
           <p style={{ lineHeight: 1.9, fontSize: '1.2rem' }}>Los antiguos alumnos salesianos somos personas basadas en el Sistema Preventivo: <strong>razón, religión y amorevolezza.</strong></p>
           {user ? <p>Sesión iniciada como <strong>{user.username}</strong> ({ROLE_LABELS[user.role] ?? 'Usuario'}).</p> : null}
