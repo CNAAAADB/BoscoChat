@@ -45,30 +45,30 @@ export function createHistoricalChatRouter(pool, authService, {
   router.post('/message', async (req, res) => {
     try {
       const input = validateChatInput(req.body);
+      // Any deterministic database count is evidence for the model, not a
+      // canned answer. Never equate zero exact matches with zero historical
+      // references (variants and OCR inaccuracies are common).
       const countPhrase = countPhraseIntent(input.question);
+      let count = null;
       if (countPhrase) {
-        const count = await countIndexedPhrase(pool, countPhrase);
-        if (count) {
-          // The result is computed by MySQL on indexed page text, not estimated by the model.
-          return res.json({
-            answer: `La frase exacta «${count.phrase}» aparece ${count.occurrences} veces en ${count.documents} documentos indexados. Es un recuento de coincidencias literales en el texto OCR del archivo, no de variantes de la expresión. Los originales sin indexar o las grafías distintas no están incluidos.`,
-            sources: [],
-            usage: { inputTokens: 0, outputTokens: 0 },
-          });
+        try {
+          count = await countIndexedPhrase(pool, countPhrase);
+        } catch (error) {
+          console.warn('Historical chat exact-count unavailable', { code: error?.code, name: error?.name });
         }
       }
-      if (/\bcu[aá]ntas?\s+veces\b/iu.test(input.question)) {
-        return res.json({
-          answer: 'Para obtener un recuento exacto, pregúntame cuántas veces aparece una frase concreta, por ejemplo: «¿Cuántas veces aparece la Casa salesiana de Atocha en todo tu archivo?». No puedo calcular un total fiable a partir de unos pocos fragmentos.',
-          sources: [],
-          usage: { inputTokens: 0, outputTokens: 0 },
-        });
+      let sources = await retrieve(pool, input.question);
+      // A follow-up like "¿Y en Madrid?" often requires terms from the
+      // previous question to retrieve the right documentary context.
+      if (sources.length === 0 && input.history.length) {
+        const priorQuestion = [...input.history].reverse().find(turn => turn.role === 'user')?.text;
+        if (priorQuestion) {
+          const joined = priorQuestion.slice(0, 230) + ' ' + input.question.slice(0, 230);
+          sources = await retrieve(pool, joined);
+        }
       }
-      const sources = await retrieve(pool, input.question);
-      if (!Array.isArray(sources) || sources.length === 0) {
-        return res.json({ answer: 'No he encontrado fragmentos del archivo histórico que permitan responder a esa pregunta. Prueba con otros términos.', sources: [], usage: { inputTokens: 0, outputTokens: 0 } });
-      }
-      const prompt = chatPrompt({ ...input, sources });
+      if (!Array.isArray(sources)) throw new Error('INVALID_CHAT_SOURCES');
+      const prompt = chatPrompt({ ...input, sources, count });
       const { text, usage } = await converse(prompt, {
         region,
         abortSignal: AbortSignal.timeout(22000),
