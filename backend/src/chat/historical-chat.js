@@ -34,7 +34,9 @@ export function retrievalSearchExpression(question) {
     'entre', 'este', 'esta', 'estos', 'estas', 'los', 'las', 'una', 'unos',
     'unas', 'del', 'por', 'con', 'fue', 'eran', 'hay', 'son', 'está', 'están',
     'historia', 'documentos', 'archivo', 'menciona', 'mencionan', 'según',
-    'segun', 'podrías', 'podrias', 'puedes', 'decir', 'explicar']);
+    'segun', 'podrías', 'podrias', 'puedes', 'decir', 'decirme', 'explicar',
+    'cuántas', 'cuantos', 'cuántos', 'cuantas', 'veces', 'aparece', 'aparecen', 'nombrada', 'nombrado',
+    'la', 'el', 'de', 'en', 'todo', 'toda', 'tu']);
   const relevant = tokens.filter(word => word.length <= 40 && !stop.has(word.toLocaleLowerCase('es')));
   const candidates = relevant.length ? relevant : tokens.filter(word => word.length <= 40);
   const chosen = [];
@@ -45,6 +47,48 @@ export function retrievalSearchExpression(question) {
     chars += word.length + (chosen.length > 1 ? 1 : 0);
   }
   return chosen.length ? searchPlan(chosen.join(' ')).expression : null;
+}
+
+/**
+ * Supported counting intent: occurrences of a precise, contiguous phrase,
+ * e.g. "¿Cuántas veces aparece nombrada la Casa salesiana de Atocha en todo tu archivo?".
+ * Do not reinterpret a broader topic as an exact phrase.
+ */
+export function countPhraseIntent(question) {
+  const matches = /^.{0,55}\\bcu[aá]ntas?\\s+veces\\b.{0,75}?\\b(?:la|el|los|las)\\s+(.+?)\\s+(?:en\\s+todo\\s+(?:tu|el)|en\\s+(?:tu|el)\\s+archivo|en\\s+la\\s+base)/iu.exec(question.trim());
+  if (!matches) return null;
+  const phrase = matches[1].trim().replace(/\\s+/g, ' ');
+  if (phrase.length < 5 || phrase.length > 100 || (phrase.match(/[\\p{L}\\p{N}]{2,}/gu) ?? []).length < 2
+    || !/^[\\p{L}\\p{N} .'-]+$/u.test(phrase)) return null;
+  return phrase;
+}
+
+export async function countIndexedPhrase(pool, phrase) {
+  // Counting uses a parameterized, read-only aggregate on indexed pages only.
+  // FULLTEXT narrows candidates; the count is for contiguous occurrences,
+  // not approximate mentions or grammatical variants.
+  const candidates = (phrase.match(/[\\p{L}\\p{N}]{3,}/gu) ?? [])
+    .filter(token => !new Set(['las', 'los', 'del', 'por', 'con', 'para', 'una']).has(token.toLowerCase()))
+    .slice(0, 8);
+  if (candidates.length < 2) return null;
+  const fulltext = candidates.map(t => '+' + t).join(' ');
+  const [rows] = await pool.execute(
+    `SELECT COALESCE(SUM(
+       (CHAR_LENGTH(LOWER(p.text_content)) - CHAR_LENGTH(REPLACE(LOWER(p.text_content), LOWER(?), '')))
+       / CHAR_LENGTH(?)
+     ), 0) AS occurrences,
+     COUNT(DISTINCT d.id) AS matched_documents
+     FROM archive_pages p
+     JOIN archive_documents d ON d.id = p.document_id
+     WHERE d.indexed_at IS NOT NULL
+       AND MATCH(p.text_content) AGAINST (? IN BOOLEAN MODE)`,
+    [phrase, phrase, fulltext],
+  );
+  const occurrences = Number(rows[0]?.occurrences ?? 0);
+  const documents = Number(rows[0]?.matched_documents ?? 0);
+  if (!Number.isFinite(occurrences) || !Number.isSafeInteger(occurrences) || occurrences < 0
+    || !Number.isSafeInteger(documents) || documents < 0) throw new Error('INVALID_COUNT_RESULT');
+  return { phrase, occurrences, documents };
 }
 
 export async function retrieveChatSources(pool, question) {
