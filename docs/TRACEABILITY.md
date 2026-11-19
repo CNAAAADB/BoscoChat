@@ -1,3 +1,11 @@
+## BC-101/102 — Evidencia de piloto AWS administrador (2026-11-19)
+- Implementación: PR #67, tests backend y UI React, feature flags; PR #68 corrige preguntas de más de 12 palabras y 180 caracteres, CI backend/frontend/worker en verde.
+- En AWS, `boscochat-bedrock-inference` aislada sin acceso a DB/S3; `BoscoChatBedrockInferenceRole` tiene `bedrock:InvokeModel` en Nova Pro y CloudWatch; el backend sólo `lambda:InvokeFunction` a esa Lambda por VPC endpoint preexistente.
+- Evidencia runtime de inferencia con fuente sintética 1925 (Invoke 200, status OK); AWS IAM simulator: inference role S3/RDS implicitDeny, backend InvokeModel implicitDeny.
+- Deploy frontend Amplify job #64 SUCCEED y flags admin-only verdaderas; controls 401/403 probados en suite backend, no prueba E2E real de cookie administradora.
+- TRACE-GAP para cierre: revisión de seguridad y GDPR independiente, calidad de grounding, performance RAG, y pruebas reales con sesión autorizada. Estado de BC-101/102 IN_REVIEW, sin afirmar verificación independiente.
+- Runbook: `docs/deployment/BC-101_ADMIN_CHAT_ROLLOUT.md`.
+
 ## Nota de despliegue BC-102 (2026-11-19)
 - El acceso a Bedrock exige un rol IAM exclusivo del worker, sin permisos de datos, y autorización mínima en el VPC endpoint privado de Lambda. No crear endpoint Bedrock de pago mientras esta solución sea válida.
 
