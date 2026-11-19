@@ -33,7 +33,8 @@ export function createHistoricalChatRouter(pool, authService, {
     try {
       const timestamp = Date.now();
       const hashedUser = createHmac('sha256', hashKey).update('admin-chat-daily:' + req.user.id).digest('hex');
-      const result = await rateLimitStore.consume({ ip: hashedUser, identity: hashedUser + ':daily' }, {
+      const identityKey = createHmac('sha256', hashKey).update('admin-chat-day-identity:' + req.user.id).digest('hex');
+      const result = await rateLimitStore.consume({ ip: hashedUser, identity: identityKey }, {
         timestamp, resetAt: timestamp + 86_400_000, ipLimit: 30, identityLimit: 30,
       });
       if (result) return res.status(429).json({ error: { code: 'CHAT_DAILY_LIMIT', message: 'Se ha alcanzado el límite diario de conversaciones del piloto.' } });
