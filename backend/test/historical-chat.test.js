@@ -272,11 +272,12 @@ test('BC-102 Atocha entity question excludes tangential namesake hits', () => {
     { ...source[0], ref: 'F1', excerpt: 'Sr. D. Mateo Garrulera, Atocha, en una lista de fallecidos.' },
     { ...source[0], ref: 'F2', excerpt: 'La compañía Salesianos Atocha organiza representaciones teatrales.' },
     { ...source[0], ref: 'F3', excerpt: 'Un matrimonio de un antiguo alumno de Atocha, don José Sedano.' },
+    { ...source[0], ref: 'F4', excerpt: 'En el colegio salesiano de Atocha se celebraron actos culturales.' },
   ];
   const relevant = rankChatSources(question, examples);
   assert.equal(relevant.length, 1);
   assert.equal(relevant[0].ref, 'F1');
-  assert.match(relevant[0].excerpt, /Salesianos Atocha/);
+  assert.match(relevant[0].excerpt, /colegio salesiano de Atocha/);
   const prompt = chatPrompt({ question, sources: relevant, count: { phrase: 'Casa Salesiana de Atocha', occurrences: 0, documents: 0 } });
   assert.match(prompt.system, /no equipares/);
   assert.match(prompt.system, /breve/);
