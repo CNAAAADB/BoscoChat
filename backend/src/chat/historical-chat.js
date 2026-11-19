@@ -24,9 +24,33 @@ export function validateChatInput(body) {
   return { question: question.trim().normalize('NFC'), history: history.map((turn) => turn.text.trim().normalize('NFC')) };
 }
 
+export function retrievalSearchExpression(question) {
+  // A conversational question may exceed the 12-term / 180-char search syntax
+  // limit. Extract bounded, meaningful words before calling the existing search
+  // parser. Never send raw question text to SQL.
+  const tokens = question.normalize('NFC').match(/[\\p{L}\\p{N}]{2,}/gu) ?? [];
+  const stop = new Set(['qué', 'que', 'quién', 'quien', 'cuál', 'cual', 'cómo', 'como',
+    'cuándo', 'cuando', 'dónde', 'donde', 'para', 'sobre', 'desde', 'hasta',
+    'entre', 'este', 'esta', 'estos', 'estas', 'los', 'las', 'una', 'unos',
+    'unas', 'del', 'por', 'con', 'fue', 'eran', 'hay', 'son', 'está', 'están',
+    'historia', 'documentos', 'archivo', 'menciona', 'mencionan', 'según',
+    'segun', 'podrías', 'podrias', 'puedes', 'decir', 'explicar']);
+  const relevant = tokens.filter(word => word.length <= 40 && !stop.has(word.toLocaleLowerCase('es')));
+  const candidates = relevant.length ? relevant : tokens.filter(word => word.length <= 40);
+  const chosen = [];
+  let chars = 0;
+  for (const word of candidates) {
+    if (chosen.length === 12 || chars + word.length + (chars ? 1 : 0) > 180) break;
+    chosen.push(word);
+    chars += word.length + (chosen.length > 1 ? 1 : 0);
+  }
+  return chosen.length ? searchPlan(chosen.join(' ')).expression : null;
+}
+
 export async function retrieveChatSources(pool, question) {
   // Never interpolate a user's text as SQL syntax. Only indexed pages are eligible.
-  const plan = searchPlan(question);
+  const expression = retrievalSearchExpression(question);
+  if (!expression) return [];
   const [rows] = await pool.execute(
     `SELECT d.id AS document_id, d.publication, d.publication_year,
             p.page_number, LEFT(p.text_content, 1250) AS excerpt,
@@ -35,7 +59,7 @@ export async function retrieveChatSources(pool, question) {
       WHERE d.indexed_at IS NOT NULL
         AND MATCH(p.text_content) AGAINST (? IN NATURAL LANGUAGE MODE)
       ORDER BY score DESC, d.id ASC, p.page_number ASC LIMIT ?`,
-    [plan.expression, plan.expression, MAX_EXCERPTS],
+    [expression, expression, MAX_EXCERPTS],
   );
   return rows.filter((row) => Number.isSafeInteger(Number(row.document_id))
     && Number(row.document_id) > 0 && Number.isSafeInteger(Number(row.page_number))
