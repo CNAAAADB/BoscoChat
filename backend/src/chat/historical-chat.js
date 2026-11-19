@@ -28,7 +28,7 @@ export function retrievalSearchExpression(question) {
   // A conversational question may exceed the 12-term / 180-char search syntax
   // limit. Extract bounded, meaningful words before calling the existing search
   // parser. Never send raw question text to SQL.
-  const tokens = question.normalize('NFC').match(/[\\p{L}\\p{N}]{2,}/gu) ?? [];
+  const tokens = question.normalize('NFC').match(/[\p{L}\p{N}]{2,}/gu) ?? [];
   const stop = new Set(['qué', 'que', 'quién', 'quien', 'cuál', 'cual', 'cómo', 'como',
     'cuándo', 'cuando', 'dónde', 'donde', 'para', 'sobre', 'desde', 'hasta',
     'entre', 'este', 'esta', 'estos', 'estas', 'los', 'las', 'una', 'unos',
