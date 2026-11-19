@@ -1,3 +1,11 @@
+## Cierre funcional documental y siguiente fase de BoscoChat — 2026-11-19
+- El responsable del producto declara que los flujos en uso de buscador, filtros, paginación, presentación, visor, Gestión histórica, perfiles y administración funcionan correctamente. Solicita cerrar buscador y visor y aplazar suscripciones y pasarela.
+- BACKLOG: BC-008, BC-010, BC-011, BC-012 y BC-017 pasan a DONE **por aceptación funcional explícita**. El cierre no certifica que todas las cláusulas del SRS ni los controles técnicos se hayan probado independientemente. BC-018, READY, recoge esas verificaciones concretas y la conciliación de búsqueda pública frente a RF-USER-03.
+- Las historias de pago BC-004/BC-005 siguen aplazadas, sin activarlas ni modificar sus criterios.
+- Siguiente desarrollo: BC-101 (READY, P1) para chat inicialmente restringido a `administrator`, y BC-102 (READY, P1, dependiente) para respuestas RAG basadas en el índice MySQL existente. BC-103 describe citas verificables y navegación por páginas; BC-104 pospone acceso por planes y cuotas hasta pagos verificados.
+- AWS consultado directamente: Bedrock us-east-1 lista `amazon.nova-pro-v1:0` con capacidad ON_DEMAND. Es candidato inicial, no despliegue de modelo ni compromiso presupuestario; antes de activar, verificar residencia de datos, IAM mínimo, limites de coste y validación independiente.
+- **Invariante de acceso**: ni usuario normal, ni historiador, ni futuro pagador pueden ver la entrada o invocar el endpoint del chatbot hasta que una nueva decisión de producto lo autorice. Una feature flag desactivada por defecto protege el piloto.
+
 ## BoscoChat — logotipo permanente en la cabecera (2026-11-18)
 - Solicitud del propietario: situar el emblema a la izquierda de «BoscoChat» en la cabecera global, visible en todas las vistas y estados de autenticación, retirándolo del cuerpo exclusivo de Inicio.
 - Implementado en `frontend/src/App.jsx` mediante contenedor flex responsive; favicon existente empleado a tamaño apropiado para evitar ampliarlo a 192 px, sin introducir nuevas dependencias.
