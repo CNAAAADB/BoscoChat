@@ -1,3 +1,9 @@
+## BC-102 — Calidad de diálogo y selección de fuentes (2026-11-19)
+- El responsable aporta ejemplo real: pregunta sobre la Casa Salesiana de Atocha produce respuesta extensa y técnica, apoyándose en seis referencias tangenciales (boda, lista de fallecidos, antiguos alumnos). Una coincidencia del topónimo «Atocha» no demuestra una referencia a la institución.
+- Se reduce el contexto recuperado a las tres fuentes más pertinentes; para una entidad compuesta se requieren varios términos de la denominación en el OCR. Sólo se muestran en la interfaz las fuentes realmente citadas por el texto generado.
+- Los extractos se centran en la zona de coincidencia de la página y las instrucciones de respuesta exigen contestación breve, relevante, sin «Según SQL» ni listas no solicitadas. Un cero literal jamás se presenta como total histórico cero.
+- Se añaden regresiones para el caso concreto de Atocha, citas no utilizadas y extractos de OCR. Pendiente CI y verificación de calidad con datos reales. La búsqueda semántica/vectorial sigue pendiente de una historia independiente; no se declara equivalencia con ChatGPT.
+
 ## BC-101/102 — Corrección de enfoque: asistente conversacional real (2026-11-19)
 - Feedback directo del responsable: la respuesta automática de `0 veces` no ofrece una experiencia como ChatGPT. La ruta del chat retornaba valores SQL o mensajes prefijados sin llamar a Bedrock en preguntas de conteo y sin resultados; el historial sólo contenía preguntas del usuario.
 - Implementación propuesta: cualquier pregunta autorizada pasa por Amazon Bedrock Nova Pro, con historial acotado de tres turnos completos usuario/asistente, instrucciones de conversación y respuesta razonada. Los recuentos SQL literales pasan como evidencia opcional, no como respuestas predeterminadas.

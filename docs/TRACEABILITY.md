@@ -1,3 +1,10 @@
+## BC-102 — Alineación de respuesta con intención del usuario (2026-11-19)
+- Evidencia: captura del administrador con respuesta extensa sobre Casa Salesiana de Atocha e indiscriminación de seis citas, algunas sin relación demostrada con la entidad.
+- `backend/src/chat/historical-chat.js`: `rankChatSources` exige coincidencia multipalabra para entidades y limita a tres fuentes; `retrieveChatSources` recorta contexto alrededor del hallazgo OCR; `chatPrompt` instruye respuesta concisa, sin confundir topónimo, institución y recuentos exactos.
+- `backend/src/routes/historical-chat.js`: las tarjetas de fuentes reflejan sólo identificadores [F1]-[F3] utilizados realmente en la respuesta; se preservan autorización, límites y consultas SQL read-only.
+- `backend/test/historical-chat.test.js`: pruebas de referencias tangenciales de Atocha, citas utilizadas, OCR contextual y discurso sin citas.
+- TRACE-GAP: validación semántica con fuentes reales/usuario administrador, recuperación vectorial y evaluación independiente de alucinaciones/calidad antes de DONE.
+
 ## BC-101/102 — Conversación multi-turno frente a respuestas prefijadas (2026-11-19)
 - Requisito de producto validado por feedback: ChatGPT-like en interacción, sin convertir el chatbot en un contador SQL. Se elimina la salida anticipada del API cuando se detecta una petición de conteo o cero resultados.
 - `backend/src/chat/historical-chat.js`: `validateChatInput` valida roles alternos y conserva historia contextual de usuario y asistente; `chatPrompt` usa evidencia SQL opcional sin tratar cero coincidencias OCR como ausencia documental; mantiene control de citas.

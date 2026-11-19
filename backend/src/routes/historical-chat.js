@@ -3,7 +3,7 @@ import { createHmac } from 'node:crypto';
 import { requireAuthorization } from '../middleware/authorization.js';
 import { createArchiveSearchRateLimiter } from '../middleware/archive-search-rate-limit.js';
 import { MemoryAuthRateLimitStore } from '../middleware/auth-rate-limit.js';
-import { validateChatInput, retrieveChatSources, countPhraseIntent, countIndexedPhrase, chatPrompt, callBedrockChat } from '../chat/historical-chat.js';
+import { validateChatInput, retrieveChatSources, rankChatSources, countPhraseIntent, countIndexedPhrase, chatPrompt, callBedrockChat } from '../chat/historical-chat.js';
 
 export function createHistoricalChatRouter(pool, authService, {
   enabled = false,
@@ -67,14 +67,18 @@ export function createHistoricalChatRouter(pool, authService, {
           sources = await retrieve(pool, joined);
         }
       }
-      if (!Array.isArray(sources)) throw new Error('INVALID_CHAT_SOURCES');
+      sources = rankChatSources(input.question, sources);
       const prompt = chatPrompt({ ...input, sources, count });
       const { text, usage } = await converse(prompt, {
         region,
         abortSignal: AbortSignal.timeout(22000),
       });
       // Citation IDs and navigation targets are generated only from trusted SQL rows.
-      const safeSources = sources.map(({ ref, documentId, publication, year, page }) => ({ ref, documentId, publication, year, page }));
+      // Do not display every retrieved result as if it were a source for the
+      // answer. Only expose citations the model actually included.
+      const cited = new Set([...text.matchAll(/\[F[1-3]\]/g)].map(m => m[0].slice(1,-1)));
+      const safeSources = sources.filter(source => cited.has(source.ref))
+        .map(({ ref, documentId, publication, year, page }) => ({ ref, documentId, publication, year, page }));
       res.set('Cache-Control', 'private, no-store');
       console.info('Historical chat inference', { userId: req.user.id, sourceCount: safeSources.length, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens });
       return res.json({ answer: text, sources: safeSources, usage });
