@@ -117,7 +117,7 @@ export function rankChatSources(question, candidates) {
   const terms = topicTerms(question);
   if (terms.length === 0) return candidates.slice(0, 3).map((s,i)=>({ ...s, ref: 'F'+(i+1) }));
   const entityPhrase = countPhraseIntent(question);
-  const isInstitution = entityPhrase && /\\b(casa|colegio|centro|instituto|escuela|residencia|obra|comunidad)\\b/.test(normalizeContext(entityPhrase));
+  const isInstitution = entityPhrase && /\b(casa|colegio|centro|instituto|escuela|residencia|obra|comunidad)\b/.test(normalizeContext(entityPhrase));
   const namedTerm = terms.filter(t => t !== 'salesian').at(-1);
   const scored = candidates.map((s, i) => {
     const haystack = normalizeContext(s.excerpt);
@@ -126,7 +126,7 @@ export function rankChatSources(question, candidates) {
     const phraseMatch = entityPhrase && haystack.includes(normalizeContext(entityPhrase));
     // A theatre troupe named "Salesianos Atocha" is not evidence about the
     // physical Casa Salesiana. Prefer pages naming an institution/building.
-    const institutionMatch = /\\b(casa|colegio|centro|instituto|escuela|residencia|obra|comunidad|oratorio)\\b/.test(haystack);
+    const institutionMatch = /\b(casa|colegio|centro|instituto|escuela|residencia|obra|comunidad|oratorio)\b/.test(haystack);
     const namedTermMatch = !namedTerm || haystack.includes(namedTerm);
     return { source:s, order:i, hits:matches.length, score:relevance + (phraseMatch ? 2 : 0), institutionMatch, namedTermMatch };
   });
