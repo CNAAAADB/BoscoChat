@@ -33,7 +33,15 @@ const ROLES = [{ value: 'free', label: 'Usuario' }, { value: 'documentary_manage
 const ROLE_LABELS = { free: 'Usuario', pro: 'Usuario', premium: 'Usuario', advanced: 'Usuario', documentary_manager: 'Historiador', administrator: 'Administrador de plataforma' };
 
 export default function App() {
-  const [view, setView] = useState('home');
+  const [linkedIssue] = useState(() => {
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    const documentId = Number(params.get('revista'));
+    const pageNumber = Number(params.get('pagina') ?? 1);
+    if (!ARCHIVE_SEARCH_ENABLED || !Number.isSafeInteger(documentId) || documentId < 1
+        || !Number.isSafeInteger(pageNumber) || pageNumber < 1) return null;
+    return { documentId, pageNumber, title: 'Revista', year: null };
+  });
+  const [view, setView] = useState(linkedIssue ? 'documento' : 'home');
   const [user, setUser] = useState(null);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [authBusy, setAuthBusy] = useState(false);
@@ -46,7 +54,7 @@ export default function App() {
   const [searchBusy, setSearchBusy] = useState(false);
   const [searchYear, setSearchYear] = useState('');
   const [searchMode, setSearchMode] = useState('relevance');
-  const [selectedPage, setSelectedPage] = useState(null);
+  const [selectedPage, setSelectedPage] = useState(linkedIssue);
   const [pagePreview, setPagePreview] = useState(null);
   const [pageBusy, setPageBusy] = useState(false);
   const [pageError, setPageError] = useState('');
@@ -392,7 +400,7 @@ export default function App() {
 
       {view === 'documento' && ARCHIVE_SEARCH_ENABLED && selectedPage ? (
         <section style={styles.card}>
-          <h2 style={styles.sectionTitle}>{selectedPage.title} ({selectedPage.year})</h2>
+          <h2 style={styles.sectionTitle}>{pagePreview?.publication ?? selectedPage.title} {(pagePreview?.publication_year ?? selectedPage.year) && `(${pagePreview?.publication_year ?? selectedPage.year})`}</h2>
           {!user ? (
             <>
               <p>Inicia sesión o regístrate para consultar la página {selectedPage.pageNumber} del documento.</p>

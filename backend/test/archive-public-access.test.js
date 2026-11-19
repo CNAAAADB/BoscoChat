@@ -74,3 +74,19 @@ test('authenticated source page returns only the requested document page', async
     assert.equal((await response.json()).page.page_number, 12);
   });
 });
+
+test('catalog lists indexed publications with pages, exposing only metadata and bounded pages', async () => {
+  const rows = Array.from({ length: 25 }, (_, i) => ({ id: i + 1, publication: 'Revista', publication_year: 2000, first_page: 1 }));
+  const pool = { async query(sql, params) {
+    assert.match(sql, /WHERE d.indexed_at IS NOT NULL/);
+    assert.match(sql, /HAVING first_page IS NOT NULL/);
+    assert.doesNotMatch(sql, /s3_key|text_content/);
+    assert.deepEqual(params, [24]);
+    return [rows];
+  } };
+  await withServer(createArchiveSearchRouter(pool), '/api/archive', async (base) => {
+    const result = await fetch(base + '/api/archive/catalog?page=2');
+    assert.deepEqual(await result.json(), { issues: rows.slice(0, 24), has_more: true });
+    assert.equal((await fetch(base + '/api/archive/catalog?page=0')).status, 400);
+  });
+});
