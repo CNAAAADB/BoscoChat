@@ -1,3 +1,12 @@
+## BC-101/102 — Piloto Bedrock administrador desplegado en AWS (2026-11-19)
+- PR #67 fusionado. Lambda `boscochat-bedrock-inference` desplegada sobre imagen ECR inmutable, fuera de VPC, con rol que sólo invoca Nova Pro; no tiene S3/RDS. Evita endpoint de Bedrock de pago mensual.
+- Backend en VPC privada usa `lambda:InvokeFunction` vía VPCE actual, IAM limitado a tres funciones; simulador confirma que no puede invocar Bedrock directamente.
+- Pruebas reales AWS del modelo y de Lambda de inferencia con datos sintéticos: resultado 200, `status=ok`. Logging de invocación del modelo sin activar; logs de la Lambda con retención 14 días.
+- Flags de piloto administrador activadas en Lambda backend y Amplify. Despliegue Amplify main #64 SUCCEED. No hay acceso a la pestaña ni API para otros roles por diseño y pruebas automáticas.
+- PR #68 fusionado tras tres workflows verdes: las preguntas naturales largas se convierten en términos bounded compatibles con MySQL FULLTEXT.
+- **TRACE-GAP:** falta E2E con sesión administradora en navegador, revisión independiente FULL (seguridad, privacidad, calidad/citas), datos reales de latencia. Se conserva estado IN_REVIEW; no darlo por DONE ni abrir a roles de pago.
+- Procedimiento de despliegue/rollback: `docs/deployment/BC-101_ADMIN_CHAT_ROLLOUT.md`.
+
 ## Nota de despliegue BC-102 (2026-11-19)
 - Se requiere una Lambda `boscochat-bedrock-inference` de propósito único sin acceso a MySQL/S3, permisos IAM restringidos a `amazon.nova-pro-v1:0` y `lambda:InvokeFunction` privado para el backend. En ausencia de esta infraestructura y pruebas, flags OFF.
 
