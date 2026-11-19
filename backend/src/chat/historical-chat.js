@@ -77,12 +77,12 @@ export async function countIndexedPhrase(pool, phrase) {
        (CHAR_LENGTH(LOWER(p.text_content)) - CHAR_LENGTH(REPLACE(LOWER(p.text_content), LOWER(?), '')))
        / CHAR_LENGTH(?)
      ), 0) AS occurrences,
-     COUNT(DISTINCT d.id) AS matched_documents
+     COUNT(DISTINCT CASE WHEN INSTR(LOWER(p.text_content), LOWER(?)) > 0 THEN d.id END) AS matched_documents
      FROM archive_pages p
      JOIN archive_documents d ON d.id = p.document_id
      WHERE d.indexed_at IS NOT NULL
        AND MATCH(p.text_content) AGAINST (? IN BOOLEAN MODE)`,
-    [phrase, phrase, fulltext],
+    [phrase, phrase, phrase, fulltext],
   );
   const occurrences = Number(rows[0]?.occurrences ?? 0);
   const documents = Number(rows[0]?.matched_documents ?? 0);
