@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import express from 'express';
 import { createHistoricalChatRouter } from '../src/routes/historical-chat.js';
-import { validateChatInput, retrieveChatSources, retrievalSearchExpression, chatPrompt } from '../src/chat/historical-chat.js';
+import { validateChatInput, retrieveChatSources, retrievalSearchExpression, countPhraseIntent, countIndexedPhrase, chatPrompt } from '../src/chat/historical-chat.js';
 
 const identities = {
   administrator: { id: 1, role: 'administrator' },
@@ -15,10 +15,10 @@ const identities = {
 const auth = { async session(token) { return identities[token] ?? null; } };
 const source = [{ ref: 'F1', documentId: 42, publication: 'Don Bosco en España', year: 1925, page: 7, excerpt: 'El oratorio celebró su reunión en 1925.' }];
 
-async function server(testFn, { enabled = true, retrieve = async () => source, converse = async () => ({ text: 'La reunión se celebró en 1925 [F1].', usage: { inputTokens: 60, outputTokens: 25 } }), store = { async consume() { return null; } } } = {}) {
+async function server(testFn, { enabled = true, retrieve = async () => source, converse = async () => ({ text: 'La reunión se celebró en 1925 [F1].', usage: { inputTokens: 60, outputTokens: 25 } }), store = { async consume() { return null; } }, pool = {} } = {}) {
   const app = express();
   app.use(express.json());
-  app.use('/api/admin/chat', createHistoricalChatRouter({}, auth, { enabled, rateLimitStore: store, hashKey: 'x'.repeat(40), retrieve, converse }));
+  app.use('/api/admin/chat', createHistoricalChatRouter(pool, auth, { enabled, rateLimitStore: store, hashKey: 'x'.repeat(40), retrieve, converse }));
   const listener = app.listen(0);
   await new Promise((resolve) => listener.once('listening', resolve));
   try { await testFn('http://127.0.0.1:' + listener.address().port); }
@@ -158,4 +158,65 @@ test('BC-102 long natural questions become safe bounded search expressions', asy
   } };
   assert.deepEqual(await retrieveChatSources(pool, question), []);
   assert.equal(retrievalSearchExpression('???'), null);
+});
+
+test('BC-102 exactly matches the reported Casa salesiana de Atocha question', async () => {
+  const question = 'Puedes decirme cuántas veces aparece nombrada la Casa salesiana de atocha en todo tu archivo?';
+  assert.equal(countPhraseIntent(question), 'Casa salesiana de atocha');
+  const expression = retrievalSearchExpression(question);
+  assert.ok(expression.length <= 180);
+  assert.match(expression, /Casa salesiana/);
+  assert.match(expression, /atocha/i);
+  assert.doesNotMatch(expression, /cuántas veces/);
+});
+
+test('BC-102 counts literal occurrences across indexed pages, no model inference', async () => {
+  let invokes = 0;
+  const captured = [];
+  const pool = { async execute(sql, params) {
+    captured.push({ sql, params });
+    return [[{ occurrences: 14, matched_documents: 8 }]];
+  } };
+  await server(async base => {
+    const response = await post(base, 'administrator', {
+      question: 'Puedes decirme cuántas veces aparece nombrada la Casa salesiana de atocha en todo tu archivo?',
+    });
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.match(data.answer, /14 veces en 8 documentos indexados/);
+    assert.deepEqual(data.sources, []);
+    assert.equal(data.usage.inputTokens, 0);
+  }, { pool, converse: async () => { invokes++; return { text: 'INVENTADO' }; } });
+  assert.equal(invokes, 0);
+  assert.equal(captured.length, 1);
+  assert.match(captured[0].sql, /indexed_at IS NOT NULL/);
+  assert.match(captured[0].sql, /SUM\(/);
+  assert.match(captured[0].sql, /IN BOOLEAN MODE/);
+  assert.deepEqual(captured[0].params.slice(0, 3), ['Casa salesiana de atocha', 'Casa salesiana de atocha', 'Casa salesiana de atocha']);
+  assert.match(captured[0].params[3], /\+Casa\s+\+salesiana\s+\+atocha/);
+});
+
+test('BC-102 refuses ambiguous counting requests instead of fabricating totals', async () => {
+  let invocations = 0;
+  await server(async base => {
+    const response = await post(base, 'administrator', { question: '¿Cuántas veces se mencionó Atocha?' });
+    assert.equal(response.status, 200);
+    assert.match((await response.json()).answer, /recuento exacto/);
+  }, { converse: async () => { invocations++; return {}; } });
+  assert.equal(invocations, 0);
+});
+
+test('BC-102 counting queries use parameterized read-only SQL', async () => {
+  let captured;
+  const pool = { async execute(sql, params) {
+    captured = { sql, params };
+    return [[{ occurrences: '0', matched_documents: '0' }]];
+  } };
+  assert.deepEqual(await countIndexedPhrase(pool, 'Casa salesiana de Atocha'), {
+    phrase: 'Casa salesiana de Atocha', occurrences: 0, documents: 0,
+  });
+  assert.match(captured.sql, /SUM\(/);
+  assert.doesNotMatch(captured.sql, /UPDATE\s|INSERT\s|DELETE\s|DROP\s/i);
+  assert.ok(captured.sql.includes('d.indexed_at IS NOT NULL'));
+  assert.equal(captured.params.length, 4);
 });
