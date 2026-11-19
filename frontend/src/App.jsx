@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { currentSession, login, logout, register } from './api/auth.js';
 import { changeUserRole, createUser, deleteUser, listUsers, setUserSuspended, issuePasswordReset, redeemPasswordReset } from './api/users.js';
 import HistoricalManagement from './HistoricalManagement.jsx';
+import HistoricalChat from './HistoricalChat.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 // Switch on only after RDS archive migration, real ingestion and API deployment.
@@ -10,6 +11,7 @@ const ARCHIVE_PDF_VIEW_ENABLED = import.meta.env.VITE_ARCHIVE_PDF_VIEW === 'true
 const HISTORICAL_MANAGEMENT_ENABLED = import.meta.env.VITE_HISTORICAL_MANAGEMENT === 'true';
 const ARCHIVE_PAGE_IMAGE_ENABLED = import.meta.env.VITE_ARCHIVE_PAGE_IMAGE === 'true';
 const PASSWORD_RESET_ENABLED = import.meta.env.VITE_PASSWORD_RESET === 'true';
+const ADMIN_CHAT_ENABLED = import.meta.env.VITE_BOSCOCHAT_CHAT_ADMIN === 'true';
 const SEARCH_MODES = [
   { value: 'relevance', label: 'Más relevantes' },
   { value: 'all', label: 'Todas las palabras' },
@@ -304,6 +306,7 @@ export default function App() {
         {user ? (
           <>
             {canManageDocuments && HISTORICAL_MANAGEMENT_ENABLED ? <button style={styles.navBtn} onClick={() => setView('admin')}>Gestión histórica</button> : null}
+            {isAdministrator && ADMIN_CHAT_ENABLED ? <button style={styles.navBtn} onClick={() => setView('chat')}>Chat histórico</button> : null}
             {isAdministrator ? <button style={styles.navBtn} onClick={() => setView('users')}>Administrar usuarios</button> : null}
             <button style={{ ...styles.navBtn, color: '#ff7777' }} onClick={signOut}>Salir</button>
           </>
@@ -443,6 +446,7 @@ export default function App() {
       ) : null}
 
       {view === 'admin' && canManageDocuments && HISTORICAL_MANAGEMENT_ENABLED ? <HistoricalManagement /> : null}
+      {view === 'chat' && isAdministrator && ADMIN_CHAT_ENABLED ? <HistoricalChat key={user.id} onOpenSource={(source) => openSearchResult({ document_id: source.documentId, page_number: source.page, publication: source.publication, publication_year: source.year })} /> : null}
 
       {view === 'password-reset' ? (
         <form style={{ ...styles.card, maxWidth: 550 }} onSubmit={async (event) => {
