@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import express from 'express';
 import { createHistoricalChatRouter } from '../src/routes/historical-chat.js';
-import { validateChatInput, retrieveChatSources, chatPrompt } from '../src/chat/historical-chat.js';
+import { validateChatInput, retrieveChatSources, retrievalSearchExpression, chatPrompt } from '../src/chat/historical-chat.js';
 
 const identities = {
   administrator: { id: 1, role: 'administrator' },
@@ -141,4 +141,21 @@ test('BC-101 model failure does not leak source excerpts or privileged details',
     assert.equal(body.includes('database-secret'), false);
     assert.equal(JSON.parse(body).error.code, 'CHAT_UNAVAILABLE');
   }, { converse: async () => { throw new Error('database-secret ' + source[0].excerpt); } });
+});
+
+test('BC-102 long natural questions become safe bounded search expressions', async () => {
+  const question = '¿Podrías explicar qué actividades salesianas se organizaron para los jóvenes durante el curso 1925 en Barcelona, y qué consecuencias tuvieron según los documentos publicados en el archivo histórico?';
+  const expression = retrievalSearchExpression(question);
+  assert.ok(expression.length <= 180);
+  assert.ok(expression.split(' ').length <= 12);
+  assert.match(expression, /salesianas/);
+  assert.match(expression, /Barcelona/);
+  assert.doesNotMatch(expression, /[?¿',;()]/);
+  const pool = { async execute(sql, params) {
+    assert.match(sql, /indexed_at IS NOT NULL/);
+    assert.deepEqual(params.slice(0, 2), [expression, expression]);
+    return [[]];
+  } };
+  assert.deepEqual(await retrieveChatSources(pool, question), []);
+  assert.equal(retrievalSearchExpression('???'), null);
 });
