@@ -55,11 +55,11 @@ export function retrievalSearchExpression(question) {
  * Do not reinterpret a broader topic as an exact phrase.
  */
 export function countPhraseIntent(question) {
-  const matches = /^.{0,55}\\bcu[aá]ntas?\\s+veces\\b.{0,75}?\\b(?:la|el|los|las)\\s+(.+?)\\s+(?:en\\s+todo\\s+(?:tu|el)|en\\s+(?:tu|el)\\s+archivo|en\\s+la\\s+base)/iu.exec(question.trim());
+  const matches = /^.{0,55}\bcu[aá]ntas?\s+veces\b.{0,75}?\b(?:la|el|los|las)\s+(.+?)\s+(?:en\s+todo\s+(?:tu|el)|en\s+(?:tu|el)\s+archivo|en\s+la\s+base)/iu.exec(question.trim());
   if (!matches) return null;
-  const phrase = matches[1].trim().replace(/\\s+/g, ' ');
-  if (phrase.length < 5 || phrase.length > 100 || (phrase.match(/[\\p{L}\\p{N}]{2,}/gu) ?? []).length < 2
-    || !/^[\\p{L}\\p{N} .'-]+$/u.test(phrase)) return null;
+  const phrase = matches[1].trim().replace(/\s+/g, ' ');
+  if (phrase.length < 5 || phrase.length > 100 || (phrase.match(/[\p{L}\p{N}]{2,}/gu) ?? []).length < 2
+    || !/^[\p{L}\p{N} .'-]+$/u.test(phrase)) return null;
   return phrase;
 }
 
@@ -67,7 +67,7 @@ export async function countIndexedPhrase(pool, phrase) {
   // Counting uses a parameterized, read-only aggregate on indexed pages only.
   // FULLTEXT narrows candidates; the count is for contiguous occurrences,
   // not approximate mentions or grammatical variants.
-  const candidates = (phrase.match(/[\\p{L}\\p{N}]{3,}/gu) ?? [])
+  const candidates = (phrase.match(/[\p{L}\p{N}]{3,}/gu) ?? [])
     .filter(token => !new Set(['las', 'los', 'del', 'por', 'con', 'para', 'una']).has(token.toLowerCase()))
     .slice(0, 8);
   if (candidates.length < 2) return null;
