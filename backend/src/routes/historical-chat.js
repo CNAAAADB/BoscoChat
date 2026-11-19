@@ -7,7 +7,6 @@ export function createHistoricalChatRouter(pool, authService, {
   enabled = false,
   rateLimitStore,
   hashKey = 'local-dev-only',
-  modelId = 'amazon.nova-pro-v1:0',
   region = 'us-east-1',
   retrieve = retrieveChatSources,
   converse = callBedrockChat,
@@ -37,7 +36,6 @@ export function createHistoricalChatRouter(pool, authService, {
       const prompt = chatPrompt({ ...input, sources });
       const { text, usage } = await converse(prompt, {
         region,
-        modelId,
         abortSignal: AbortSignal.timeout(22000),
       });
       // Citation IDs and navigation targets are generated only from trusted SQL rows.
