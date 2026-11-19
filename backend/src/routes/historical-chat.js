@@ -67,7 +67,7 @@ export function createHistoricalChatRouter(pool, authService, {
           sources = await retrieve(pool, joined);
         }
       }
-      sources = rankChatSources(input.question, sources);
+      sources = rankChatSources(input.question, sources, { maxSources: input.depth === 'research' ? 6 : 3 });
       const prompt = chatPrompt({ ...input, sources, count });
       const { text, usage } = await converse(prompt, {
         region,
@@ -76,12 +76,12 @@ export function createHistoricalChatRouter(pool, authService, {
       // Citation IDs and navigation targets are generated only from trusted SQL rows.
       // Do not display every retrieved result as if it were a source for the
       // answer. Only expose citations the model actually included.
-      const cited = new Set([...text.matchAll(/\[F[1-3]\]/g)].map(m => m[0].slice(1,-1)));
+      const cited = new Set([...text.matchAll(/\[F[1-6]\]/g)].map(m => m[0].slice(1,-1)));
       const safeSources = sources.filter(source => cited.has(source.ref))
         .map(({ ref, documentId, publication, year, page }) => ({ ref, documentId, publication, year, page }));
       res.set('Cache-Control', 'private, no-store');
       console.info('Historical chat inference', { userId: req.user.id, sourceCount: safeSources.length, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens });
-      return res.json({ answer: text, sources: safeSources, usage });
+      return res.json({ answer: text, sources: safeSources, usage, depth: input.depth });
     } catch (error) {
       if (error?.status === 400 && error?.code === 'INVALID_CHAT_INPUT') {
         return res.status(400).json({ error: { code: error.code, message: error.message } });
