@@ -102,7 +102,7 @@ export async function countIndexedPhrase(pool, phrase) {
 const CONTEXT_STOP = new Set(['para', 'sobre', 'desde', 'hasta', 'entre', 'este', 'esta', 'estos', 'estas', 'todo', 'toda', 'archivo', 'documentos', 'cuantas', 'cuantos', 'veces', 'aparece', 'nombrada', 'nombrado', 'quiero', 'saber', 'cual', 'como', 'donde', 'puedes', 'decirme', 'casa', 'salesiano']);
 
 function normalizeContext(value) {
-  return String(value ?? '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();
+  return String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
 function topicTerms(question) {
@@ -150,7 +150,7 @@ export async function retrieveChatSources(pool, question) {
     && Number(row.page_number) > 0 && typeof row.excerpt === 'string'
     && row.excerpt.trim().length > 0
   ).slice(0, MAX_EXCERPTS).map((row, index) => {
-    const raw = row.excerpt.replace(/\\s+/g, ' ').trim();
+    const raw = row.excerpt.replace(/\s+/g, ' ').trim();
     const lowered = normalizeContext(raw);
     const terms = topicTerms(question);
     const preferred = [...terms].reverse().find(term => lowered.includes(term));
@@ -158,13 +158,14 @@ export async function retrieveChatSources(pool, question) {
     const start = Math.max(0, position - 220);
     const excerpt = raw.slice(start, start + MAX_EXCERPT_CHARS);
     return {
-    ref: 'F' + (index + 1),
-    documentId: Number(row.document_id),
-    publication: String(row.publication ?? '').slice(0, 160),
-    year: row.publication_year == null ? null : Number(row.publication_year),
-    page: Number(row.page_number),
-    excerpt,
-  }; });
+      ref: 'F' + (index + 1),
+      documentId: Number(row.document_id),
+      publication: String(row.publication ?? '').slice(0, 160),
+      year: row.publication_year == null ? null : Number(row.publication_year),
+      page: Number(row.page_number),
+      excerpt,
+    };
+  });
 }
 
 
