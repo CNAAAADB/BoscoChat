@@ -62,19 +62,29 @@ export function chatPrompt({ question, history, sources }) {
   };
 }
 
-export async function callBedrockChat(prompt, { region, modelId, abortSignal } = {}) {
-  const { BedrockRuntimeClient, ConverseCommand } = await import('@aws-sdk/client-bedrock-runtime');
-  const client = new BedrockRuntimeClient({ region, maxAttempts: 2, retryMode: 'adaptive' });
+export async function callBedrockChat(prompt, { region = 'us-east-1', abortSignal } = {}) {
+  // The archive Lambda runs in a private VPC without NAT. Invoke the isolated
+  // inference-only Lambda over the already approved private Lambda VPC endpoint.
+  const { LambdaClient, InvokeCommand } = await import('@aws-sdk/client-lambda');
+  const client = new LambdaClient({ region, maxAttempts: 1 });
   try {
-    const response = await client.send(new ConverseCommand({
-      modelId,
-      system: [{ text: prompt.system }],
-      messages: [{ role: 'user', content: [{ text: prompt.user }] }],
-      inferenceConfig: { maxTokens: 650, temperature: 0.2 },
+    const response = await client.send(new InvokeCommand({
+      FunctionName: process.env.BOSCOCHAT_CHAT_INFERENCE_FUNCTION ?? 'boscochat-bedrock-inference',
+      InvocationType: 'RequestResponse',
+      Payload: Buffer.from(JSON.stringify(prompt)),
     }), { abortSignal });
-    const text = response.output?.message?.content?.filter((block) => typeof block.text === 'string').map((block) => block.text).join('\n').trim();
-    if (!text || !['end_turn', 'max_tokens'].includes(response.stopReason)) throw new Error('BEDROCK_NO_VALID_ANSWER');
-    return { text: text.slice(0, 5000), usage: { inputTokens: response.usage?.inputTokens ?? 0, outputTokens: response.usage?.outputTokens ?? 0 } };
+    if (response.FunctionError || !response.Payload || response.Payload.length > 15 * 1024) {
+      throw new Error('CHAT_INFERENCE_FAILED');
+    }
+    const result = JSON.parse(Buffer.from(response.Payload).toString('utf8'));
+    if (result.status !== 'ok' || typeof result.text !== 'string'
+      || result.text.length < 1 || result.text.length > 5000) {
+      throw new Error('CHAT_INFERENCE_RESPONSE_INVALID');
+    }
+    return { text: result.text, usage: {
+      inputTokens: Math.max(0, Number(result.usage?.inputTokens) || 0),
+      outputTokens: Math.max(0, Number(result.usage?.outputTokens) || 0),
+    } };
   } finally {
     client.destroy();
   }
