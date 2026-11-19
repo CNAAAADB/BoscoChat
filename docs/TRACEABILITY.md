@@ -1,3 +1,9 @@
+## BC-101/102 — Conversación multi-turno frente a respuestas prefijadas (2026-11-19)
+- Requisito de producto validado por feedback: ChatGPT-like en interacción, sin convertir el chatbot en un contador SQL. Se elimina la salida anticipada del API cuando se detecta una petición de conteo o cero resultados.
+- `backend/src/chat/historical-chat.js`: `validateChatInput` valida roles alternos y conserva historia contextual de usuario y asistente; `chatPrompt` usa evidencia SQL opcional sin tratar cero coincidencias OCR como ausencia documental; mantiene control de citas.
+- `backend/src/routes/historical-chat.js`: la invocación a Bedrock es obligatoria para una respuesta a preguntas válidas, mientras los recuentos literales sirven como contexto; `frontend/src/HistoricalChat.jsx` envía y muestra historial completo y ofrece continuidad.
+- `backend/test/historical-chat.test.js`: regresiones de historial, conteos cero y consultas sin evidencia. TRACE-GAP: evaluar comportamiento semántico real y calidad de citas con cuenta administrativa antes de cierre de historias.
+
 ## BC-102 — Regresión real de recuento documental (2026-11-19)
 - CloudWatch: `Historical chat failed { name: Error, code: INVALID_SEARCH_QUERY }` para un request histórico; la marca temporal es anterior al fix de preguntas largas PR #68.
 - `backend/src/chat/historical-chat.js`: normaliza preguntas y añade `countPhraseIntent` + `countIndexedPhrase` sobre MySQL indexed-only, FULLTEXT y parámetros enlazados; `backend/src/routes/historical-chat.js` devuelve recuentos verificables sin LLM, evita cifras al preguntar ambiguamente.
