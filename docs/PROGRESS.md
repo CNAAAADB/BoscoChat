@@ -1,3 +1,11 @@
+## BC-101 — Modo Investigación con respuestas detalladas y citas (2026-11-19)
+- Selección expresa del responsable: `Investigación — análisis detallado y referencias` como modo predeterminado del chatbot de administrador.
+- Añadido selector `Investigación / Automática / Breve` en `HistoricalChat.jsx`, valor inicial `research`; preferencia transmitida como dato validado (`depth`), no como instrucción arbitraria del navegador.
+- El modo investigación prioriza respuestas desarrolladas cuando la pregunta lo justifica, exige distinguir hechos/citas de lagunas, amplía a seis fuentes relevantes entre doce candidatos y genera hasta 1300 tokens con tope explícito de salida.
+- Mantiene la autorización servidor administrador, límites de tasa/cuota y fuentes [F1]–[F6] verificadas por IDs de filas SQL; no implica aún recuperación semántica ni revisión histórica independiente.
+- Pruebas automatizadas de los tres modos, citas F4, límite de fuentes y modo predeterminado. Publicación del worker de inferencia en AWS requiere actualización de su imagen ECR tras merge.
+- TRACE-GAP: validar claridad, completitud, coste/latencia y exactitud de referencias con preguntas reales; no marcar BC-101/102 DONE hasta revisión independiente.
+
 ## BC-102 — Calidad de diálogo y selección de fuentes (2026-11-19)
 - El responsable aporta ejemplo real: pregunta sobre la Casa Salesiana de Atocha produce respuesta extensa y técnica, apoyándose en seis referencias tangenciales (boda, lista de fallecidos, antiguos alumnos). Una coincidencia del topónimo «Atocha» no demuestra una referencia a la institución.
 - Se reduce el contexto recuperado a las tres fuentes más pertinentes; para una entidad compuesta se requieren varios términos de la denominación en el OCR. Sólo se muestran en la interfaz las fuentes realmente citadas por el texto generado.
