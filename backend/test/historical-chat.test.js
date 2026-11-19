@@ -54,11 +54,11 @@ test('BC-101 backend flag denies even administrators and skips retrieval and inf
 test('BC-101 validates short bounded input and returns trusted citations from SQL rows', async () => {
   let called = 0;
   await server(async base => {
-    for (const input of [{ question: '' }, { question: 'A'.repeat(501) }, { question: 'Pregunta', history: [{ role: 'assistant', text: 'Inventado' }] }]) {
+    for (const input of [{ question: '' }, { question: 'A'.repeat(501) }, { question: 'Pregunta', history: [{ role: 'assistant', text: 'Inventado' }] }, { question: 'Pregunta', history: [{ role: 'user', text: 'Hola' }] }]) {
       const response = await post(base, 'administrator', input);
       assert.equal(response.status, 400);
     }
-    const response = await post(base, 'administrator', { question: '¿Qué pasó en el oratorio?', history: [{ role: 'user', text: '¿Qué sucedió antes?' }] });
+    const response = await post(base, 'administrator', { question: '¿Qué pasó en el oratorio?', history: [{ role: 'user', text: '¿Qué sucedió antes?' }, { role: 'assistant', text: 'Fue en otro año.' }] });
     assert.equal(response.status, 200);
     assert.equal(response.headers.get('cache-control'), 'private, no-store');
     const result = await response.json();
@@ -75,14 +75,14 @@ test('BC-101 validates short bounded input and returns trusted citations from SQ
   assert.equal(called, 1);
 });
 
-test('BC-102 empty retrieval avoids spending tokens and returns an explicit non-answer', async () => {
+test('BC-101 no archive hits still invokes the LLM for a conversational explanation', async () => {
   let invocations = 0;
   await server(async base => {
     const response = await post(base, 'administrator');
     assert.equal(response.status, 200);
     assert.deepEqual((await response.json()).sources, []);
-  }, { retrieve: async () => [], converse: async () => { invocations++; return {}; } });
-  assert.equal(invocations, 0);
+  }, { retrieve: async () => [], converse: async (prompt) => { invocations++; assert.match(prompt.user, /No se recuperaron fragmentos/); return { text: 'No lo encuentro aún. ¿Quieres que pruebe otras variantes?', usage: { inputTokens: 25, outputTokens: 20 } }; } });
+  assert.equal(invocations, 1);
 });
 
 test('BC-102 documents are selected only by read-only parameterized FULLTEXT and indexed state', async () => {
@@ -170,7 +170,7 @@ test('BC-102 exactly matches the reported Casa salesiana de Atocha question', as
   assert.doesNotMatch(expression, /cuántas veces/);
 });
 
-test('BC-102 counts literal occurrences across indexed pages, no model inference', async () => {
+test('BC-102 exact counts are passed to the LLM as evidence rather than canned answers', async () => {
   let invokes = 0;
   const captured = [];
   const pool = { async execute(sql, params) {
@@ -183,11 +183,11 @@ test('BC-102 counts literal occurrences across indexed pages, no model inference
     });
     assert.equal(response.status, 200);
     const data = await response.json();
-    assert.match(data.answer, /14 veces en 8 documentos indexados/);
+    assert.match(data.answer, /14 menciones literales/);
     assert.deepEqual(data.sources, []);
-    assert.equal(data.usage.inputTokens, 0);
-  }, { pool, converse: async () => { invokes++; return { text: 'INVENTADO' }; } });
-  assert.equal(invokes, 0);
+    assert.equal(data.usage.inputTokens, 45);
+  }, { pool, converse: async (prompt) => { invokes++; assert.match(prompt.user, /"occurrences":14/); assert.match(prompt.user, /"documents":8/); return { text: 'He encontrado 14 menciones literales en el OCR indexado, pero podrían existir variantes.', usage: { inputTokens: 45, outputTokens: 24 } }; } });
+  assert.equal(invokes, 1);
   assert.equal(captured.length, 1);
   assert.match(captured[0].sql, /indexed_at IS NOT NULL/);
   assert.match(captured[0].sql, /SUM\(/);
@@ -196,14 +196,14 @@ test('BC-102 counts literal occurrences across indexed pages, no model inference
   assert.match(captured[0].params[3], /\+Casa\s+\+salesiana\s+\+atocha/);
 });
 
-test('BC-102 refuses ambiguous counting requests instead of fabricating totals', async () => {
+test('BC-102 ambiguous counts go to LLM for clarification without fabricating totals', async () => {
   let invocations = 0;
   await server(async base => {
     const response = await post(base, 'administrator', { question: '¿Cuántas veces se mencionó Atocha?' });
     assert.equal(response.status, 200);
-    assert.match((await response.json()).answer, /recuento exacto/);
-  }, { converse: async () => { invocations++; return {}; } });
-  assert.equal(invocations, 0);
+    assert.match((await response.json()).answer, /precisar/);
+  }, { converse: async (prompt) => { invocations++; assert.match(prompt.user, /Cuántas veces/); return { text: 'Para ayudarte, ¿podrías precisar la expresión que quieres contar?', usage: { inputTokens: 40, outputTokens: 15 } }; } });
+  assert.equal(invocations, 1);
 });
 
 test('BC-102 counting queries use parameterized read-only SQL', async () => {
@@ -219,4 +219,49 @@ test('BC-102 counting queries use parameterized read-only SQL', async () => {
   assert.doesNotMatch(captured.sql, /UPDATE\s|INSERT\s|DELETE\s|DROP\s/i);
   assert.ok(captured.sql.includes('d.indexed_at IS NOT NULL'));
   assert.equal(captured.params.length, 4);
+});
+
+test('BC-101 preserves both sides of a conversation in chronological order', async () => {
+  const validated = validateChatInput({
+    question: '¿Y al año siguiente?',
+    history: [
+      { role: 'user', text: '¿Qué pasó en Atocha?' },
+      { role: 'assistant', text: 'He encontrado referencias a Atocha [F1].' },
+    ],
+  });
+  const prompt = chatPrompt({ ...validated, sources: [source] });
+  assert.ok(prompt.user.indexOf('Usuario:') < prompt.user.indexOf('Asistente:'));
+  assert.match(prompt.user, /He encontrado referencias/);
+  assert.match(prompt.user, /al año siguiente/);
+  assert.match(prompt.system, /CONVERSACIONAL/);
+});
+
+test('BC-101 rejects malformed or excessive chat context', async () => {
+  assert.throws(() => validateChatInput({
+    question: 'Una consulta',
+    history: [{ role: 'user', text: 'a' }, { role: 'user', text: 'b' }],
+  }), /historial/);
+  assert.throws(() => validateChatInput({
+    question: 'Una consulta',
+    history: Array.from({ length: 8 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', text: 'a' })),
+  }), /historial/);
+});
+
+test('BC-102 a zero literal count never bypasses conversational model and is not proof of absence', async () => {
+  let modelCalls = 0;
+  await server(async base => {
+    const res = await post(base, 'administrator', { question: '¿Cuántas veces aparece la Casa Salesiana de Atocha en todo tu archivo?' });
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.match(data.answer, /variantes/);
+  }, {
+    pool: { async execute() { return [[{ occurrences: 0, matched_documents: 0 }]]; } },
+    converse: async (prompt) => {
+      modelCalls++;
+      assert.match(prompt.user, /"occurrences":0/);
+      assert.match(prompt.user, /Una cifra cero no demuestra ausencia/);
+      return { text: 'La coincidencia literal es cero, pero podría haber variantes del nombre.', usage: { inputTokens: 50, outputTokens: 20 } };
+    },
+  });
+  assert.equal(modelCalls, 1);
 });
