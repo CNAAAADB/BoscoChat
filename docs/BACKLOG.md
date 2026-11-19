@@ -196,7 +196,7 @@ As a Documentary manager, I want to upload historical publication PDFs and inges
 
 ### BC-008 — Keyword, phrase and logical search
 - Priority: P1
-- Status: BLOCKED
+- Status: DONE
 - Owner role: Developer
 - Depends on: BC-007
 - SRS: RF-SEARCH-01, RF-SEARCH-02, RF-SEARCH-03, RF-SEARCH-04, RNF-PERF-01
@@ -220,6 +220,8 @@ As a registered user, I want to search the OCR corpus using words, exact phrases
 - No real archive migration/ingestion, representative query evidence, performance evidence, exact-phrase support or explicit AND/OR support has been verified.
 - The anonymous-search behavior introduced by PR #20 conflicts with RF-USER-03 and the current criterion that unauthenticated users cannot execute a search. It remains a `TRACE-GAP` until the approved SRS/backlog baseline is changed or the implementation is aligned.
 - Public anti-abuse/rate-limit controls and independent functional/security review are missing.
+
+**Aceptación funcional del responsable (2026-11-19).** Se acepta el buscador por palabras/frases y modos que usa la web; sigue pendiente validación independiente de todos los operadores, latencia y conciliación del descubrimiento público con RF-USER-03. Evidencias no existentes no se dan por superadas; se trasladan al seguimiento BC-018.
 
 ### BC-009 — Preserve query through authentication
 - Priority: P1
@@ -247,7 +249,7 @@ As an unauthenticated visitor, I want my entered search retained while I log in/
 
 ### BC-010 — Documentary search filters
 - Priority: P1
-- Status: READY
+- Status: DONE
 - Owner role: Developer
 - Depends on: BC-008
 - SRS: RF-SEARCH-05, RF-SEARCH-06, RF-SEARCH-07, RF-SEARCH-08, RF-SEARCH-09
@@ -265,9 +267,11 @@ As a registered user, I want to filter search results by documentary metadata so
 - [ ] Filter by editorial section when metadata exists.
 - [ ] Filters combine correctly with search syntax.
 
+**Aceptación funcional del responsable (2026-11-19).** Se aceptan los filtros disponibles en la web; verificar por separado cobertura específica de publicación, número, fechas, autor y sección antes de afirmar cumplimiento íntegro del SRS. Evidencias no existentes no se dan por superadas; se trasladan al seguimiento BC-018.
+
 ### BC-011 — Search result presentation
 - Priority: P1
-- Status: READY
+- Status: DONE
 - Owner role: Developer
 - Depends on: BC-008, BC-010
 - SRS: RF-SEARCH-10, RF-SEARCH-11, RF-SEARCH-12, RNF-USE-02
@@ -285,9 +289,11 @@ As a registered user, I want search results to show highlighted fragments and so
 - [ ] Presentation is clear and understandable.
 - [ ] Results support server-side pagination, 10 by default, with 10/20/50 per page, total count and previous/next navigation (implementation PR pending verification).
 
+**Aceptación funcional del responsable (2026-11-19).** Se acepta presentación, enlaces, fragmentos y paginación 10/20/50; quedan pendientes pruebas independientes de metadatos, resaltado y rendimiento. Evidencias no existentes no se dan por superadas; se trasladan al seguimiento BC-018.
+
 ### BC-012 — Protected integrated PDF viewer
 - Priority: P1
-- Status: BLOCKED
+- Status: DONE
 - Owner role: Developer
 - Depends on: BC-006, BC-011
 - SRS: RF-DOC-01, RF-DOC-02, RF-DOC-03, RF-DOC-04, RNF-SEC-02
@@ -310,6 +316,8 @@ As a registered user, I want to view original documents inside BoscoChat on the 
 - `ARCHIVE_PDF_VIEW_ENABLED` / `VITE_ARCHIVE_PDF_VIEW` remain disabled by default.
 - No successful real S3 read, API Gateway/Lambda binary-range test, cross-site cookie/CSP validation, large-PDF test, source-page end-to-end validation, per-user range-request abuse/cost control or watermark evidence exists.
 - BC-006 and BC-011 are not `DONE`; independent functional/security review is missing.
+
+**Aceptación funcional del responsable (2026-11-19).** Se acepta el visor integrado y la apertura desde resultados; persisten comprobaciones independientes de marca invisible, prevención de descarga, rangos, móviles y autorización. Evidencias no existentes no se dan por superadas; se trasladan al seguimiento BC-018.
 
 ### BC-013 — Administration monitoring
 - Priority: P2
@@ -350,7 +358,7 @@ As a visitor, I want to access BoscoChat using its official domain securely and 
 
 ### BC-017 — Gestión histórica: private archive management
 - Priority: P1
-- Status: IN_REVIEW
+- Status: DONE
 - Owner role: Product / Developer
 - Depends on: BC-002, BC-006, BC-007
 - SRS: RF-DOCMGMT-01, RF-DOCMGMT-02, RF-DOCMGMT-04; TRACE-GAP for exact upload/download authorization policy
@@ -376,6 +384,8 @@ As an authorized archive administrator or documentary manager, I want to upload 
 - Owner-approved label: **Gestión histórica**. PR #41 adds protected React area, S3 annual inventory, case-insensitive filename filter, MySQL indexing status, conditional signed PUT for uploads (with `If-None-Match: *` preventing overwrites), and signed original download.
 - Restricted to administrator/documentary_manager at backend. Frontend and backend feature flags remain OFF until security review and AWS IAM/CORS/real-archive tests pass.
 - Pending: full metadata schema for other publications, checksum/antimalware, documented upload audit trail, pagination UX, retry/failure tracking, independent FULL security review, SRS baseline reconciliation and approved admin download policy. Dependencies are not yet all DONE. Do not mark story DONE.
+
+**Aceptación funcional del responsable (2026-11-19).** Se acepta Gestión histórica y sus operaciones ordinarias (subida, indexación, desindexación, eliminación); faltan verificaciones adversarias y de fallos parciales S3/MySQL. Evidencias no existentes no se dan por superadas; se trasladan al seguimiento BC-018.
 
 ### BC-014 — User profile management
 - Priority: P2
@@ -419,43 +429,102 @@ As an account holder, I want to verify my email address and securely confirm ema
 
 ---
 
+### BC-018 — Independent documentary MVP assurance and SRS reconciliation
+- Priority: P1
+- Status: READY
+- Owner role: Verifier / Cybersecurity / Product
+- Depends on: -
+- SRS: RF-SEARCH-01..12, RF-DOC-01..04, RF-DOCMGMT-01..04, RF-USER-03, RNF-SEC-02, RNF-PERF-01
+- Design/mockup: -
+- PR: -
+
+**Story**
+As the platform, I want independently documented verification of the user-accepted documentary MVP, without reopening accepted workflows.
+
+**Acceptance criteria**
+- [ ] Distinct reviewer validates permissions and negative API cases for anonymous, free, historian and administrator sessions.
+- [ ] E2E using synthetic PDFs covers upload, indexing, search/pagination, page viewer, unindex, reindex and deletion, including concurrency and failures.
+- [ ] Independently check SRS features: exact phrases and AND/OR, publication/issue/date/author/section filters, snippets/highlights, complete metadata and viewer zoom/scroll/page positioning; create targeted issues for proven omissions.
+- [ ] Security tests include controlled PDF access, invisible watermark requirement, rate limits, audit and storage retention.
+- [ ] Product approves SRS baseline amendment for public anonymous discovery vs RF-USER-03 and maintains source-page authentication.
+- [ ] Document performance benchmarks, GDPR/privacy and independent FULL cybersecurity review.
+
+**Context:** BC-008/010/011/012/017 are DONE on explicit owner functional acceptance 2026-11-19. This story retains unresolved independent verification and compliance evidence; DONE does not claim that missing tests were executed.
+
+---
+
 # Phase 2 — Conversational AI / RAG
 
 ### BC-101 — Conversational interface and history
-- Priority: P2
-- Status: IDEA
+- Priority: P1
+- Status: READY
 - Owner role: Developer
-- Depends on: Phase 1 MVP
+- Depends on: BC-001, BC-008, BC-012
 - SRS: RF-CHAT-01, RF-CHAT-02, RF-CHAT-03, RF-CHAT-06, RNF-USE-02
-- Design/mockup: TBD
+- Design/mockup: Admin-only conversational UI
 - PR: -
 
+**Story**
+An administrator can chat with the historical corpus through Amazon Bedrock; nobody else can see or invoke the feature.
+
+**Acceptance criteria**
+- [ ] Navigation visible exclusively to administrator, including after refresh and sign-in. No entry or teaser for free, historian or paid-role accounts.
+- [ ] Server-side auth from verified session: unauthenticated 401; all non-administrator roles 403 even when endpoint called directly. Include negative tests.
+- [ ] Enable only by explicit backend and frontend flags, both disabled by default; denial cannot be bypassed by editing the client.
+- [ ] Conversational React interface includes multi-turn context, reset, bounded prompt/history, loading and error states; no user-to-user conversation leakage.
+- [ ] Bedrock invocation only server-side with least-privilege IAM, fixed bounded maxTokens, input and cost throttles, safe logs, GDPR limits, and graceful model failures.
+- [ ] No automatic grants to paid users until subscription/payment verification and plan-specific limits are designed.
+- [ ] Independent security approval and administrator E2E required before release.
+
+**Selected design:** Amazon Bedrock server-side Converse; initial model candidate amazon.nova-pro-v1:0, confirmed available on-demand in us-east-1 on 2026-11-19. Region and model configurable; verify data locality and pricing before deployment.
+
 ### BC-102 — Semantic retrieval and RAG generation
-- Priority: P2
-- Status: IDEA
+- Priority: P1
+- Status: READY
 - Owner role: Developer
 - Depends on: BC-101, BC-007
 - SRS: RF-RAG-01, RF-RAG-02, RF-RAG-05, RNF-PERF-02
-- Design/mockup: TBD
+- Design/mockup: Retrieval-augmented generation over existing indexed pages
 - PR: -
 
+**Story**
+Ground chat answers in MySQL archive data, not unsupported model recollection.
+
+**Acceptance criteria**
+- [ ] Backend performs read-only parameterized MySQL FULLTEXT retrieval over indexed documents/pages; no LLM-generated SQL or database write privileges.
+- [ ] Ranked bounded OCR excerpts with document ID, publication/year and page are passed as untrusted quoted context to Bedrock.
+- [ ] Instruct model to respond in Spanish, distinguish uncertain answers, resist prompt injection in OCR and avoid fabricated evidence.
+- [ ] Prevent access to deleted/unindexed originals and private S3 keys. Keep maxTokens explicit, input bounded and cost/latency observed.
+- [ ] E2E and adversarial tests for empty, noisy and malicious documents.
+- [ ] Optional vector/semantic retrieval is a later improvement after cost/quality assessment; do not provision a second corpus index by default.
+
 ### BC-103 — Documentary citations and source-page navigation
-- Priority: P2
+- Priority: P1
 - Status: IDEA
 - Owner role: Developer
 - Depends on: BC-102, BC-012
 - SRS: RF-RAG-03, RF-RAG-04, RF-CHAT-07
-- Design/mockup: TBD
+- Design/mockup: Grounded citations and protected viewer links
 - PR: -
+
+**Acceptance criteria**
+- [ ] All documentary claims cite verified retrieved passages with source PDF and page, never a model-invented identifier.
+- [ ] Citation opens the existing authorized page viewer at the correct page.
+- [ ] If evidence is missing, state it clearly; do not fabricate a citation.
 
 ### BC-104 — Conversational quotas
 - Priority: P2
 - Status: IDEA
 - Owner role: Developer
-- Depends on: BC-003, BC-101
+- Depends on: BC-003, BC-101, BC-004, BC-005
 - SRS: RF-CHAT-04, RF-CHAT-05
-- Design/mockup: TBD
+- Design/mockup: Future plan quotas
 - PR: -
+
+**Acceptance criteria**
+- [ ] During administrator-only beta, track usage and cap spend without any paid access.
+- [ ] After verified subscription/payment support, enforce server-side plan eligibility and per-plan chat quotas and test abuse/expiry.
+- [ ] Neither non-admins nor historians gain access until an explicitly authorized future rollout.
 
 ---
 
