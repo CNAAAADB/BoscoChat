@@ -96,7 +96,6 @@ export function createApp({
   if (pool) {
     app.use('/api/admin/chat', createHistoricalChatRouter(pool, service, {
       enabled: environment.BOSCOCHAT_CHAT_ADMIN_ENABLED === 'true',
-      modelId: environment.BOSCOCHAT_BEDROCK_MODEL_ID ?? 'amazon.nova-pro-v1:0',
       region: environment.BOSCOCHAT_BEDROCK_REGION ?? 'us-east-1',
       rateLimitStore: sharedAuthRateLimitStore ?? undefined,
       hashKey: authRateLimitHashKey,
