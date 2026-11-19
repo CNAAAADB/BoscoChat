@@ -457,46 +457,50 @@ As the platform, I want independently documented verification of the user-accept
 
 ### BC-101 — Conversational interface and history
 - Priority: P1
-- Status: READY
+- Status: IN_REVIEW
 - Owner role: Developer
 - Depends on: BC-001, BC-008, BC-012
 - SRS: RF-CHAT-01, RF-CHAT-02, RF-CHAT-03, RF-CHAT-06, RNF-USE-02
 - Design/mockup: Admin-only conversational UI
-- PR: -
+- PR: pending review (admin-only Bedrock chat implementation)
 
 **Story**
 An administrator can chat with the historical corpus through Amazon Bedrock; nobody else can see or invoke the feature.
 
 **Acceptance criteria**
-- [ ] Navigation visible exclusively to administrator, including after refresh and sign-in. No entry or teaser for free, historian or paid-role accounts.
-- [ ] Server-side auth from verified session: unauthenticated 401; all non-administrator roles 403 even when endpoint called directly. Include negative tests.
-- [ ] Enable only by explicit backend and frontend flags, both disabled by default; denial cannot be bypassed by editing the client.
-- [ ] Conversational React interface includes multi-turn context, reset, bounded prompt/history, loading and error states; no user-to-user conversation leakage.
+- [x] Navigation visible exclusively to administrator, including after refresh and sign-in. No entry or teaser for free, historian or paid-role accounts.
+- [x] Server-side auth from verified session: unauthenticated 401; all non-administrator roles 403 even when endpoint called directly. Include negative tests.
+- [x] Enable only by explicit backend and frontend flags, both disabled by default; denial cannot be bypassed by editing the client.
+- [x] Conversational React interface includes multi-turn context, reset, bounded prompt/history, loading and error states; no user-to-user conversation leakage.
 - [ ] Bedrock invocation only server-side with least-privilege IAM, fixed bounded maxTokens, input and cost throttles, safe logs, GDPR limits, and graceful model failures.
 - [ ] No automatic grants to paid users until subscription/payment verification and plan-specific limits are designed.
 - [ ] Independent security approval and administrator E2E required before release.
 
 **Selected design:** Amazon Bedrock server-side Converse; initial model candidate amazon.nova-pro-v1:0, confirmed available on-demand in us-east-1 on 2026-11-19. Region and model configurable; verify data locality and pricing before deployment.
 
+**Delivery gate (2026-11-19):** Implemented on feature branch with flags default OFF; pending npm lockfile, CI, independent security review, AWS IAM/access, controlled cost/retention and administrator E2E before enabling in production.
+
 ### BC-102 — Semantic retrieval and RAG generation
 - Priority: P1
-- Status: READY
+- Status: IN_REVIEW
 - Owner role: Developer
 - Depends on: BC-101, BC-007
 - SRS: RF-RAG-01, RF-RAG-02, RF-RAG-05, RNF-PERF-02
 - Design/mockup: Retrieval-augmented generation over existing indexed pages
-- PR: -
+- PR: pending review (admin-only Bedrock chat implementation)
 
 **Story**
 Ground chat answers in MySQL archive data, not unsupported model recollection.
 
 **Acceptance criteria**
-- [ ] Backend performs read-only parameterized MySQL FULLTEXT retrieval over indexed documents/pages; no LLM-generated SQL or database write privileges.
-- [ ] Ranked bounded OCR excerpts with document ID, publication/year and page are passed as untrusted quoted context to Bedrock.
-- [ ] Instruct model to respond in Spanish, distinguish uncertain answers, resist prompt injection in OCR and avoid fabricated evidence.
+- [x] Backend performs read-only parameterized MySQL FULLTEXT retrieval over indexed documents/pages; no LLM-generated SQL or database write privileges.
+- [x] Ranked bounded OCR excerpts with document ID, publication/year and page are passed as untrusted quoted context to Bedrock.
+- [x] Instruct model to respond in Spanish, distinguish uncertain answers, resist prompt injection in OCR and avoid fabricated evidence.
 - [ ] Prevent access to deleted/unindexed originals and private S3 keys. Keep maxTokens explicit, input bounded and cost/latency observed.
 - [ ] E2E and adversarial tests for empty, noisy and malicious documents.
 - [ ] Optional vector/semantic retrieval is a later improvement after cost/quality assessment; do not provision a second corpus index by default.
+
+**Delivery gate (2026-11-19):** Implemented on feature branch with flags default OFF; pending npm lockfile, CI, independent security review, AWS IAM/access, controlled cost/retention and administrator E2E before enabling in production.
 
 ### BC-103 — Documentary citations and source-page navigation
 - Priority: P1
