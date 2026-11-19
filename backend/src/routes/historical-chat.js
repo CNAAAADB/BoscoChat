@@ -1,11 +1,13 @@
 import express from 'express';
+import { createHmac } from 'node:crypto';
 import { requireAuthorization } from '../middleware/authorization.js';
 import { createArchiveSearchRateLimiter } from '../middleware/archive-search-rate-limit.js';
+import { MemoryAuthRateLimitStore } from '../middleware/auth-rate-limit.js';
 import { validateChatInput, retrieveChatSources, chatPrompt, callBedrockChat } from '../chat/historical-chat.js';
 
 export function createHistoricalChatRouter(pool, authService, {
   enabled = false,
-  rateLimitStore,
+  rateLimitStore = new MemoryAuthRateLimitStore(),
   hashKey = 'local-dev-only',
   region = 'us-east-1',
   retrieve = retrieveChatSources,
@@ -25,6 +27,19 @@ export function createHistoricalChatRouter(pool, authService, {
     limit: 5,
     windowMs: 60_000,
   }));
+
+  // A second, per-admin daily ceiling survives IP rotation and protects inference cost.
+  router.use(async (req, res, next) => {
+    try {
+      const timestamp = Date.now();
+      const hashedUser = createHmac('sha256', hashKey).update('admin-chat-daily:' + req.user.id).digest('hex');
+      const result = await rateLimitStore.consume({ ip: hashedUser, identity: hashedUser + ':daily' }, {
+        timestamp, resetAt: timestamp + 86_400_000, ipLimit: 30, identityLimit: 30,
+      });
+      if (result) return res.status(429).json({ error: { code: 'CHAT_DAILY_LIMIT', message: 'Se ha alcanzado el límite diario de conversaciones del piloto.' } });
+      return next();
+    } catch (error) { return next(error); }
+  });
 
   router.post('/message', async (req, res) => {
     try {
