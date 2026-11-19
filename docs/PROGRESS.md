@@ -1,3 +1,9 @@
+## BC-101/102 — Corrección de enfoque: asistente conversacional real (2026-11-19)
+- Feedback directo del responsable: la respuesta automática de `0 veces` no ofrece una experiencia como ChatGPT. La ruta del chat retornaba valores SQL o mensajes prefijados sin llamar a Bedrock en preguntas de conteo y sin resultados; el historial sólo contenía preguntas del usuario.
+- Implementación propuesta: cualquier pregunta autorizada pasa por Amazon Bedrock Nova Pro, con historial acotado de tres turnos completos usuario/asistente, instrucciones de conversación y respuesta razonada. Los recuentos SQL literales pasan como evidencia opcional, no como respuestas predeterminadas.
+- Cuando no aparecen fuentes, el modelo puede conversar y proponer variantes de búsqueda, pero debe reconocer ausencia de evidencia y no inventar hechos del archivo. Mantener citas sólo de páginas recuperadas.
+- Permanece la autorización estricta `administrator`, flags, límites de inferencia, IAM y aislamiento de RDS/S3. Requiere CI, pruebas E2E de administración y revisión independiente antes de BC-101/102 DONE.
+
 ## BC-102 — Incidencia chat Atocha (2026-11-19)
 - Captura del administrador: chat devolvía error genérico al preguntar por el número de menciones de la Casa Salesiana de Atocha. CloudWatch registra `INVALID_SEARCH_QUERY` en ejecución de la versión previa al PR #68. Se añade regresión exacta.
 - Se elimina ruido lingüístico de la extracción conversacional y se distingue una pregunta de recuento literal de la generación con LLM: MySQL calcula coincidencias exactas en páginas indexadas, no se infiere un número de seis extractos. La respuesta explica límites OCR/grafías y no realiza llamadas al modelo para recuentos.

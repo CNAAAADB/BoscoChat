@@ -12,7 +12,7 @@ export default function HistoricalChat({ onOpenSource }) {
     event.preventDefault();
     const input = question.trim();
     if (busy || input.length < 3 || input.length > 500) return;
-    const history = messages.filter((m) => m.role === 'user').slice(-4).map((m) => ({ role: 'user', text: m.text }));
+    const history = messages.slice(-6).map((m) => ({ role: m.role, text: m.role === 'assistant' ? m.text.slice(0, 1200) : m.text }));
     setMessages((prior) => [...prior, { role: 'user', text: input }]);
     setQuestion('');
     setBusy(true);
@@ -29,6 +29,8 @@ export default function HistoricalChat({ onOpenSource }) {
       if (typeof payload.answer !== 'string' || !Array.isArray(payload.sources)) throw new Error('Respuesta inesperada del asistente.');
       setMessages((prior) => [...prior, { role: 'assistant', text: payload.answer, sources: payload.sources }]);
     } catch (failure) {
+      setMessages((prior) => prior.slice(0, -1));
+      setQuestion(input);
       setError(failure.message);
     } finally {
       setBusy(false);
@@ -40,7 +42,7 @@ export default function HistoricalChat({ onOpenSource }) {
     <section aria-label="Chat histórico de administración" style={{ backgroundColor: '#18192d', border: '1px solid #34375e', borderRadius: 24, padding: 'clamp(18px, 4vw, 36px)', maxWidth: 940, margin: '0 auto 40px' }}>
       <h2 style={{ color: '#E6D7AA', marginTop: 0 }}>Chat histórico</h2>
       <p style={{ color: '#c5c7db', lineHeight: 1.6 }}>
-        Consulta los documentos indexados del archivo salesiano. Las respuestas se generan con IA y deben contrastarse con las fuentes citadas.
+        Conversa con BoscoChat sobre la historia salesiana, haz preguntas de seguimiento y explora las fuentes del archivo. Si no encuentra evidencias, te ayudará a reformular la búsqueda.
       </p>
       <div aria-live="polite" aria-label="Conversación" style={{ display: 'grid', gap: 14, marginBottom: 22 }}>
         {messages.length === 0 ? <p style={{ color: '#afb5cc' }}>Por ejemplo: «¿Qué actividades salesianas se mencionan en Barcelona?»</p> : null}
@@ -64,11 +66,11 @@ export default function HistoricalChat({ onOpenSource }) {
         {error ? <p role="alert" style={{ color: '#ff9999' }}>{error}</p> : null}
       </div>
       <form onSubmit={submit} style={{ display: 'grid', gap: 12 }}>
-        <label htmlFor="boscochat-question" style={{ color: '#E6D7AA', fontWeight: 700 }}>Pregunta sobre el archivo histórico</label>
+        <label htmlFor="boscochat-question" style={{ color: '#E6D7AA', fontWeight: 700 }}>Tu mensaje</label>
         <textarea id="boscochat-question" rows={3} style={field} maxLength={500} minLength={3} required disabled={busy} value={question}
-          onChange={(event) => setQuestion(event.target.value)} placeholder="Escribe una pregunta sobre los documentos…" />
+          onChange={(event) => setQuestion(event.target.value)} placeholder="Pregúntame sobre el archivo o continúa la conversación…" />
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-          <button type="submit" disabled={busy || question.trim().length < 3} style={{ padding: '12px 24px', borderRadius: 10, background: '#E6D7AA', color: '#111', border: 0, fontWeight: 800, cursor: busy ? 'wait' : 'pointer' }}>Preguntar</button>
+          <button type="submit" disabled={busy || question.trim().length < 3} style={{ padding: '12px 24px', borderRadius: 10, background: '#E6D7AA', color: '#111', border: 0, fontWeight: 800, cursor: busy ? 'wait' : 'pointer' }}>Enviar</button>
           <button type="button" disabled={busy || messages.length === 0} onClick={() => { setMessages([]); setQuestion(''); setError(''); }}
             style={{ padding: '12px 22px', borderRadius: 10, background: 'transparent', border: '1px solid #75799a', color: '#fff', cursor: 'pointer' }}>Nueva conversación</button>
         </div>
