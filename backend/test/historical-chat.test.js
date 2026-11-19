@@ -69,7 +69,7 @@ test('BC-101 validates short bounded input and returns trusted citations from SQ
     called++;
     assert.match(prompt.user, /oratorio/);
     assert.match(prompt.system, /OCR/);
-    assert.equal(options.modelId, 'amazon.nova-pro-v1:0');
+    assert.equal(options.region, 'us-east-1');
     return { text: 'La reunión se celebró en 1925 [F1].', usage: { inputTokens: 40, outputTokens: 15 } };
   } });
   assert.equal(called, 1);
