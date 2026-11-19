@@ -3,7 +3,7 @@ import { createHmac } from 'node:crypto';
 import { requireAuthorization } from '../middleware/authorization.js';
 import { createArchiveSearchRateLimiter } from '../middleware/archive-search-rate-limit.js';
 import { MemoryAuthRateLimitStore } from '../middleware/auth-rate-limit.js';
-import { validateChatInput, retrieveChatSources, chatPrompt, callBedrockChat } from '../chat/historical-chat.js';
+import { validateChatInput, retrieveChatSources, countPhraseIntent, countIndexedPhrase, chatPrompt, callBedrockChat } from '../chat/historical-chat.js';
 
 export function createHistoricalChatRouter(pool, authService, {
   enabled = false,
@@ -45,6 +45,25 @@ export function createHistoricalChatRouter(pool, authService, {
   router.post('/message', async (req, res) => {
     try {
       const input = validateChatInput(req.body);
+      const countPhrase = countPhraseIntent(input.question);
+      if (countPhrase) {
+        const count = await countIndexedPhrase(pool, countPhrase);
+        if (count) {
+          // The result is computed by MySQL on indexed page text, not estimated by the model.
+          return res.json({
+            answer: `La frase exacta «${count.phrase}» aparece ${count.occurrences} veces en ${count.documents} documentos indexados. Es un recuento de coincidencias literales en el texto OCR del archivo, no de variantes de la expresión. Los originales sin indexar o las grafías distintas no están incluidos.`,
+            sources: [],
+            usage: { inputTokens: 0, outputTokens: 0 },
+          });
+        }
+      }
+      if (/\bcu[aá]ntas?\s+veces\b/iu.test(input.question)) {
+        return res.json({
+          answer: 'Para obtener un recuento exacto, pregúntame cuántas veces aparece una frase concreta, por ejemplo: «¿Cuántas veces aparece la Casa salesiana de Atocha en todo tu archivo?». No puedo calcular un total fiable a partir de unos pocos fragmentos.',
+          sources: [],
+          usage: { inputTokens: 0, outputTokens: 0 },
+        });
+      }
       const sources = await retrieve(pool, input.question);
       if (!Array.isArray(sources) || sources.length === 0) {
         return res.json({ answer: 'No he encontrado fragmentos del archivo histórico que permitan responder a esa pregunta. Prueba con otros términos.', sources: [], usage: { inputTokens: 0, outputTokens: 0 } });

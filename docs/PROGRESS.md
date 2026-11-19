@@ -1,3 +1,8 @@
+## BC-102 — Incidencia chat Atocha (2026-11-19)
+- Captura del administrador: chat devolvía error genérico al preguntar por el número de menciones de la Casa Salesiana de Atocha. CloudWatch registra `INVALID_SEARCH_QUERY` en ejecución de la versión previa al PR #68. Se añade regresión exacta.
+- Se elimina ruido lingüístico de la extracción conversacional y se distingue una pregunta de recuento literal de la generación con LLM: MySQL calcula coincidencias exactas en páginas indexadas, no se infiere un número de seis extractos. La respuesta explica límites OCR/grafías y no realiza llamadas al modelo para recuentos.
+- Pendientes CI, revisión y despliegue. No se leen ni modifican originales S3.
+
 ## BC-101/102 — Piloto Bedrock administrador desplegado en AWS (2026-11-19)
 - PR #67 fusionado. Lambda `boscochat-bedrock-inference` desplegada sobre imagen ECR inmutable, fuera de VPC, con rol que sólo invoca Nova Pro; no tiene S3/RDS. Evita endpoint de Bedrock de pago mensual.
 - Backend en VPC privada usa `lambda:InvokeFunction` vía VPCE actual, IAM limitado a tres funciones; simulador confirma que no puede invocar Bedrock directamente.

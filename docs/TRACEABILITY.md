@@ -1,3 +1,9 @@
+## BC-102 — Regresión real de recuento documental (2026-11-19)
+- CloudWatch: `Historical chat failed { name: Error, code: INVALID_SEARCH_QUERY }` para un request histórico; la marca temporal es anterior al fix de preguntas largas PR #68.
+- `backend/src/chat/historical-chat.js`: normaliza preguntas y añade `countPhraseIntent` + `countIndexedPhrase` sobre MySQL indexed-only, FULLTEXT y parámetros enlazados; `backend/src/routes/historical-chat.js` devuelve recuentos verificables sin LLM, evita cifras al preguntar ambiguamente.
+- `backend/test/historical-chat.test.js`: prueba literal de la pregunta proporcionada, conteo multi-documento, negativa de recuentos ambiguos y solo lectura.
+- TRACE-GAP: contraste E2E con administrador y SQL real y alcance de variantes OCR antes de cerrar BC-102.
+
 ## BC-101/102 — Evidencia de piloto AWS administrador (2026-11-19)
 - Implementación: PR #67, tests backend y UI React, feature flags; PR #68 corrige preguntas de más de 12 palabras y 180 caracteres, CI backend/frontend/worker en verde.
 - En AWS, `boscochat-bedrock-inference` aislada sin acceso a DB/S3; `BoscoChatBedrockInferenceRole` tiene `bedrock:InvokeModel` en Nova Pro y CloudWatch; el backend sólo `lambda:InvokeFunction` a esa Lambda por VPC endpoint preexistente.
