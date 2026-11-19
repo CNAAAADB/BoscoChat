@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import express from 'express';
 import { createHistoricalChatRouter } from '../src/routes/historical-chat.js';
-import { validateChatInput, retrieveChatSources, retrievalSearchExpression, countPhraseIntent, countIndexedPhrase, chatPrompt } from '../src/chat/historical-chat.js';
+import { validateChatInput, retrieveChatSources, rankChatSources, retrievalSearchExpression, countPhraseIntent, countIndexedPhrase, chatPrompt } from '../src/chat/historical-chat.js';
 
 const identities = {
   administrator: { id: 1, role: 'administrator' },
@@ -184,7 +184,7 @@ test('BC-102 exact counts are passed to the LLM as evidence rather than canned a
     assert.equal(response.status, 200);
     const data = await response.json();
     assert.match(data.answer, /14 menciones literales/);
-    assert.deepEqual(data.sources, [{ ref: 'F1', documentId: 42, publication: 'Don Bosco en España', year: 1925, page: 7 }]);
+    assert.deepEqual(data.sources, []);
     assert.equal(data.usage.inputTokens, 45);
   }, { pool, converse: async (prompt) => { invokes++; assert.match(prompt.user, /"occurrences":14/); assert.match(prompt.user, /"documents":8/); return { text: 'He encontrado 14 menciones literales en el OCR indexado, pero podrían existir variantes.', usage: { inputTokens: 45, outputTokens: 24 } }; } });
   assert.equal(invokes, 1);
@@ -264,4 +264,55 @@ test('BC-102 a zero literal count never bypasses conversational model and is not
     },
   });
   assert.equal(modelCalls, 1);
+});
+
+test('BC-102 Atocha entity question excludes tangential namesake hits', () => {
+  const question = '¿Puedes decirme cuántas veces aparece nombrada la Casa Salesiana de Atocha en todo tu archivo?';
+  const examples = [
+    { ...source[0], ref: 'F1', excerpt: 'Sr. D. Mateo Garrulera, Atocha, en una lista de fallecidos.' },
+    { ...source[0], ref: 'F2', excerpt: 'La compañía Salesianos Atocha organiza representaciones teatrales.' },
+    { ...source[0], ref: 'F3', excerpt: 'Un matrimonio de un antiguo alumno de Atocha, don José Sedano.' },
+  ];
+  const relevant = rankChatSources(question, examples);
+  assert.equal(relevant.length, 1);
+  assert.equal(relevant[0].ref, 'F1');
+  assert.match(relevant[0].excerpt, /Salesianos Atocha/);
+  const prompt = chatPrompt({ question, sources: relevant, count: { phrase: 'Casa Salesiana de Atocha', occurrences: 0, documents: 0 } });
+  assert.match(prompt.system, /no equipares/);
+  assert.match(prompt.system, /breve/);
+  assert.match(prompt.user, /Una cifra cero no demuestra ausencia/);
+});
+
+test('BC-101 source cards include only citations actually used in the answer', async () => {
+  const candidates = [
+    { ...source[0], ref: 'F1', excerpt: 'Don Bosco visitó el oratorio salesiano.' },
+    { ...source[0], ref: 'F2', documentId: 65, page: 2, excerpt: 'Otra celebración en el oratorio.' },
+  ];
+  await server(async base => {
+    const res = await post(base, 'administrator', { question: '¿Qué ocurrió en el oratorio salesiano?' });
+    assert.equal(res.status, 200);
+    const result = await res.json();
+    assert.equal(result.sources.length, 1);
+    assert.equal(result.sources[0].documentId, 42);
+  }, { retrieve: async () => candidates,
+    converse: async () => ({ text: 'Una visita está documentada [F1]; no he encontrado más detalles.', usage: { inputTokens: 42, outputTokens: 23 } }) });
+});
+
+test('BC-101 do not show unrelated source cards when the model cites none', async () => {
+  await server(async base => {
+    const res = await post(base, 'administrator');
+    assert.equal(res.status, 200);
+    assert.deepEqual((await res.json()).sources, []);
+  }, { converse: async () => ({ text: 'No dispongo de un recuento fiable de menciones.', usage: { inputTokens: 30, outputTokens: 20 } }) });
+});
+
+test('BC-102 snippets are centered around matched content, not the beginning of the PDF page', async () => {
+  const pool = { async execute(sql) {
+    assert.match(sql, /LEFT\(p.text_content, 6500\)/);
+    return [[{ document_id: 77, publication: 'Don Bosco', publication_year: 1930,
+      page_number: 1, excerpt: 'x'.repeat(1900) + ' Salesianos Atocha ' + 'y'.repeat(200) }]];
+  }};
+  const results = await retrieveChatSources(pool, '¿Qué pasó con Salesianos Atocha?');
+  assert.ok(results[0].excerpt.includes('Salesianos Atocha'));
+  assert.ok(results[0].excerpt.length <= 1250);
 });
