@@ -57,7 +57,7 @@ export function createHistoricalChatRouter(pool, authService, {
           });
         }
       }
-      if (/\\bcu[aá]ntas?\\s+veces\\b/iu.test(input.question)) {
+      if (/\bcu[aá]ntas?\s+veces\b/iu.test(input.question)) {
         return res.json({
           answer: 'Para obtener un recuento exacto, pregúntame cuántas veces aparece una frase concreta, por ejemplo: «¿Cuántas veces aparece la Casa salesiana de Atocha en todo tu archivo?». No puedo calcular un total fiable a partir de unos pocos fragmentos.',
           sources: [],
