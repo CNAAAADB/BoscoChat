@@ -76,7 +76,7 @@ export function createHistoricalChatRouter(pool, authService, {
       // Citation IDs and navigation targets are generated only from trusted SQL rows.
       // Do not display every retrieved result as if it were a source for the
       // answer. Only expose citations the model actually included.
-      const cited = new Set([...text.matchAll(/\\[F[1-3]\\]/g)].map(m => m[0].slice(1,-1)));
+      const cited = new Set([...text.matchAll(/\[F[1-3]\]/g)].map(m => m[0].slice(1,-1)));
       const safeSources = sources.filter(source => cited.has(source.ref))
         .map(({ ref, documentId, publication, year, page }) => ({ ref, documentId, publication, year, page }));
       res.set('Cache-Control', 'private, no-store');
