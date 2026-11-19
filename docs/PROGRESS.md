@@ -1,7 +1,10 @@
+## Nota de despliegue BC-102 (2026-11-19)
+- Se requiere una Lambda `boscochat-bedrock-inference` de propósito único sin acceso a MySQL/S3, permisos IAM restringidos a `amazon.nova-pro-v1:0` y `lambda:InvokeFunction` privado para el backend. En ausencia de esta infraestructura y pruebas, flags OFF.
+
 ## BC-101/102 — Piloto de chatbot histórico sólo administrador (2026-11-19)
 - Rama de implementación: `feat/bc101-admin-bedrock-chat-20261119`. React presenta una pestaña `Chat histórico` sólo a `administrator` y únicamente si `VITE_BOSCOCHAT_CHAT_ADMIN=true`; mensajes, reinicio y fuentes enlazadas al visor existente.
 - API `POST /api/admin/chat/message` montada detrás de `requireAuthorization` para administrador y flag backend `BOSCOCHAT_CHAT_ADMIN_ENABLED` (OFF por defecto), con 401 anónimos, 403 otros roles, limitador MySQL compartido y tamaño de mensajes acotado.
-- Recuperación de seis páginas indexadas como máximo mediante MySQL FULLTEXT parametrizado, sin acceso de escritura; `Amazon Bedrock Converse` genera respuestas españolas con `maxTokens=650` explícitos y referencias documentales creadas desde SQL, no inventadas por el modelo. Historial de preguntas limitado a cuatro turnos, sólo en memoria del navegador.
+- Recuperación de seis páginas indexadas como máximo mediante MySQL FULLTEXT parametrizado, sin acceso de escritura; `Amazon Lambda inference aislada sin VPC, invocada mediante el endpoint privado de Lambda ya existente. La Lambda documental no necesita salida a Internet ni un nuevo endpoint de Bedrock, evitando coste fijo de red.` genera respuestas españolas con `maxTokens=650` explícitos y referencias documentales creadas desde SQL, no inventadas por el modelo. Historial de preguntas limitado a cuatro turnos, sólo en memoria del navegador.
 - Pruebas de autorización, flags, límites, contexto y origen de citas incorporadas; pendiente actualizar package-lock con SDK Bedrock, ejecutar CI, revisión de seguridad independiente, IAM mínimo, políticas de privacidad y despliegue piloto por aprobación.
 - **No se ha activado ni ejecutado una inferencia de Bedrock de producción**; sin modelo habilitado, no se generan costes de conversación.
 
