@@ -126,7 +126,7 @@ export function rankChatSources(question, candidates) {
   });
   // A name or entity with multiple terms needs corroborating terms in a page;
   // 'Atocha' alone is not evidence about the Casa Salesiana de Atocha.
-  const minMatches = terms.length > 1 ? 2 : 1;
+  const minMatches = countPhraseIntent(question) && terms.length > 1 ? 2 : 1;
   const selected = scored.filter(s=>s.hits>=minMatches).sort((a,b)=>b.score-a.score||a.order-b.order);
   return selected.slice(0,3).map((s,i)=>({ ...s.source, ref:'F'+(i+1) }));
 }
@@ -137,7 +137,7 @@ export async function retrieveChatSources(pool, question) {
   if (!expression) return [];
   const [rows] = await pool.execute(
     `SELECT d.id AS document_id, d.publication, d.publication_year,
-            p.page_number, LEFT(p.text_content, 1250) AS excerpt,
+            p.page_number, LEFT(p.text_content, 6500) AS excerpt,
             MATCH(p.text_content) AGAINST (? IN NATURAL LANGUAGE MODE) AS score
        FROM archive_pages p JOIN archive_documents d ON d.id = p.document_id
       WHERE d.indexed_at IS NOT NULL
@@ -149,14 +149,22 @@ export async function retrieveChatSources(pool, question) {
     && Number(row.document_id) > 0 && Number.isSafeInteger(Number(row.page_number))
     && Number(row.page_number) > 0 && typeof row.excerpt === 'string'
     && row.excerpt.trim().length > 0
-  ).slice(0, MAX_EXCERPTS).map((row, index) => ({
+  ).slice(0, MAX_EXCERPTS).map((row, index) => {
+    const raw = row.excerpt.replace(/\\s+/g, ' ').trim();
+    const lowered = normalizeContext(raw);
+    const terms = topicTerms(question);
+    const preferred = [...terms].reverse().find(term => lowered.includes(term));
+    const position = preferred ? lowered.indexOf(preferred) : 0;
+    const start = Math.max(0, position - 220);
+    const excerpt = raw.slice(start, start + MAX_EXCERPT_CHARS);
+    return {
     ref: 'F' + (index + 1),
     documentId: Number(row.document_id),
     publication: String(row.publication ?? '').slice(0, 160),
     year: row.publication_year == null ? null : Number(row.publication_year),
     page: Number(row.page_number),
-    excerpt: row.excerpt.replace(/\s+/g, ' ').trim().slice(0, MAX_EXCERPT_CHARS),
-  }));
+    excerpt,
+  }; });
 }
 
 
