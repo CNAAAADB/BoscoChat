@@ -116,18 +116,25 @@ export function rankChatSources(question, candidates) {
   if (!Array.isArray(candidates)) throw new Error('INVALID_CHAT_SOURCES');
   const terms = topicTerms(question);
   if (terms.length === 0) return candidates.slice(0, 3).map((s,i)=>({ ...s, ref: 'F'+(i+1) }));
+  const entityPhrase = countPhraseIntent(question);
+  const isInstitution = entityPhrase && /\\b(casa|colegio|centro|instituto|escuela|residencia|obra|comunidad)\\b/.test(normalizeContext(entityPhrase));
+  const namedTerm = terms.filter(t => t !== 'salesian').at(-1);
   const scored = candidates.map((s, i) => {
     const haystack = normalizeContext(s.excerpt);
     const matches = terms.filter(t=>haystack.includes(t));
     const relevance = matches.length / terms.length;
-    const entityPhrase = countPhraseIntent(question);
     const phraseMatch = entityPhrase && haystack.includes(normalizeContext(entityPhrase));
-    return { source:s, order:i, hits:matches.length, score:relevance + (phraseMatch ? 2 : 0) };
+    // A theatre troupe named "Salesianos Atocha" is not evidence about the
+    // physical Casa Salesiana. Prefer pages naming an institution/building.
+    const institutionMatch = /\\b(casa|colegio|centro|instituto|escuela|residencia|obra|comunidad|oratorio)\\b/.test(haystack);
+    const namedTermMatch = !namedTerm || haystack.includes(namedTerm);
+    return { source:s, order:i, hits:matches.length, score:relevance + (phraseMatch ? 2 : 0), institutionMatch, namedTermMatch };
   });
   // A name or entity with multiple terms needs corroborating terms in a page;
   // 'Atocha' alone is not evidence about the Casa Salesiana de Atocha.
   const minMatches = countPhraseIntent(question) && terms.length > 1 ? 2 : 1;
-  const selected = scored.filter(s=>s.hits>=minMatches).sort((a,b)=>b.score-a.score||a.order-b.order);
+  const selected = scored.filter(s=>s.hits>=minMatches && (!isInstitution || (s.institutionMatch && s.namedTermMatch)))
+    .sort((a,b)=>b.score-a.score||a.order-b.order);
   return selected.slice(0,3).map((s,i)=>({ ...s.source, ref:'F'+(i+1) }));
 }
 
