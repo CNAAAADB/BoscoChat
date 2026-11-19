@@ -17,6 +17,7 @@ import { createArchiveDiagnosticRouter } from './routes/archive-diagnostics.js';
 import { createArchiveSearchRouter } from './routes/archive-search.js';
 import { createArchiveDocumentRouter } from './routes/archive-documents.js';
 import { createHistoricalManagementRouter } from './routes/historical-management.js';
+import { createHistoricalChatRouter } from './routes/historical-chat.js';
 
 export function createApp({
   pool,
@@ -93,6 +94,12 @@ export function createApp({
   app.use('/api/admin/users', createAdminUsersRouter(service, administration, { passwordResets }));
   app.use('/api/admin/archive', createArchiveDiagnosticRouter(service, { enabled: environment.ARCHIVE_S3_PROBE_ENABLED === 'true' }));
   if (pool) {
+    app.use('/api/admin/chat', createHistoricalChatRouter(pool, service, {
+      enabled: environment.BOSCOCHAT_CHAT_ADMIN_ENABLED === 'true',
+      region: environment.BOSCOCHAT_BEDROCK_REGION ?? 'us-east-1',
+      rateLimitStore: sharedAuthRateLimitStore ?? undefined,
+      hashKey: authRateLimitHashKey,
+    }));
     if (environment.ARCHIVE_PUBLIC_SEARCH_ENABLED === 'true') {
       app.use('/api/archive', createArchiveSearchRateLimiter({
         store: sharedAuthRateLimitStore ?? undefined,

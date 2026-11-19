@@ -1,3 +1,13 @@
+## Nota de despliegue BC-102 (2026-11-19)
+- El acceso a Bedrock exige un rol IAM exclusivo del worker, sin permisos de datos, y autorización mínima en el VPC endpoint privado de Lambda. No crear endpoint Bedrock de pago mientras esta solución sea válida.
+
+## BC-101/102 — Primer chatbot administrador con RAG sobre archivo existente (2026-11-19)
+- RF-CHAT-01/02/03/06: `frontend/src/HistoricalChat.jsx`, `frontend/src/App.jsx` con navegación administradora y flag frontend.
+- RF-USER-04 / RNF-SEC-03: `backend/src/routes/historical-chat.js` exige sesión real y rol `administrator` en backend, con flag OFF por defecto y límite de peticiones; tests `backend/test/historical-chat.test.js`.
+- RF-RAG-01/02/05: `backend/src/chat/historical-chat.js` usa retrieval MySQL FULLTEXT únicamente `indexed_at IS NOT NULL`, hasta seis extractos; invoca `LambdaClient/InvokeCommand desde el backend VPC hacia `boscochat-bedrock-inference` y BedrockRuntimeClient/ConverseCommand sólo en `backend/worker/historical-chat-bedrock.js`, desplegada sin VPC.` con maxTokens=650 y región/modelo configurables; devuelve ID/página/cita sin claves S3.
+- RF-RAG-03/04: referencias enumeradas [F1...F6] derivadas sólo de SQL y enlazadas por la interfaz al visor autenticado. Validación de exactitud semántica de afirmaciones contra fuentes queda pendiente de revisor, no se considera acabada BC-103.
+- TRACE-GAP: lockfile, CI, validación de IAM/Bedrock en AWS, residencia, política de retención, coste y seguridad prompt injection independiente. Feature flags OFF hasta revisión.
+
 ## Cierre funcional del archivo y alcance de chatbot administrador (2026-11-19)
 - Evidencia directa de aceptación del responsable: buscador, filtros, resultados paginados y visor funcionan en la web; Gestión histórica también. Se actualizan BC-008/010/011/012/017 a estado DONE **a efectos de entrega funcional**. No existe en esta operación una nueva ejecución de pruebas adversarias, auditoría independiente o benchmarks.
 - Seguimiento independiente: BC-018 incorpora TRACE-GAP para exactitud de funciones específicas SRS, búsqueda pública vs RF-USER-03, marcas invisibles / protección de descarga, seguridad, GDPR y rendimiento.
