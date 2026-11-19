@@ -1,0 +1,44 @@
+name: One-time Bedrock SDK lockfile update
+
+on:
+  pull_request:
+    paths: [.github/workflows/one-time-bedrock-lockfile.yml]
+  push:
+    branches: [feat/bc101-admin-bedrock-chat-20261119]
+    paths: [.github/workflows/one-time-bedrock-lockfile.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  resolve-and-verify:
+    if: github.event_name == 'pull_request' && github.head_ref == 'feat/bc101-admin-bedrock-chat-20261119' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/bc101-admin-bedrock-chat-20261119
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve official Bedrock runtime SDK
+        run: |
+          set -euo pipefail
+          cd backend
+          npm install --package-lock-only --ignore-scripts --no-audit
+      - name: Verify backend and frontend build, tests and dependency audits
+        run: |
+          set -euo pipefail
+          (cd backend && npm ci && npm run build && npm test && npm audit --audit-level=high)
+          (cd frontend && npm ci && npm run lint && npm run build && npm audit --audit-level=high)
+      - name: Commit verified lockfile and remove one-time workflow
+        run: |
+          set -euo pipefail
+          git config user.name 'boscochat-dependency-maintenance[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/one-time-bedrock-lockfile.yml
+          git add backend/package.json backend/package-lock.json
+          git commit -m 'build(BC-101): lock audited Amazon Bedrock runtime SDK'
+          git push origin HEAD:feat/bc101-admin-bedrock-chat-20261119
