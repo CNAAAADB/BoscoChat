@@ -47,7 +47,7 @@ export default function HistoricalChat({ onOpenSource }) {
       <div aria-live="polite" aria-label="Conversación" style={{ display: 'grid', gap: 14, marginBottom: 22 }}>
         {messages.length === 0 ? <p style={{ color: '#afb5cc' }}>Por ejemplo: «¿Qué actividades salesianas se mencionan en Barcelona?»</p> : null}
         {messages.map((message, index) => (
-          <article key={index} style={{ background: message.role === 'user' ? '#242747' : '#111629', borderRadius: 14, padding: 18, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+          <article key={index} style={{ background: message.role === 'user' ? '#242747' : '#111629', borderRadius: 14, padding: 18, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', textAlign: 'left', justifySelf: message.role === 'user' ? 'end' : 'start', width: 'min(100%, 760px)', boxSizing: 'border-box' }}>
             <strong style={{ color: '#E6D7AA' }}>{message.role === 'user' ? 'Tu pregunta' : 'BoscoChat'}</strong>
             <p style={{ lineHeight: 1.7, marginBottom: 4 }}>{message.text}</p>
             {message.sources?.length ? (
