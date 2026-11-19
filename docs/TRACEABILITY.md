@@ -1,3 +1,13 @@
+## Cierre funcional del archivo y alcance de chatbot administrador (2026-11-19)
+- Evidencia directa de aceptación del responsable: buscador, filtros, resultados paginados y visor funcionan en la web; Gestión histórica también. Se actualizan BC-008/010/011/012/017 a estado DONE **a efectos de entrega funcional**. No existe en esta operación una nueva ejecución de pruebas adversarias, auditoría independiente o benchmarks.
+- Seguimiento independiente: BC-018 incorpora TRACE-GAP para exactitud de funciones específicas SRS, búsqueda pública vs RF-USER-03, marcas invisibles / protección de descarga, seguridad, GDPR y rendimiento.
+- BC-101 → RF-CHAT-01/02/03/06 y RNF-USE-02: UI y endpoints exclusivos de administrador con controles en backend e interfaz; sin acceso por otros roles.
+- BC-102 → RF-RAG-01/02/05 y RNF-PERF-02: recuperación sólo lectura de `archive_pages`/documentos indexados y Bedrock Converse con datos acotados.
+- BC-103 → RF-RAG-03/04 y RF-CHAT-07: citas verificables y enlace a la página autorizada en el visor.
+- BC-104 → RF-CHAT-04/05, dependiente de BC-004 y BC-005: cuotas pagadas y activación futura, expresamente fuera del piloto.
+- Confirmación de arquitectura preliminar: AWS Bedrock us-east-1 publica el candidato `amazon.nova-pro-v1:0` (ON_DEMAND) a 2026-11-19; todavía no hay chatbot implementado ni desplegado.
+- TRACE-GAP: pruebas de aislamiento entre roles, amenaza de prompt injection en OCR, localización de datos, topes de gasto, retención de chats, IAM mínimo y verificación independiente antes de activar.
+
 ## BoscoChat — logo persistente junto al nombre (2026-11-18)
 - Requisito de diseño: el retrato debe aparecer en la cabecera junto a «BoscoChat» siempre, no sólo en la portada.
 - Código: `frontend/src/App.jsx` renderiza la marca fuera de condiciones de `view` y `user`; imagen decorativa con texto del H1 como nombre accesible; se retira duplicado de Inicio.
