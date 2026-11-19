@@ -1,3 +1,11 @@
+## BC-101 — Profundidad Investigación predeterminada (2026-11-19)
+- Requisito del responsable: respuestas históricas detalladas, con fechas y fuentes de revistas, no siempre breves.
+- UI `frontend/src/HistoricalChat.jsx`: selector de profundidad; `research` por defecto.
+- API `backend/src/chat/historical-chat.js` valida modo, construye prompt de investigación, eleva cobertura a seis citas desde doce candidatos; `backend/src/routes/historical-chat.js` expone sólo citas [F1]–[F6] realmente citadas y devuelve profundidad aplicada.
+- Worker `backend/worker/historical-chat-bedrock.js`: `maxTokens=1300` explícitos para investigación, 650 en los otros modos, límite de respuesta 6500 caracteres.
+- Tests `backend/test/historical-chat.test.js`: validación y límites, prompts distintos, selección de fuentes y cita F4.
+- TRACE-GAP: revisión independiente de trazabilidad de cada afirmación, calidad y coste/latencia en conversación real.
+
 ## BC-102 — Alineación de respuesta con intención del usuario (2026-11-19)
 - Evidencia: captura del administrador con respuesta extensa sobre Casa Salesiana de Atocha e indiscriminación de seis citas, algunas sin relación demostrada con la entidad.
 - `backend/src/chat/historical-chat.js`: `rankChatSources` exige coincidencia multipalabra para entidades y limita a tres fuentes; `retrieveChatSources` recorta contexto alrededor del hallazgo OCR; `chatPrompt` instruye respuesta concisa, sin confundir topónimo, institución y recuentos exactos.

@@ -97,7 +97,7 @@ test('BC-102 documents are selected only by read-only parameterized FULLTEXT and
   assert.match(captured[0].sql, /MATCH\(p.text_content\) AGAINST \(\?/);
   assert.match(captured[0].sql, /LIMIT \?/);
   assert.doesNotMatch(captured[0].sql, /INSERT|UPDATE|DELETE/i);
-  assert.deepEqual(captured[0].params, ['Don Bosco España', 'Don Bosco España', 6]);
+  assert.deepEqual(captured[0].params, ['Don Bosco España', 'Don Bosco España', 12]);
 });
 
 test('BC-102 historical OCR is untrusted and never a direct instruction', () => {
@@ -316,4 +316,60 @@ test('BC-102 snippets are centered around matched content, not the beginning of 
   const results = await retrieveChatSources(pool, '¿Qué pasó con Salesianos Atocha?');
   assert.ok(results[0].excerpt.includes('Salesianos Atocha'));
   assert.ok(results[0].excerpt.length <= 1250);
+});
+
+test('BC-101 research is the default depth and brief/auto are explicit options', () => {
+  assert.equal(validateChatInput({ question: '¿Qué se sabe de Atocha?' }).depth, 'research');
+  assert.equal(validateChatInput({ question: '¿Qué se sabe de Atocha?', depth: 'brief' }).depth, 'brief');
+  assert.equal(validateChatInput({ question: '¿Qué se sabe de Atocha?', depth: 'auto' }).depth, 'auto');
+  assert.throws(() => validateChatInput({ question: '¿Qué se sabe de Atocha?', depth: 'unlimited' }), /Modo de respuesta/);
+});
+
+test('BC-101 research prompt requests detailed evidence and sends mode to worker', () => {
+  const p = chatPrompt({ question: 'Cuéntame detalladamente la historia de Atocha y cita fechas', depth: 'research', history: [], sources: [source[0]] });
+  assert.equal(p.depth, 'research');
+  assert.match(p.system, /MODO INVESTIGACIÓN/);
+  assert.match(p.system, /fechas/);
+  assert.match(p.system, /no impongas un límite arbitrario/);
+  assert.match(p.user, /Don Bosco en España/);
+  const short = chatPrompt({ question: '¿Qué pasó?', depth: 'brief', sources: [] });
+  assert.match(short.system, /MODO BREVE/);
+  assert.doesNotMatch(short.system, /MODO INVESTIGACIÓN/);
+});
+
+test('BC-102 research may return six relevant source citations, brief remains at three', () => {
+  const candidates = Array.from({ length: 8 }, (_, i) => ({
+    ...source[0], documentId: i + 1, page: i + 1, ref: 'F' + (i + 1),
+    excerpt: 'La Casa Salesiana de Atocha celebró actividades históricas.',
+  }));
+  const question = '¿Cuántas veces se menciona la Casa Salesiana de Atocha en todo el archivo?';
+  assert.equal(rankChatSources(question, candidates, { maxSources: 6 }).length, 6);
+  assert.equal(rankChatSources(question, candidates, { maxSources: 3 }).length, 3);
+  assert.throws(() => rankChatSources(question, candidates, { maxSources: 100 }), /INVALID_SOURCE_LIMIT/);
+});
+
+test('BC-101 API passes research depth and returns source F4 when cited', async () => {
+  const items = Array.from({ length: 5 }, (_, i) => ({
+    ...source[0], documentId: i + 11, page: i + 1, ref: 'F' + (i + 1),
+    excerpt: 'La Casa Salesiana de Atocha tuvo actividades históricas documentadas.',
+  }));
+  await server(async base => {
+    const response = await post(base, 'administrator', {
+      question: 'Cuéntame la historia documentada de la Casa Salesiana de Atocha',
+      depth: 'research',
+    });
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.depth, 'research');
+    assert.equal(data.sources.length, 1);
+    assert.equal(data.sources[0].ref, 'F4');
+    assert.equal(data.sources[0].documentId, 14);
+  }, {
+    retrieve: async () => items,
+    converse: async prompt => {
+      assert.equal(prompt.depth, 'research');
+      assert.equal((prompt.user.match(/\[F\d\]/g) ?? []).length, 5);
+      return { text: 'Según el documento [F4], hay una actividad documentada.', usage: { inputTokens: 80, outputTokens: 30 } };
+    },
+  });
 });
