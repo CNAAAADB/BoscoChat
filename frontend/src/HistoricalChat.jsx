@@ -7,6 +7,7 @@ export default function HistoricalChat({ onOpenSource }) {
   const [messages, setMessages] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [depth, setDepth] = useState('research');
 
   async function submit(event) {
     event.preventDefault();
@@ -22,7 +23,7 @@ export default function HistoricalChat({ onOpenSource }) {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: input, history }),
+        body: JSON.stringify({ question: input, history, depth }),
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(payload?.error?.message ?? 'No se ha podido contactar con el asistente.');
@@ -44,6 +45,15 @@ export default function HistoricalChat({ onOpenSource }) {
       <p style={{ color: '#c5c7db', lineHeight: 1.6 }}>
         Conversa con BoscoChat sobre la historia salesiana, haz preguntas de seguimiento y explora las fuentes del archivo. Si no encuentra evidencias, te ayudará a reformular la búsqueda.
       </p>
+      <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
+        <label htmlFor="boscochat-depth" style={{ color: '#E6D7AA', fontWeight: 700 }}>Profundidad de las respuestas</label>
+        <select id="boscochat-depth" value={depth} disabled={busy} onChange={(event) => setDepth(event.target.value)}
+          style={{ borderRadius: 10, border: '1px solid #75799a', background: '#101528', color: 'white', padding: '10px 12px' }}>
+          <option value="research">Investigación — análisis detallado y referencias</option>
+          <option value="auto">Automática — según la pregunta</option>
+          <option value="brief">Breve — respuesta directa</option>
+        </select>
+      </div>
       <div aria-live="polite" aria-label="Conversación" style={{ display: 'grid', gap: 14, marginBottom: 22 }}>
         {messages.length === 0 ? <p style={{ color: '#afb5cc' }}>Por ejemplo: «¿Qué actividades salesianas se mencionan en Barcelona?»</p> : null}
         {messages.map((message, index) => (
