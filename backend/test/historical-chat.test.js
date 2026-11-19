@@ -115,3 +115,30 @@ test('BC-101 rate limiting blocks expensive inference before data access', async
   }, { store: { async consume() { return { resetAt: Date.now() + 60000 }; } }, retrieve: async () => { retrievals++; return source; } });
   assert.equal(retrievals, 0);
 });
+
+test('BC-101 daily cost guard denies after shared user quota even when minute limiter permits', async () => {
+  let requests = 0;
+  let retrievals = 0;
+  const store = { async consume() {
+    requests++;
+    return requests % 2 === 0 ? { resetAt: Date.now() + 86_400_000 } : null;
+  } };
+  await server(async base => {
+    const response = await post(base, 'administrator');
+    assert.equal(response.status, 429);
+    assert.equal((await response.json()).error.code, 'CHAT_DAILY_LIMIT');
+  }, { store, retrieve: async () => { retrievals++; return source; } });
+  assert.equal(requests, 2);
+  assert.equal(retrievals, 0);
+});
+
+test('BC-101 model failure does not leak source excerpts or privileged details', async () => {
+  await server(async base => {
+    const response = await post(base, 'administrator');
+    assert.equal(response.status, 502);
+    const body = JSON.stringify(await response.json());
+    assert.equal(body.includes(source[0].excerpt), false);
+    assert.equal(body.includes('database-secret'), false);
+    assert.equal(JSON.parse(body).error.code, 'CHAT_UNAVAILABLE');
+  }, { converse: async () => { throw new Error('database-secret ' + source[0].excerpt); } });
+});
