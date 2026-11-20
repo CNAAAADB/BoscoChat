@@ -5,6 +5,7 @@ import { createArchiveSearchRateLimiter } from '../middleware/archive-search-rat
 import { MemoryAuthRateLimitStore } from '../middleware/auth-rate-limit.js';
 import { validateChatInput, retrieveChatSources, rankChatSources, countPhraseIntent, countIndexedPhrase, chatPrompt, callBedrockChat } from '../chat/historical-chat.js';
 import { conductHistoricalResearch, revisitCitedSources } from '../chat/research-agent.js';
+import { chooseDebateFollowup, collectDebateFollowup, filterDebateFollowup } from '../chat/debate-followup.js';
 
 export function createHistoricalChatRouter(pool, authService, {
   enabled = false,
@@ -14,6 +15,7 @@ export function createHistoricalChatRouter(pool, authService, {
   retrieve = retrieveChatSources,
   converse = callBedrockChat,
   councilEnabled = false,
+  councilExpansionEnabled = false,
 } = {}) {
   const router = express.Router();
   const adminOnly = requireAuthorization(authService, new Set(['administrator']));
@@ -87,10 +89,54 @@ export function createHistoricalChatRouter(pool, authService, {
           evidence: sources.map(s => ({ ref: s.ref, text: s.excerpt })),
         };
       }
-      const { text, usage, council } = await converse(prompt, {
-        region,
-        abortSignal: AbortSignal.timeout(22000),
-      });
+      // One strict 22s wall-clock budget for BOTH optional rounds, including
+      // DB follow-up. A slow first round never earns a new unbounded timeout.
+      const deadline = Date.now() + 22_000;
+      async function invokeWithinBudget(inputPrompt) {
+        const remaining = deadline - Date.now();
+        if (remaining < 1000) {
+          const error = new Error('COUNCIL_DEADLINE_EXCEEDED');
+          error.name = 'TimeoutError';
+          throw error;
+        }
+        return converse(inputPrompt, { region, abortSignal: AbortSignal.timeout(remaining) });
+      }
+      const expand = councilEnabled && councilExpansionEnabled
+        && input.depth === 'research' && sources.length >= 2;
+      if (expand) prompt.council.phase = 'probe';
+      let inference = await invokeWithinBudget(prompt);
+      if (expand && inference.probe) {
+        const firstUsage = inference.usage;
+        const query = chooseDebateFollowup(input.question, input.history, research?.queries ?? []);
+        const followup = await collectDebateFollowup(pool, query, sources, { retrieve });
+        const selected = filterDebateFollowup(followup.sources, research?.focus ?? {});
+        const combined = [...sources, ...selected].slice(0, 6);
+        sources = combined.map((source, i) => ({ ...source, ref: 'F' + (i + 1) }));
+        // The existing archive search and SQL authorization remain the source
+        // of truth. No model-generated text is used to formulate a DB query.
+        const second = chatPrompt({ ...input, sources, count, research });
+        second.council = {
+          phase: 'resolve', previous: inference.probe,
+          refs: sources.map(source => source.ref),
+          evidence: sources.map(source => ({ ref: source.ref, text: source.excerpt })),
+        };
+        inference = await invokeWithinBudget(second);
+        if (typeof inference.text !== 'string' || !inference.council) {
+          throw new Error('INVALID_COUNCIL_RESOLUTION');
+        }
+        inference = {
+          ...inference,
+          usage: {
+            inputTokens: firstUsage.inputTokens + inference.usage.inputTokens,
+            outputTokens: firstUsage.outputTokens + inference.usage.outputTokens,
+          },
+          council: {
+            ...inference.council, rounds: 2,
+            followupSearches: followup.attempted ? 1 : 0,
+          },
+        };
+      }
+      const { text, usage, council } = inference;
       // Citation IDs and navigation targets are generated only from trusted SQL rows.
       // Do not display every retrieved result as if it were a source for the
       // answer. Only expose citations the model actually included.
@@ -106,7 +152,9 @@ export function createHistoricalChatRouter(pool, authService, {
       console.info('Historical chat inference', { userId: req.user.id, sourceCount: safeSources.length, searchCount: research?.queries?.length ?? 1, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens });
       return res.json({ answer: safeText, sources: safeSources, usage, depth: input.depth,
         ...(council ? { council: { status: council.status, agreedCount: council.agreedCount,
-          disputedCount: council.disputedCount } } : {}),
+          disputedCount: council.disputedCount,
+          rounds: council.rounds ?? 1,
+          followupSearches: council.followupSearches ?? 0 } } : {}),
       });
     } catch (error) {
       if (error?.status === 400 && error?.code === 'INVALID_CHAT_INPUT') {
