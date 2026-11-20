@@ -518,12 +518,12 @@ Ground chat answers in MySQL archive data, not unsupported model recollection.
 
 ### BC-106A — Recepción ZIP TIFF y OCR con borrador protegido
 - Priority: P1
-- Status: IN_REVIEW
+- Status: BLOCKED
 - Owner role: Developer
 - Depends on: BC-017, BC-106 (#82), BC-107
 - SRS: RF-DOCMGMT-01/02/03/04, RF-SEARCH-05/06, RNF-SEC-02/03, RNF-DATA-01
 - Issue: #82
-- PR: pendiente de verificación y CI
+- PR: #90 (borrador, CI bloqueada antes de ejecutar pasos)
 
 **Alcance de este incremento:** subida directa a S3 de ZIP TIFF con URL firmada y prefijo privado `imports/tiff/<UUID>/<filename>.zip`; historiador/administrador exclusivamente; marcadores idempotentes en `imports/jobs/`, worker asíncrono con ZIP y TIFF validados, OCR por TIFF con Amazon Textract, salida `imports/reviews/<UUID>.json` con OCR, confianza, bounding boxes y nombres de origen, y visualización de estado/previsualización de texto. **No se generan PDF ni se indexa automáticamente nada**.
 
