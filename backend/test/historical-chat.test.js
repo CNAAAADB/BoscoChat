@@ -393,3 +393,53 @@ test('BC-101 bounded research history rejects oversized assistant text', () => {
     history: [{ role: 'user', text: 'Cuéntame la historia' }, { role: 'assistant', text: 'x'.repeat(1801) }],
   }), /historial/);
 });
+
+test('BC-102 source trail is bounded and rejects arbitrary document identifiers', () => {
+  const input=validateChatInput({question:'¿Y cuántos presidentes?',sourceTrail:[{documentId:33,page:23}],history:[]});
+  assert.deepEqual(input.sourceTrail,[{documentId:33,page:23}]);
+  for(const bad of [
+    [{documentId:'33',page:23}],
+    [{documentId:33,page:-1}],
+    Array.from({length:7},()=>({documentId:33,page:23})),
+  ]) assert.throws(()=>validateChatInput({question:'¿Y cuántos presidentes?',sourceTrail:bad}),/referencias/);
+});
+
+test('BC-102 research API keeps reverified previous citations and passes verified research plan to model', async () => {
+  let modelInvocations=0;
+  let researchSearches=0;
+  const pool={async execute(sql,params) {
+    assert.match(sql,/indexed_at IS NOT NULL/);
+    assert.deepEqual(params,[33,23]);
+    return [[{document_id:33,page_number:23,publication:'Don Bosco en España',
+      publication_year:1978,excerpt:'La asociación de antiguos alumnos de Cádiz eligió presidente a Cristóbal.'}]];
+  }};
+  await server(async base=>{
+    const response=await post(base,'administrator',{
+      question:'¿Y cuántos menciona la revista?',
+      history:[
+        {role:'user',text:'Investiga los antiguos alumnos de Cádiz'},
+        {role:'assistant',text:'Encontré información del presidente [F1].'},
+        {role:'user',text:'¿Cuántos presidentes ha tenido?'},
+        {role:'assistant',text:'Encontré un presidente documentado [F1].'},
+      ],
+      sourceTrail:[{documentId:33,page:23}],
+    });
+    assert.equal(response.status,200);
+    const out=await response.json();
+    assert.equal(out.sources.length,1);
+    assert.equal(out.sources[0].documentId,33);
+  },{
+    pool,
+    retrieve:async(_pool,query)=>{researchSearches++;assert.match(query,/Cádiz/);return [];},
+    converse:async prompt=>{
+      modelInvocations++;
+      assert.match(prompt.user,/Cristóbal/);
+      assert.match(prompt.user,/Cádiz/);
+      assert.match(prompt.user,/PLAN DE INVESTIGACIÓN/);
+      return {text:'Se documenta a Cristóbal, pero no un total histórico [F1].',
+        usage:{inputTokens:110,outputTokens:25}};
+    },
+  });
+  assert.equal(modelInvocations,1);
+  assert.ok(researchSearches>=2);
+});
