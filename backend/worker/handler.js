@@ -11,6 +11,7 @@ import { parseArchiveKey } from '../src/documents/archive-keys.js';
 import { safeArchivePdfKey } from '../src/documents/archive-filenames.js';
 import { splitExtractedPages } from '../src/documents/extracted-pages.js';
 import { objectsFromQueueEvent } from './ingestion-events.js';
+import { processFragmentation } from './fragmentation.js';
 
 const execFile = promisify(callbackExecFile);
 const BUCKET = 'boscochat-archivo-pdfs';
@@ -131,6 +132,15 @@ export async function ingestOne({ key, catalog = null, s3, S3GetCommand, S3HeadC
 // SQS event source mapping uses batch size 1 and ReportBatchItemFailures.
 // Repeated S3 notifications reindex the same object transactionally: no duplicate rows.
 export async function handler(event) {
+  if (event?.action === 'fragment-archive-pdf') {
+    const { S3Client, GetObjectCommand, HeadObjectCommand, PutObjectCommand } = await import('@aws-sdk/client-s3');
+    const s3 = new S3Client({ region: 'us-east-1', maxAttempts: 3 });
+    const pool = mysql.createPool(databaseConfig({ ...process.env, DB_CONNECTION_LIMIT: '1' }));
+    try {
+      return await processFragmentation(event.jobId, { pool, s3,
+        GetObjectCommand, HeadObjectCommand, PutObjectCommand });
+    } finally { await pool.end(); s3.destroy(); }
+  }
   if (event?.action === 'index-archive-pdf') {
     if (typeof event.key !== 'string' || safeArchivePdfKey(event.key.slice('originals/'.length)) !== event.key) throw new Error('INVALID_MANUAL_INDEX_KEY');
     const { S3Client, GetObjectCommand, HeadObjectCommand } = await import('@aws-sdk/client-s3');
