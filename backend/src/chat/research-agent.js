@@ -145,10 +145,7 @@ export async function revisitCitedSources(pool, trail = [], { deadline = Date.no
       ), deadline, 1_500);
     } catch (error) {
       console.warn('Prior citation lookup unavailable', { code: error?.code, name: error?.name });
-      if (remainingChatMs(deadline) < 600) {
-      if (!found.size) throw chatTimeout();
-      break;
-    }
+      if (remainingChatMs(deadline) < 600) break;
       continue;
     }
     const row = rows[0];
@@ -177,7 +174,10 @@ export async function conductHistoricalResearch(pool, question, history = [], {
   // only if the initial evidence is too sparse.
   for (let i = 0; i < queries.length && i < maxQueries; i++) {
     if (i >= 2 && [...found.values()].filter(s => evidenceScore(s,focus).valid).length >= 4) break;
-    if (remainingChatMs(deadline) < 600) break;
+    if (remainingChatMs(deadline) < 600) {
+      if (!found.size) throw chatTimeout();
+      break;
+    }
     const query = queries[i];
     try {
       const results = await withinChatBudget(() => retrieve(pool,query), deadline, 1_900);
