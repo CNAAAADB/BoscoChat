@@ -1,3 +1,10 @@
+## BC-102 — Investigación documental multi-paso (2026-11-20)
+- El responsable detecta que las preguntas sobre presidentes de antiguos alumnos de Cádiz pierden contexto, buscan autoridades nacionales y repiten excusas en lugar de acumular fuentes.
+- Se incorpora búsqueda de hasta cuatro rutas documentales independientes: presidencia, junta directiva, elecciones y nombramientos, con el foco geográfico e institucional heredado de la conversación; dos consultas iniciales y ampliación si las pruebas son insuficientes.
+- Las fuentes se deduplican por documento/página y se filtran por coincidencia de institución, localidad y cargo. Las citas previas se recuperan nuevamente por ID y página mediante MySQL parametrizado, comprobando que siguen indexadas; no se confía en los extractos del navegador.
+- El prompt distingue nombres documentados, mínimos comprobables y total histórico desconocido; evita atribuir presidentes nacionales a una asociación local y reutiliza evidencias pertinentes previas.
+- El planificador es deliberadamente determinista y de sólo lectura, sin SQL generado por IA. Pendiente evaluación con corpus real, búsqueda semántica, planificación autónoma segura, coste/latencia y revisión independiente; BC-102 permanece IN_REVIEW.
+
 ## BC-101 — Persistencia de conversación y respuestas de Investigación (2026-11-20)
 - El responsable confirma que las citas del chatbot ya abren el visor, pero la conversación se pierde y las respuestas de Investigación siguen resultando breves.
 - Diagnóstico: `HistoricalChat` sólo utilizaba estado React; pese a permanecer montado durante una navegación ordinaria, la recarga o reinicio de la aplicación borraba el historial. Además enviaba únicamente tres intercambios y truncaba las respuestas anteriores a 1.200 caracteres.
