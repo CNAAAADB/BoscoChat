@@ -1,25 +1,11 @@
 import { createPublicKey, verify } from 'node:crypto';
 
-let cachedKey;
-let validUntil = 0;
-let pending;
+// Public verification key distributed with the Lambda package (private subnets).
+const trustedKey = createPublicKey(`-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEA58RMKjVEaGBziRC54vovlhYEw824K9nTflSa9uCotK4=
+-----END PUBLIC KEY-----`);
 
-async function readerKey() {
-  if (cachedKey && Date.now() < validUntil) return cachedKey;
-  pending ??= fetch('https://api.boscogest.com/magazines/archive/reader-key', {
-    redirect: 'error', signal: AbortSignal.timeout(5000),
-  }).then(async (response) => {
-    if (!response.ok) throw new Error('READER_KEY_UNAVAILABLE');
-    const key = createPublicKey((await response.json()).public_key);
-    if (key.asymmetricKeyType !== 'ed25519') throw new Error('INVALID_READER_KEY');
-    cachedKey = key;
-    validUntil = Date.now() + 60000;
-    return key;
-  }).finally(() => { pending = undefined; });
-  return pending;
-}
-
-export function authorizeReaderPage(sessionAuthorization, getKey = readerKey) {
+export function authorizeReaderPage(sessionAuthorization, getKey = () => trustedKey) {
   return async (req, res, next) => {
     const proof = req.get('X-BoscoGest-Page');
     if (!proof) return sessionAuthorization(req, res, next);
