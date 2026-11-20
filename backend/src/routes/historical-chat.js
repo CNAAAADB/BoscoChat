@@ -13,6 +13,7 @@ export function createHistoricalChatRouter(pool, authService, {
   region = 'us-east-1',
   retrieve = retrieveChatSources,
   converse = callBedrockChat,
+  councilEnabled = false,
 } = {}) {
   const router = express.Router();
   const adminOnly = requireAuthorization(authService, new Set(['administrator']));
@@ -81,7 +82,10 @@ export function createHistoricalChatRouter(pool, authService, {
         sources = rankChatSources(input.question, await retrieve(pool, input.question), { maxSources: 3 });
       }
       const prompt = chatPrompt({ ...input, sources, count, research });
-      const { text, usage } = await converse(prompt, {
+      if (councilEnabled && input.depth === 'research' && sources.length >= 2) {
+        prompt.council = { refs: sources.map(s => s.ref) };
+      }
+      const { text, usage, council } = await converse(prompt, {
         region,
         abortSignal: AbortSignal.timeout(22000),
       });
@@ -93,7 +97,10 @@ export function createHistoricalChatRouter(pool, authService, {
         .map(({ ref, documentId, publication, year, page }) => ({ ref, documentId, publication, year, page }));
       res.set('Cache-Control', 'private, no-store');
       console.info('Historical chat inference', { userId: req.user.id, sourceCount: safeSources.length, searchCount: research?.queries?.length ?? 1, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens });
-      return res.json({ answer: text, sources: safeSources, usage, depth: input.depth });
+      return res.json({ answer: text, sources: safeSources, usage, depth: input.depth,
+        ...(council ? { council: { status: council.status, agreedCount: council.agreedCount,
+          disputedCount: council.disputedCount } } : {}),
+      });
     } catch (error) {
       if (error?.status === 400 && error?.code === 'INVALID_CHAT_INPUT') {
         return res.status(400).json({ error: { code: error.code, message: error.message } });

@@ -443,3 +443,22 @@ test('BC-102 research API keeps reverified previous citations and passes verifie
   assert.equal(modelInvocations,1);
   assert.ok(researchSearches>=2);
 });
+
+test('BC-107 council flag is off by default and enabled only for research with >=2 verified sources', async () => {
+  const candidates = [
+    { ...source[0], ref: 'F1' },
+    { ...source[0], ref: 'F2', documentId: 55, page: 2 },
+  ];
+  for (const depth of ['brief', 'research']) {
+    let prompt;
+    await server(async base => {
+      const response = await post(base, 'administrator', { question: '¿Qué sucedió en el oratorio?', depth });
+      assert.equal(response.status, 200);
+    }, { retrieve: async () => candidates, converse: async p => {
+      prompt = p;
+      assert.equal(p.council, undefined);
+      return { text: 'El oratorio está documentado [F1].', usage: { inputTokens: 4, outputTokens: 3 } };
+    } });
+    assert.equal(prompt.council, undefined);
+  }
+});
