@@ -61,8 +61,9 @@ test('BC-108 prompt differentiates local association founding from regional maga
     sources: [{ ref: 'F1', publication: 'Don Bosco en España', year: 1987,
       page: 225, excerpt: 'La revista comenzó a publicarse en 1922.' }],
   });
-  assert.match(prompt.system, /NO prueban la fundación de una asociación/);
-  assert.match(prompt.system, /No infieras década o fecha de fundación/);
-  assert.match(prompt.system, /historia general de la presencia salesiana/);
+  assert.match(prompt.system, /NO prueban la fundación de la asociación/);
+  assert.match(prompt.system, /No infieras año o década de fundación/);
+  assert.match(prompt.system, /historia de la obra salesiana/);
   assert.ok(prompt.user.includes('1987'));
+  assert.ok(prompt.system.length <= 3500, 'Bedrock inference rejects oversized system prompts');
 });
