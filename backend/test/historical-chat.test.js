@@ -98,7 +98,7 @@ test('BC-102 documents are selected only by read-only parameterized FULLTEXT and
   assert.match(captured[0].sql, /LIMIT \?/);
   assert.doesNotMatch(captured[0].sql, /INSERT|UPDATE|DELETE/i);
   assert.deepEqual(captured[0].params, ['+Bosco +España', '+Bosco +España', 36]);
-  assert.match(captured[0].sql, /FORCE INDEX/);
+  assert.match(captured[0].sql, /IN BOOLEAN MODE/);
   assert.doesNotMatch(captured[0].sql, /ORDER BY/);
 });
 
@@ -158,7 +158,7 @@ test('BC-102 long natural questions become safe bounded search expressions', asy
     const fast = boundedChatBooleanSearch(question);
     assert.deepEqual(params.slice(0, 2), [fast, fast]);
     assert.match(sql, /IN BOOLEAN MODE/);
-    assert.match(sql, /FORCE INDEX \(ft_archive_pages_text\)/);
+    assert.match(sql, /MATCH\(p.text_content\) AGAINST/);
     assert.doesNotMatch(sql, /ORDER BY/);
     assert.equal(params[2], 36);
     return [[]];
