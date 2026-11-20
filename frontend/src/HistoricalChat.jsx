@@ -1,19 +1,25 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { loadChatSession, saveChatSession, clearChatSession } from './chat-session.js';
 
 const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 
-export default function HistoricalChat({ onOpenSource }) {
+export default function HistoricalChat({ onOpenSource, userId }) {
+  const [initial] = useState(() => loadChatSession(window.sessionStorage, userId));
   const [question, setQuestion] = useState('');
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState(() => initial?.messages ?? []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [depth, setDepth] = useState('research');
+  const [depth, setDepth] = useState(() => initial?.depth ?? 'research');
+
+  useEffect(() => {
+    saveChatSession(window.sessionStorage, userId, messages, depth);
+  }, [userId, messages, depth]);
 
   async function submit(event) {
     event.preventDefault();
     const input = question.trim();
     if (busy || input.length < 3 || input.length > 500) return;
-    const history = messages.slice(-6).map((m) => ({ role: m.role, text: m.role === 'assistant' ? m.text.slice(0, 1200) : m.text }));
+    const history = messages.slice(-8).map((m) => ({ role: m.role, text: m.role === 'assistant' ? m.text.slice(0, 1800) : m.text }));
     setMessages((prior) => [...prior, { role: 'user', text: input }]);
     setQuestion('');
     setBusy(true);
@@ -28,7 +34,7 @@ export default function HistoricalChat({ onOpenSource }) {
       const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(payload?.error?.message ?? 'No se ha podido contactar con el asistente.');
       if (typeof payload.answer !== 'string' || !Array.isArray(payload.sources)) throw new Error('Respuesta inesperada del asistente.');
-      setMessages((prior) => [...prior, { role: 'assistant', text: payload.answer, sources: payload.sources }]);
+      setMessages((prior) => [...prior, { role: 'assistant', text: payload.answer, sources: payload.sources }].slice(-40));
     } catch (failure) {
       setMessages((prior) => prior.slice(0, -1));
       setQuestion(input);
@@ -43,7 +49,7 @@ export default function HistoricalChat({ onOpenSource }) {
     <section aria-label="Chat histórico de administración" style={{ backgroundColor: '#18192d', border: '1px solid #34375e', borderRadius: 24, padding: 'clamp(18px, 4vw, 36px)', maxWidth: 940, margin: '0 auto 40px' }}>
       <h2 style={{ color: '#E6D7AA', marginTop: 0 }}>Chat histórico</h2>
       <p style={{ color: '#c5c7db', lineHeight: 1.6 }}>
-        Conversa con BoscoChat sobre la historia salesiana, haz preguntas de seguimiento y explora las fuentes del archivo. Si no encuentra evidencias, te ayudará a reformular la búsqueda.
+        Investiga la historia salesiana con referencias a las revistas y sus páginas. Puedes continuar el diálogo y abrir las fuentes sin perder esta conversación. Se conserva temporalmente en esta pestaña hasta que cierres sesión.
       </p>
       <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
         <label htmlFor="boscochat-depth" style={{ color: '#E6D7AA', fontWeight: 700 }}>Profundidad de las respuestas</label>
@@ -81,7 +87,7 @@ export default function HistoricalChat({ onOpenSource }) {
           onChange={(event) => setQuestion(event.target.value)} placeholder="Pregúntame sobre el archivo o continúa la conversación…" />
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
           <button type="submit" disabled={busy || question.trim().length < 3} style={{ padding: '12px 24px', borderRadius: 10, background: '#E6D7AA', color: '#111', border: 0, fontWeight: 800, cursor: busy ? 'wait' : 'pointer' }}>Enviar</button>
-          <button type="button" disabled={busy || messages.length === 0} onClick={() => { setMessages([]); setQuestion(''); setError(''); }}
+          <button type="button" disabled={busy || messages.length === 0} onClick={() => { clearChatSession(window.sessionStorage, userId); setMessages([]); setQuestion(''); setError(''); }}
             style={{ padding: '12px 22px', borderRadius: 10, background: 'transparent', border: '1px solid #75799a', color: '#fff', cursor: 'pointer' }}>Nueva conversación</button>
         </div>
       </form>
