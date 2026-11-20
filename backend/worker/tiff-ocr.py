@@ -241,7 +241,7 @@ def build_review(archive_path, textract):
 def run(job_id, key, version):
     if (not UUID.fullmatch(job_id)
         or not key.startswith("imports/tiff/" + job_id + "/")
-        or not re.fullmatch(r"[a-zA-Z0-9+=_./-]{1,256}", version)
+        or not re.fullmatch(r"[a-zA-Z0-9+=_./~-]{1,256}", version)
         or not key.lower().endswith(".zip")):
         raise RejectedImport("INVALID_OCR_EVENT")
     import boto3
