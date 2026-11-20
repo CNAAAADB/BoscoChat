@@ -40,8 +40,17 @@ jobs:
 
       - name: Test
         working-directory: backend
-        run: npm test
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee /tmp/bosco-backend-tests.log
 
+      - name: Upload backend test diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostic-backend-tests
+          path: /tmp/bosco-backend-tests.log
+          if-no-files-found: ignore
       - name: Build
         working-directory: backend
         run: npm run build
@@ -94,7 +103,16 @@ jobs:
 
       - name: Lint
         working-directory: frontend
-        run: npm run lint
+        run: |
+          set -o pipefail
+          npm run lint 2>&1 | tee /tmp/bosco-frontend-lint.log
+      - name: Upload frontend diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostic-frontend-lint
+          path: /tmp/bosco-frontend-lint.log
+          if-no-files-found: ignore
 
       - name: Test browser-tab conversation persistence
         working-directory: frontend
@@ -162,4 +180,13 @@ jobs:
 
       - name: Test shared limiter, administration, and indexed chat retrieval
         working-directory: backend
-        run: node --test test/mysql.integration.test.js test/chat-fts.mysql.integration.test.js
+        run: |
+          set -o pipefail
+          node --test test/mysql.integration.test.js test/chat-fts.mysql.integration.test.js 2>&1 | tee /tmp/bosco-mysql-tests.log
+      - name: Upload MySQL test diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostic-mysql-tests
+          path: /tmp/bosco-mysql-tests.log
+          if-no-files-found: ignore
