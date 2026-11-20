@@ -277,6 +277,11 @@ export default function HistoricalManagement() {
           {tiffReview?.pageCount != null ? <p>{tiffReview.pageCount} páginas analizadas
             {tiffReview.engine ? ' · ' + tiffReview.engine : ''}</p> : null}
           {tiffReview?.errorCode ? <p role="alert">Incidencia: {tiffReview.errorCode}. Conservamos el ZIP original.</p> : null}
+          {(tiffReview?.metadataHints ?? []).length ? (
+            <p style={{ fontSize: 13 }}>Años y meses mencionados en OCR (sin catalogar): {tiffReview.metadataHints
+              .map(hint => 'p. ' + hint.pageNumber + ': ' + [...hint.yearsMentioned, ...hint.monthsMentioned].join(', '))
+              .join(' · ')}</p>
+          ) : null}
           <button type="button" style={button} disabled={busy} onClick={refreshTiffReview}>Consultar estado del OCR</button>
           {(tiffReview?.pages ?? []).length > 0 ? (
             <div style={{ marginTop: 18, display: 'grid', gap: 10 }}>
