@@ -79,9 +79,10 @@ export async function searchArchivePages(pool, rawQuery, { year = null, page = 1
   const total = Number(countRows[0]?.total ?? 0);
   const [rows] = await pool.execute(
     `SELECT d.id AS document_id, d.publication, d.publication_year,
+            fi.month_start AS month_start, fi.month_end AS month_end, fi.issue_number AS issue_number,
             p.page_number, LEFT(p.text_content, 1600) AS text_content,
             MATCH(p.text_content) AGAINST (? IN ${sqlMode} MODE) AS relevance
-       ${where}
+       LEFT JOIN archive_fragmentation_issues fi ON fi.document_id = d.id
       ORDER BY relevance DESC, d.publication_year ASC, d.id ASC, p.page_number ASC
       LIMIT ? OFFSET ?`,
     [plan.expression, plan.expression, parsedYear, parsedYear, safePageSize, offset],
@@ -90,6 +91,9 @@ export async function searchArchivePages(pool, rawQuery, { year = null, page = 1
     document_id: row.document_id,
     publication: row.publication,
     publication_year: row.publication_year,
+    month_start: row.month_start ?? null,
+    month_end: row.month_end ?? null,
+    issue_number: row.issue_number ?? null,
     page_number: row.page_number,
     text_content: excerptNearMatch(row.text_content, plan.words),
   }));
