@@ -1,5 +1,5 @@
 FROM public.ecr.aws/lambda/nodejs:22
-RUN dnf install -y poppler-utils && dnf clean all
+RUN dnf install -y poppler-utils qpdf && dnf clean all
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY src/ ./src/
