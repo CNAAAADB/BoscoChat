@@ -2,6 +2,7 @@
 // SQL DDL can auto-commit in MySQL; apply first in staging and back up production.
 import pool from '../src/db/connection.js';
 import { bc017Statements } from '../src/db/archive-migration.js';
+import { fragmentationStatements } from '../src/db/fragmentation-migration.js';
 
 const statements = [
   `CREATE TABLE IF NOT EXISTS archive_documents (
@@ -27,6 +28,7 @@ const statements = [
     CONSTRAINT fk_archive_pages_doc FOREIGN KEY (document_id)
       REFERENCES archive_documents(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  ...fragmentationStatements,
 ];
 try {
   for (const statement of statements) await pool.query(statement);
