@@ -97,6 +97,41 @@ function evidenceScore(source, focus) {
   return { valid: local && entity && direct, score: Number(local)*5 + Number(entity)*3 + Number(direct)*3 };
 }
 
+/**
+ * Rehydrate citations from earlier turns using *current* database authorization
+ * rather than trusting page text or publication names sent from the browser.
+ * A deleted or unindexed page cannot become evidence again.
+ */
+export async function revisitCitedSources(pool, trail = []) {
+  const verified = [];
+  const seen = new Set();
+  for (const item of trail.slice(-4)) {
+    if (!Number.isSafeInteger(item.documentId) || item.documentId < 1
+      || !Number.isSafeInteger(item.page) || item.page < 1) continue;
+    const key = item.documentId + ':' + item.page;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const [rows] = await pool.execute(
+      `SELECT d.id AS document_id, d.publication, d.publication_year,
+              p.page_number, LEFT(p.text_content, 1250) AS excerpt
+         FROM archive_pages p JOIN archive_documents d ON d.id = p.document_id
+        WHERE d.indexed_at IS NOT NULL AND d.id = ? AND p.page_number = ?
+        LIMIT 1`,
+      [item.documentId, item.page],
+    );
+    const row = rows[0];
+    if (!row || !row.excerpt || !Number.isSafeInteger(Number(row.document_id))
+      || !Number.isSafeInteger(Number(row.page_number))) continue;
+    verified.push({
+      ref:'F1', documentId:Number(row.document_id), page:Number(row.page_number),
+      publication:String(row.publication ?? '').slice(0,160),
+      year:row.publication_year==null?null:Number(row.publication_year),
+      excerpt:String(row.excerpt).replace(/\\s+/g,' ').slice(0,850),
+    });
+  }
+  return verified;
+}
+
 export async function conductHistoricalResearch(pool, question, history = [], {
   retrieve = retrieveChatSources,
   maxQueries = MAX_QUERIES,
