@@ -173,14 +173,14 @@ export async function conductHistoricalResearch(pool, question, history = [], {
   // First investigate two distinct avenues, then broaden up to two more
   // only if the initial evidence is too sparse.
   for (let i = 0; i < queries.length && i < maxQueries; i++) {
-    if (i >= 2 && [...found.values()].filter(s => evidenceScore(s,focus).valid).length >= 4) break;
+    if (i >= 1 && [...found.values()].filter(s => evidenceScore(s,focus).valid).length >= 4) break;
     if (remainingChatMs(deadline) < 600) {
       if (!found.size) throw chatTimeout();
       break;
     }
     const query = queries[i];
     try {
-      const results = await withinChatBudget(() => retrieve(pool,query), deadline, 1_900);
+      const results = await withinChatBudget(() => retrieve(pool,query), deadline, 3_400);
       if (!Array.isArray(results)) throw new Error('INVALID_RESEARCH_RESULTS');
       performed.push(query);
       for (const s of results) {

@@ -1,3 +1,10 @@
+## BC-109 — Optimización búsquedas MySQL para conservar chat multiagente (2026-11-20)
+- Issue #88: el servidor devuelve 503 tras tres `ER_QUERY_TIMEOUT` de MAX_EXECUTION_TIME(1500) en las consultas FULLTEXT iniciales; no es fallo de inferencia.
+- `backend/src/chat/historical-chat.js`: expresión de búsqueda Boolean parametrizada, FTS en columna indexada `ft_archive_pages_text` sin FORCE INDEX ni ordenación global MySQL, máximo 36 páginas y ranking posterior local.
+- `backend/src/chat/chat-budget.js`, `backend/src/chat/research-agent.js`, `backend/src/routes/historical-chat.js`: límites por consulta y presupuesto global, salto de búsquedas redundantes y preservación del consejo.
+- Tests: `backend/test/historical-chat.test.js`, `backend/test/chat-timeouts.test.js`, `backend/test/historical-research-agent.test.js`. CI, revisión independiente y prueba E2E con una pregunta inicial en producción: TRACE-GAP.
+- Requisitos: RF-RAG-01/02/03/04, RF-CHAT-01/06, RNF-PERF-02, RNF-SEC-03. Métricas de relevancia y rendimiento en RDS real: TRACE-GAP.
+
 ## BC-108 — Timeout del chat histórico y atribuciones sobre Cádiz (2026-11-20)
 - Evidencia AWS: CloudWatch backend requestId 5341baf0-9557-49f9-99e0-9026e1f2b228 `Status: timeout` `Duration: 28000 ms`; modelo llamado tras ~26 s. Config backend 28 s; multiagente OFF.
 - Código: `backend/src/chat/chat-budget.js` (presupuesto de petición e invocaciones), `backend/src/chat/historical-chat.js` (SQL FULLTEXT/recuento y prompt), `backend/src/chat/research-agent.js` (deadline de investigación y referencias previas, coherencia local), `backend/src/routes/historical-chat.js` (presupuesto desde entrada y 503/504), `frontend/src/chat-errors.js` y `frontend/src/HistoricalChat.jsx` (mensajes y preservación).

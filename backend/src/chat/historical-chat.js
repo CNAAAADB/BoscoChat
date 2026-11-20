@@ -149,25 +149,51 @@ export function rankChatSources(question, candidates, { maxSources = 3 } = {}) {
   return selected.slice(0,maxSources).map((s,i)=>({ ...s.source, ref:'F'+(i+1) }));
 }
 
+// Use an FTS index probe instead of sorting all matching archive pages.
+export function boundedChatBooleanSearch(question) {
+  const text = retrievalSearchExpression(question);
+  if (!text) return null;
+  const noise = new Set(['contarme', 'sepas', 'sabes', 'saber', 'quiero',
+    'necesito', 'dime', 'explicarme', 'informacion', 'información', 'investiga',
+    'investigar', 'don', 'todos', 'todas', 'mucho', 'muchos', 'muchas', 'puedo']);
+  const tokens = [...new Set((text.match(/[\p{L}\p{N}]{3,}/gu) ?? [])
+    .filter(word => !noise.has(word.toLocaleLowerCase('es'))))];
+  if (!tokens.length) return null;
+  // For a query such as "Cádiz antiguos alumnos presidente", anchor on the
+  // location and the sought fact. Earlier generic tokens are optional, not
+  // mandatory. Only bounded lexical tokens enter parameterized SQL.
+  const anchor = tokens[0];
+  const topic = tokens.at(-1);
+  const required = [...new Set([anchor, topic])];
+  const optional = tokens.filter(token => !required.includes(token)).slice(0, 3);
+  return [...required.map(token => '+' + token), ...optional].join(' ');
+}
+
 export async function retrieveChatSources(pool, question, { followup = false } = {}) {
   // Never interpolate a user's text as SQL syntax. Only indexed pages are eligible.
-  const expression = retrievalSearchExpression(question);
+  const expression = boundedChatBooleanSearch(question);
   if (!expression) return [];
   const [rows] = await pool.execute(
-    `SELECT ${followup ? '/*+ MAX_EXECUTION_TIME(1200) */' : '/*+ MAX_EXECUTION_TIME(1500) */'} d.id AS document_id, d.publication, d.publication_year,
+    `SELECT ${followup ? '/*+ MAX_EXECUTION_TIME(2200) */' : '/*+ MAX_EXECUTION_TIME(3200) */'} d.id AS document_id, d.publication, d.publication_year,
             p.page_number, LEFT(p.text_content, 6500) AS excerpt,
-            MATCH(p.text_content) AGAINST (? IN NATURAL LANGUAGE MODE) AS score
-       FROM archive_pages p JOIN archive_documents d ON d.id = p.document_id
-      WHERE d.indexed_at IS NOT NULL
-        AND MATCH(p.text_content) AGAINST (? IN NATURAL LANGUAGE MODE)
-      ORDER BY score DESC, d.id ASC, p.page_number ASC LIMIT ?`,
-    [expression, expression, MAX_EXCERPTS],
+            MATCH(p.text_content) AGAINST (? IN BOOLEAN MODE) AS score
+       FROM archive_pages p
+       JOIN archive_documents d ON d.id = p.document_id
+      WHERE MATCH(p.text_content) AGAINST (? IN BOOLEAN MODE)
+        AND d.indexed_at IS NOT NULL
+      LIMIT ?`,
+    [expression, expression, 36],
   );
+  // Rank only the bounded candidate set; a global SQL ORDER BY forced expensive
+  // FULLTEXT sorting and consistently exceeded the previous 1500 ms limit.
   return rows.filter((row) => Number.isSafeInteger(Number(row.document_id))
     && Number(row.document_id) > 0 && Number.isSafeInteger(Number(row.page_number))
     && Number(row.page_number) > 0 && typeof row.excerpt === 'string'
     && row.excerpt.trim().length > 0
-  ).slice(0, MAX_EXCERPTS).map((row, index) => {
+  ).sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0)
+    || Number(a.document_id) - Number(b.document_id)
+    || Number(a.page_number) - Number(b.page_number))
+    .slice(0, MAX_EXCERPTS).map((row, index) => {
     const raw = row.excerpt.replace(/\s+/g, ' ').trim();
     const lowered = normalizeContext(raw);
     const terms = topicTerms(question);
