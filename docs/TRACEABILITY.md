@@ -1,3 +1,10 @@
+## BC-102 — Investigador iterativo, fuentes comprobadas (2026-11-20)
+- Evidencia: conversación de antiguos alumnos de Cádiz; las preguntas «¿Cuántos presidentes ha tenido?» y «¿Y cuántos menciona la revista?» devolvían referencias a presidentes nacionales o cargos sin relación.
+- Código: backend/src/chat/research-agent.js incorpora researchFocus, planResearchQueries, conductHistoricalResearch y revisitCitedSources. Hasta cuatro búsquedas de lectura, ranking contextual, deduplicación y revalidación de páginas previamente citadas contra índice vigente.
+- La API recibe sourceTrail validado, sólo IDs/páginas, recupera textos exclusivamente del servidor y conserva barrera administrator, limitación de cuotas y SQL parametrizado. UI: frontend/src/HistoricalChat.jsx aporta trail de citas mostradas.
+- Pruebas: backend/test/historical-research-agent.test.js y nuevas regresiones en backend/test/historical-chat.test.js (Cádiz, citas históricas y rechazo de referencias arbitrarias).
+- TRACE-GAP: CI, E2E administrador con revistas reales, calidad/recall OCR, verificación independiente de atribuciones y seguridad; sin búsqueda vectorial ni planes de herramientas controlados directamente por LLM.
+
 ## BC-101 — Estado de sesión y profundidad documental (2026-11-20)
 - Evidencia funcional: usuario confirma acceso a citas PDF, informa pérdida de conversación y respuestas breves aun con modo Investigación.
 - `frontend/src/chat-session.js`: carga, persistencia y borrado de historial temporal de la pestaña por ID de administrador, TTL 2 h, tope de 40 mensajes, esquema y controles de aislamiento; `frontend/src/HistoricalChat.jsx`: restablecimiento tras recarga y contexto de cuatro intercambios; `frontend/src/App.jsx`: limpieza al cerrar sesión y conservación durante consulta de PDF.
