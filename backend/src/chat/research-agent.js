@@ -96,7 +96,7 @@ export function evidenceScore(source, focus) {
     if (!focus.location || !focus.entity) return true;
     const city = normalized(focus.location);
     const entities = focus.entity === 'antiguos alumnos'
-      ? /antiguos?\\s+alumn|asociacion/g
+      ? /antiguos?\s+alumn|asociacion/g
       : focus.entity === 'oratorio' ? /oratorio/g
         : /colegio|escuela|centro|instituto/g;
     const cityAt = [];
