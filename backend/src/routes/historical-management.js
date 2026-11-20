@@ -29,6 +29,7 @@ export function createHistoricalManagementRouter(pool, authService, {
   deletionEnabled = false,
   manualIndexEnabled = false,
   unindexEnabled = false,
+  fragmentationEnabled = false,
 } = {}) {
   const router = express.Router();
   router.use(requireAuthorization(authService, allowed));
@@ -68,6 +69,9 @@ export function createHistoricalManagementRouter(pool, authService, {
         'SELECT d.s3_key, d.publication, d.publication_year, d.indexed_at, COUNT(p.page_number) AS pages FROM archive_documents d LEFT JOIN archive_pages p ON p.document_id = d.id WHERE d.s3_key LIKE \'originals/%\' GROUP BY d.id',
       );
       const indexed = new Map(statusRows.map((row) => [row.s3_key, row]));
+      const fragmented = fragmentationEnabled
+        ? new Set((await pool.execute("SELECT source_key FROM archive_fragmentation_jobs WHERE status = 'completed'"))[0].map((r) => r.source_key))
+        : new Set();
       const query = filter.toLocaleLowerCase('es');
       const documents = objects
         .filter((o) => !query || o.Key.slice('originals/'.length).toLocaleLowerCase('es').includes(query))
@@ -80,7 +84,9 @@ export function createHistoricalManagementRouter(pool, authService, {
             publication: db?.publication ?? (meta.status === 'recognized' ? meta.publication : null),
             sizeBytes: o.Size,
             lastModified: o.LastModified ? new Date(o.LastModified).toISOString() : null,
-            status: db?.indexed_at && Number(db.pages) > 0 ? 'indexed' : meta.status === 'recognized' ? 'pending' : 'stored',
+            status: fragmented.has(o.Key) ? 'fragmented'
+              : db?.indexed_at && Number(db.pages) > 0 ? 'indexed'
+                : meta.status === 'recognized' ? 'pending' : 'stored',
             pages: Number(db?.pages ?? 0),
             indexedAt: db?.indexed_at ? new Date(db.indexed_at).toISOString() : null,
           };
@@ -133,6 +139,10 @@ export function createHistoricalManagementRouter(pool, authService, {
         'SELECT publication, publication_year, indexed_at FROM archive_documents WHERE s3_key = ?', [key],
       );
       if (catalogRows[0]?.indexed_at) return replyError(res, 409, 'DOCUMENT_ALREADY_INDEXED', 'Este documento ya está indexado.');
+      if (fragmentationEnabled) {
+        const [completed] = await pool.execute("SELECT id FROM archive_fragmentation_jobs WHERE source_key = ? AND status = 'completed' LIMIT 1", [key]);
+        if (completed.length) return replyError(res, 409, 'SOURCE_ALREADY_FRAGMENTED', 'El PDF anual se conserva como respaldo de los números ya publicados.');
+      }
       let catalog = null;
       if (auto.status !== 'recognized') {
         const publication = req.body?.publication ?? catalogRows[0]?.publication;
