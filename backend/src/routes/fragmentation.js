@@ -112,10 +112,11 @@ export function createFragmentationRouter(pool, authService, {
       let segments;
       try { segments = validateMonthlySegments(req.body?.segments, Number(rows[0].page_count)); }
       catch { return fail(res, 400, 'INVALID_SEGMENTS', 'Revisa meses y páginas: deben cubrir todo el PDF sin solapamientos.'); }
-      await pool.execute(
+      const [saved] = await pool.execute(
         "UPDATE archive_fragmentation_jobs SET segments_json = ?, status = 'proposed', error_code = NULL WHERE id = ? AND status IN ('proposed', 'failed')",
         [JSON.stringify(segments), req.params.id],
       );
+      if (saved.affectedRows !== 1) return fail(res, 409, 'JOB_LOCKED', 'La fragmentación se está procesando.');
       return res.json({ job: { ...publicJob(rows[0]), segments, status: 'proposed' } });
     } catch (error) { return next(error); }
   });
