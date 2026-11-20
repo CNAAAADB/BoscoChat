@@ -16,6 +16,34 @@ This file is the product/work source of truth. It is seeded from `docs/requireme
 
 ---
 
+### BC-105 — Monthly PDF fragmentation for Gestión histórica
+- Priority: P1
+- Status: IN_REVIEW
+- Owner role: Developer
+- Depends on: BC-007, BC-017
+- SRS: RF-DOCMGMT-01, RF-DOCMGMT-02, RF-SEARCH-06, RF-SEARCH-07, RF-SEARCH-11, RF-SEARCH-12, RF-RAG-03, RF-RAG-04
+- Design/mockup: docs/design/BC-105_MONTHLY_FRAGMENTATION.md
+- Issue: #80
+- PR: pending
+
+**Story**
+As a historian or administrator, I want to scan annual PDF collections for issue boundaries, review/edit monthly segments, and publish separate searchable issue PDFs without losing the original.
+
+**Acceptance criteria**
+- [x] Authenticated role-restricted, feature-flagged scan proposal from indexed PDF OCR.
+- [x] Editable page ranges, issue number and month span; split/merge and coverage validation.
+- [x] Private PDF splitting via qpdf in worker; source preserved and S3 output never overwritten.
+- [x] Transactional activation of child indexes with source tombstone to prevent delayed reingestion.
+- [x] Issue/month metadata returned to archive search.
+- [ ] CI and independent security/integration verification on exact PR head.
+- [ ] Representative scanned annual PDF and OCR fallback validation.
+- [ ] Apply and verify additive MySQL migration; publish new worker with qpdf and IAM GetObjectVersion/PutObject; enable flags in AWS only after staging.
+- [ ] Recover abandoned or failed fragments, implement operational job timeout/recovery and rollback drills.
+
+**Limitations / gate:** Detection currently uses OCR pages already indexed in MySQL, not visual cover detection or new OCR for image-only originals. Low-confidence output MUST be reviewed; a single detected issue is never split automatically. Feature flags remain disabled by default. No claim of production readiness.
+
+---
+
 # Phase 1 — MVP
 
 ### BC-001 — User registration and authentication
