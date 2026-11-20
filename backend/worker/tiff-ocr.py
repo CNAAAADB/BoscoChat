@@ -107,6 +107,10 @@ def inspect_zip(archive_path):
                 raise RejectedImport("TOO_MANY_PAGES")
         if not pages:
             raise RejectedImport("NO_TIFF_PAGES")
+        if len(folder_numbers) > 1:
+            for folder in folder_numbers:
+                if folder == '.' or not re.match(r'^[0-9]+', PurePosixPath(folder).name):
+                    raise RejectedImport('AMBIGUOUS_ISSUE_ORDER')
         for ids in folder_numbers.values():
             if max(ids) - min(ids) + 1 != len(ids):
                 raise RejectedImport("MISSING_PAGE_NUMBER")
