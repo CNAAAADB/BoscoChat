@@ -1,3 +1,11 @@
+## BC-101 — Persistencia de conversación y respuestas de Investigación (2026-11-20)
+- El responsable confirma que las citas del chatbot ya abren el visor, pero la conversación se pierde y las respuestas de Investigación siguen resultando breves.
+- Diagnóstico: `HistoricalChat` sólo utilizaba estado React; pese a permanecer montado durante una navegación ordinaria, la recarga o reinicio de la aplicación borraba el historial. Además enviaba únicamente tres intercambios y truncaba las respuestas anteriores a 1.200 caracteres.
+- Corrección: persistencia temporal **por cuenta administradora y pestaña** en `sessionStorage`, hasta 40 mensajes y caducidad de dos horas, validación de esquema y límites, eliminación al cerrar sesión o iniciar una conversación nueva; no se almacena en servidor, no se habilita para otros roles.
+- La API acepta cuatro intercambios usuario/asistente con texto de respuesta hasta 1.800 caracteres. El modo Investigación exige explicar antecedentes, acontecimientos, fechas y evolución con referencias verificables cuando las fuentes lo permiten; objetivo orientativo de 300–600 palabras para preguntas abiertas con evidencia suficiente, no mínimo incondicional.
+- El worker Bedrock permite hasta 1.900 tokens y 10.000 caracteres de respuesta en Investigación, con límite explícito y mensaje de entrada acotado a 26.000 caracteres. Mantener cuotas 5/minuto y 30/día.
+- Tests de persistencia/caducidad/aislamiento y contexto; pendiente CI, revisión independiente, publicación de imagen ECR para Lambda de inferencia y evaluación E2E de longitud con revistas reales.
+
 ## BC-012 — Incidencia al abrir cita del chatbot en el visor (2026-11-20)
 - Captura proporcionada: Don Bosco en España (1978), página 23, muestra «No se ha podido completar la solicitud». CloudWatch backend 2026-11-20 10:54:46 UTC confirma `GET /api/archive/documents/33/pages/23/image` fallando con `ER_LOCK_DEADLOCK` y estado SQL `40001` (HTTP 500), antes de acceder al renderizador PDF; por tanto no indica PDF corrupto o referencia inexistente.
 - Causa identificada: el limitador MySQL compartido que protege las imágenes hace lecturas/incrementos transaccionales; una colisión concurrente InnoDB aborta una transacción. Se reintenta hasta tres veces únicamente tras rollback seguro; si persiste se devuelve 503 temporal, sin desactivar la cuota.
