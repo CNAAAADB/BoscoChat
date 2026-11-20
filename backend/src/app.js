@@ -105,7 +105,7 @@ export function createApp({
       app.use('/api/archive', createArchiveSearchRateLimiter({
         store: sharedAuthRateLimitStore ?? undefined,
         hashKey: authRateLimitHashKey,
-      }), createArchiveSearchRouter(pool));
+      }), createArchiveSearchRouter(pool, { issueMetadataEnabled: environment.ARCHIVE_FRAGMENTATION_ENABLED === 'true' }));
     }
     if (environment.ARCHIVE_PAGE_IMAGE_ENABLED === 'true' && Buffer.byteLength(environment.ARCHIVE_WATERMARK_HMAC_KEY ?? '') < 32) {
       throw new Error('ARCHIVE_WATERMARK_HMAC_KEY_REQUIRED');
