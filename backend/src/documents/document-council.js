@@ -12,6 +12,7 @@ export async function reviewDocumentCatalogue({ pages, analyze, critic }) {
   const refs = pages.map(p => 'P' + p.pageNumber);
   const result = await runEvidenceCouncil({
     roles: ['bibliographer', 'structural_reader'], allowedRefs: refs,
+    evidenceByRef: Object.fromEntries(pages.map(p => ['P' + p.pageNumber, p.text])),
     invoke: (role) => analyze({ role, pages }),
     critic: (proposals, preliminary) => critic({ proposals, preliminary, pages }),
   });

@@ -83,7 +83,9 @@ export function createHistoricalChatRouter(pool, authService, {
       }
       const prompt = chatPrompt({ ...input, sources, count, research });
       if (councilEnabled && input.depth === 'research' && sources.length >= 2) {
-        prompt.council = { refs: sources.map(s => s.ref) };
+        prompt.council = { refs: sources.map(s => s.ref),
+          evidence: sources.map(s => ({ ref: s.ref, text: s.excerpt })),
+        };
       }
       const { text, usage, council } = await converse(prompt, {
         region,

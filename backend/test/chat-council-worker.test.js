@@ -6,6 +6,10 @@ const event = {
   depth: 'research', system: 'Sistema investigador con fuentes de historia y citas documentadas verificables.',
   user: '¿Qué sabemos de la revista? FUENTES [F1] Portada: Don Bosco 1954. [F2] Página 3: Cádiz.',
 };
+const council = { refs: ['F1', 'F2'], evidence: [
+  { ref: 'F1', text: 'Portada: Don Bosco 1954.' },
+  { ref: 'F2', text: 'Página 3: Cádiz.' },
+] };
 test('BC-107 existing inference performs exactly one bounded model call when council is off', async () => {
   const steps = [];
   const output = await runChatInference(event, { infer: async arg => {
@@ -22,7 +26,7 @@ test('BC-107 parallel proposals, adversarial critic, and grounded synthesis are 
   const proposal = { claims: [
     { field: 'f1', value: 'Portada: Don Bosco 1954.', refs: ['F1'] },
   ] };
-  const output = await runChatInference({ ...event, council: { refs: ['F1', 'F2'] } }, {
+  const output = await runChatInference({ ...event, council }, {
     infer: async arg => {
       phases.push(arg.phase);
       assert.ok(arg.maxTokens > 0 && arg.maxTokens <= 1450);
@@ -43,7 +47,7 @@ test('BC-107 parallel proposals, adversarial critic, and grounded synthesis are 
 });
 
 test('BC-107 contestation is made explicit to synthesis instead of false consensus', async () => {
-  const o = await runChatInference({ ...event, council: { refs: ['F1', 'F2'] } }, {
+  const o = await runChatInference({ ...event, council }, {
     infer: async arg => {
       if (arg.phase === 'proposal') return { text: JSON.stringify({
         claims: [{ field: 'f1', value: '1954', refs: ['F1'] }],
@@ -58,18 +62,18 @@ test('BC-107 contestation is made explicit to synthesis instead of false consens
 });
 
 test('BC-107 model cannot inject a fabricated citation into the council', async () => {
-  await assert.rejects(() => runChatInference({ ...event, council: { refs: ['F1', 'F2'] } }, {
+  await assert.rejects(() => runChatInference({ ...event, council }, {
     infer: async arg => arg.phase === 'proposal'
       ? { text: JSON.stringify({ claims: [{ field: 'f1', value: 'inventado', refs: ['F9'] }] }) }
       : { text: '{"objections":[]}' },
   }), /INVALID_COUNCIL_CLAIM/);
-  await assert.rejects(() => runChatInference({ ...event, council: { refs: ['F1', 'F9'] } }, {
+  await assert.rejects(() => runChatInference({ ...event, council: { refs: ['F1', 'F9'], evidence: council.evidence } }, {
     infer: async () => ({ text: 'respuesta' }),
   }), /INVALID_COUNCIL_REQUEST/);
 });
 
 test('BC-107 critic failure cannot return a claimed agent agreement', async () => {
-  const out = await runChatInference({ ...event, council: { refs: ['F1', 'F2'] } }, {
+  const out = await runChatInference({ ...event, council }, {
     infer: async arg => {
       if (arg.phase === 'proposal') return { text: JSON.stringify({
         claims: [{ field: 'f1', value: '1954', refs: ['F1'] }],

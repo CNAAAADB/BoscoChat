@@ -94,3 +94,16 @@ test('BC-107 rejects fake critic response and never publishes a tentative decisi
   assert.equal(result.status, 'needs_review');
   assert.deepEqual(result.agreed, []);
 });
+
+test('BC-107 two agreeing models cannot validate a quote absent from its cited OCR', () => {
+  const proposals = [
+    { role: 'bibliographer', claims: [{ field: 'year', value: '1962', refs: ['P1'] }] },
+    { role: 'structural_reader', claims: [{ field: 'year', value: '1962', refs: ['P1'] }] },
+  ];
+  const rejected = reconcileCouncil(proposals, ['P1'], [], { P1: 'Portada de 1954' });
+  assert.equal(rejected.status, 'needs_review');
+  assert.deepEqual(rejected.agreed, []);
+  assert.ok(rejected.disputed[0].reasons.includes('quote_not_in_cited_ocr'));
+  const accepted = reconcileCouncil(proposals, ['P1'], [], { P1: 'Portada de 1962' });
+  assert.equal(accepted.status, 'agreed');
+});

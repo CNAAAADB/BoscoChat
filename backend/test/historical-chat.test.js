@@ -484,6 +484,8 @@ test('BC-107 research pilot sends verified reference allowlist only when server 
     converse: async prompt => {
       invoked++;
       assert.deepEqual(prompt.council.refs, ['F1', 'F2']);
+      assert.equal(prompt.council.evidence.length, 2);
+      assert.ok(prompt.council.evidence[0].text.includes('oratorio'));
       return { text: 'Se registra un acto [F1] y otro inventado [F9].',
         usage: { inputTokens: 24, outputTokens: 10 },
         council: { status: 'agreed', agreedCount: 1, disputedCount: 0 } };

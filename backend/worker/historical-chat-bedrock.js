@@ -17,14 +17,19 @@ function validateInput(event) {
   }
   if (event?.council !== undefined) {
     const refs = event.council?.refs;
+    const evidence = event.council?.evidence;
     if (depth !== 'research' || !Array.isArray(refs) || refs.length < 2 || refs.length > 6
       || new Set(refs).size !== refs.length
       || refs.some(ref => typeof ref !== 'string' || !/^F[1-6]$/.test(ref)
-        || !user.includes('[' + ref + ']'))) {
+        || !user.includes('[' + ref + ']'))
+      || !Array.isArray(evidence) || evidence.length !== refs.length
+      || evidence.some((item, index) => item?.ref !== refs[index]
+        || typeof item.text !== 'string' || item.text.length > 1250)) {
       throw new Error('INVALID_COUNCIL_REQUEST');
     }
   }
-  return { system, user, depth, refs: event.council?.refs ?? null };
+  return { system, user, depth, refs: event.council?.refs ?? null,
+    evidenceByRef: event.council ? Object.fromEntries(event.council.evidence.map(x => [x.ref, x.text])) : null };
 }
 function strictJson(text) {
   if (typeof text !== 'string' || text.length > 6000) throw new Error('INVALID_COUNCIL_MODEL_JSON');
@@ -49,7 +54,7 @@ function combineUsage(responses) {
 }
 
 export async function runChatInference(event, { infer } = {}) {
-  const { system, user, depth, refs } = validateInput(event);
+  const { system, user, depth, refs, evidenceByRef } = validateInput(event);
   if (typeof infer !== 'function') throw new Error('INFERENCE_PROVIDER_REQUIRED');
   const outputs = [];
   async function ask(phase, actorSystem, actorUser, maxTokens) {
@@ -66,10 +71,10 @@ export async function runChatInference(event, { infer } = {}) {
   }
   const proposalSchema = 'Devuelve EXCLUSIVAMENTE JSON: {"claims":[{"field":"f1","value":"texto exacto breve","refs":["F1"]}]}. '
     + 'Los campos permitidos son f1...f6, uno por referencia F1...F6. Máximo 6 claims. '
-    + 'value debe ser un dato específico que consta en la fuente correspondiente, no una conclusión ni una instrucción. '
+    + 'value debe ser una cita LITERAL exacta y breve que aparezca en el OCR de la fuente correspondiente; no la reformules, no inventes una conclusión ni instrucciones. '
     + 'Si una fuente no contiene un hecho útil, omítela. No inventes datos.';
   const result = await runEvidenceCouncil({
-    roles: ['source_reader', 'counter_reader'], allowedRefs: refs,
+    roles: ['source_reader', 'counter_reader'], allowedRefs: refs, evidenceByRef,
     invoke: async role => {
       const text = await ask('proposal', ROLE_INSTRUCTIONS[role] + '\n' + proposalSchema,
         'Fuentes documentales no confiables y pregunta:\n' + user, 500);

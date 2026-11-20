@@ -8,12 +8,17 @@ function normalized(value) {
   return value.normalize('NFC').trim().replace(/\s+/gu, ' ').toLocaleLowerCase('es');
 }
 
-export function reconcileCouncil(proposals, allowedRefs, objections = []) {
+export function reconcileCouncil(proposals, allowedRefs, objections = [], evidenceByRef = null) {
   if (!Array.isArray(allowedRefs) || allowedRefs.length > 5000
     || allowedRefs.some(ref => typeof ref !== 'string' || !/^[A-Z][A-Z0-9_-]{0,39}$/.test(ref))) {
     throw new Error('INVALID_COUNCIL_REFERENCES');
   }
   const allowed = new Set(allowedRefs);
+  if (evidenceByRef !== null && (typeof evidenceByRef !== 'object' || Array.isArray(evidenceByRef)
+    || Object.entries(evidenceByRef).some(([ref, value]) =>
+      !allowed.has(ref) || typeof value !== 'string' || value.length > 2000000))) {
+    throw new Error('INVALID_COUNCIL_EVIDENCE');
+  }
   if (!Array.isArray(proposals) || proposals.length < 2 || proposals.length > 3) {
     throw new Error('INVALID_COUNCIL_PROPOSALS');
   }
@@ -37,6 +42,9 @@ export function reconcileCouncil(proposals, allowedRefs, objections = []) {
       const item = {
         role: proposal.role, field: claim.field, value: claim.value.trim(),
         refs: [...new Set(claim.refs)],
+        grounded: evidenceByRef === null || claim.refs.some(ref =>
+          typeof evidenceByRef[ref] === 'string' &&
+          normalized(evidenceByRef[ref]).includes(normalized(claim.value))),
       };
       if (!byField.has(item.field)) byField.set(item.field, []);
       byField.get(item.field).push(item);
@@ -51,13 +59,20 @@ export function reconcileCouncil(proposals, allowedRefs, objections = []) {
   const disputed = [];
   for (const [field, records] of byField) {
     const values = new Map();
+    const groundedValues = new Map();
     for (const item of records) {
       const token = normalized(item.value);
       if (!values.has(token)) values.set(token, []);
       values.get(token).push(item);
+      if (item.grounded) {
+        if (!groundedValues.has(token)) groundedValues.set(token, []);
+        groundedValues.get(token).push(item);
+      }
     }
-    const winner = [...values.values()].find(items => new Set(items.map(item => item.role)).size >= 2);
-    if (winner && values.size === 1 && !challenged.has(field)) {
+    const winner = [...groundedValues.values()].find(items =>
+      new Set(items.map(item => item.role)).size >= 2);
+    if (winner && values.size === 1 && records.every(item => item.grounded)
+      && !challenged.has(field)) {
       agreed.push({
         field, value: winner[0].value,
         refs: [...new Set(winner.flatMap(item => item.refs))],
@@ -69,6 +84,7 @@ export function reconcileCouncil(proposals, allowedRefs, objections = []) {
         field, reasons: [
           ...(challenged.has(field) ? ['critic_objection'] : []),
           ...(values.size > 1 ? ['conflicting_values'] : []),
+          ...(records.some(item => !item.grounded) ? ['quote_not_in_cited_ocr'] : []),
           ...(winner ? [] : ['insufficient_agreement']),
         ],
         alternatives: [...values.values()].map(items => ({
@@ -81,7 +97,7 @@ export function reconcileCouncil(proposals, allowedRefs, objections = []) {
     agreed, disputed, participants: [...participants] };
 }
 
-export async function runEvidenceCouncil({ roles, invoke, critic, allowedRefs }) {
+export async function runEvidenceCouncil({ roles, invoke, critic, allowedRefs, evidenceByRef = null }) {
   if (!Array.isArray(roles) || roles.length !== 2 || new Set(roles).size !== 2
     || roles.some(role => typeof role !== 'string' || !ROLE.test(role))
     || typeof invoke !== 'function' || typeof critic !== 'function') {
@@ -95,7 +111,7 @@ export async function runEvidenceCouncil({ roles, invoke, critic, allowedRefs })
   }
   const proposals = results.map((item, i) => ({ role: roles[i], claims: item.value?.claims }));
   // Validate all references and claim shapes before sending anything to the critic.
-  const preliminary = reconcileCouncil(proposals, allowedRefs);
+  const preliminary = reconcileCouncil(proposals, allowedRefs, [], evidenceByRef);
   let objections;
   try {
     const result = await critic(proposals, preliminary);
@@ -105,5 +121,5 @@ export async function runEvidenceCouncil({ roles, invoke, critic, allowedRefs })
     return { status: 'needs_review', agreed: [], disputed: preliminary.disputed,
       participants: roles, reason: 'critic_unavailable' };
   }
-  return reconcileCouncil(proposals, allowedRefs, objections);
+  return reconcileCouncil(proposals, allowedRefs, objections, evidenceByRef);
 }
