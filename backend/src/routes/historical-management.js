@@ -8,6 +8,7 @@ import { signedArchiveUpload, signedArchiveDownload, MAX_PDF_BYTES } from '../do
 const BUCKET = 'boscochat-archivo-pdfs';
 const REGION = 'us-east-1';
 const allowed = new Set([ROLES.DOCUMENTARY_MANAGER, ROLES.ADMINISTRATOR]);
+const fragmentFilename = /^Don Bosco en Espa(?:ñ|n)a_\d{4}_\d{2}(?:-\d{2})?_p\d{4}\.pdf$/iu;
 
 function replyError(res, status, code, message) {
   return res.status(status).json({ error: { code, message } });
@@ -74,6 +75,8 @@ export function createHistoricalManagementRouter(pool, authService, {
         : new Set();
       const query = filter.toLocaleLowerCase('es');
       const documents = objects
+        // Incomplete S3 uploads are never published in the archive directory.
+        .filter((o) => !fragmentationEnabled || !fragmentFilename.test(o.Key.slice('originals/'.length)) || indexed.has(o.Key))
         .filter((o) => !query || o.Key.slice('originals/'.length).toLocaleLowerCase('es').includes(query))
         .map((o) => {
           const meta = parseArchiveKey(o.Key);
@@ -160,6 +163,9 @@ export function createHistoricalManagementRouter(pool, authService, {
         catch (error) { if (isAbsentObject(error)) return null; throw error; }
       });
       if (!head) return replyError(res, 404, 'DOCUMENT_NOT_FOUND', 'Documento no encontrado.');
+      if (fragmentationEnabled && fragmentFilename.test(filename)) {
+        return replyError(res, 409, 'FRAGMENT_MANUAL_INDEX_FORBIDDEN', 'Los números generados deben publicarse conjuntamente, no indexarse manualmente.');
+      }
       if (typeof head.VersionId !== 'string' || !head.VersionId || head.VersionId === 'null') return replyError(res, 409, 'ARCHIVE_VERSIONING_REQUIRED', 'No se puede indexar sin comprobar la versión del original.');
       const bytes = Number(head.ContentLength);
       if (!Number.isSafeInteger(bytes) || bytes < 1 || bytes > MAX_PDF_BYTES) {
