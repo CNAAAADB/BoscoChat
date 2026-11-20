@@ -279,6 +279,10 @@ export function createHistoricalManagementRouter(pool, authService, {
     if (!key) return replyError(res, 400, 'INVALID_DOCUMENT_FILENAME', 'Nombre de documento no válido.');
     let connection;
     try {
+      if (fragmentationEnabled) {
+        const [backups] = await pool.execute("SELECT id FROM archive_fragmentation_jobs WHERE source_key = ? AND status = 'completed' LIMIT 1", [key]);
+        if (backups.length) return replyError(res, 409, 'FRAGMENT_PARENT_PROTECTED', 'Este PDF anual es el respaldo de los números fragmentados y no puede eliminarse desde la gestión ordinaria.');
+      }
       const head = await withS3(async (client, { HeadObjectCommand }) => {
         try { return await client.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key })); }
         catch (error) { if (isAbsentObject(error)) return null; throw error; }
