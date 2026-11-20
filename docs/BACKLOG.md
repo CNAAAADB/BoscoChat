@@ -516,6 +516,21 @@ Ground chat answers in MySQL archive data, not unsupported model recollection.
 - [ ] Citation opens the existing authorized page viewer at the correct page.
 - [ ] If evidence is missing, state it clearly; do not fabricate a citation.
 
+### BC-109 — FAST PATH FULLTEXT para el chat histórico tras BC-108
+- Priority: P0
+- Status: IN_REVIEW
+- Owner role: Developer
+- Depends on: BC-108
+- Issue: #88
+- PR: pendiente de revisión independiente
+- SRS: RF-RAG-01/02/03/04, RF-CHAT-01/06, RNF-PERF-02, RNF-SEC-03
+
+**Incidente:** tras desplegar BC-108, CloudWatch registró tres errores MySQL `ER_QUERY_TIMEOUT` consecutivos en la primera consulta de Investigación sobre Cádiz. El límite de 1.5 s interrumpió las tres búsquedas de texto; Bedrock ni siquiera llegó a invocarse. El consejo multiagente sigue activado y no causa este error.
+
+**Solución propuesta:** consulta FTS Boolean con 2 términos obligatorios acotados y algunos términos de ranking opcionales, `FORCE INDEX(ft_archive_pages_text)`, sin `ORDER BY score` global; limitar lectura a 36 candidatos y ordenarlos en memoria para construir un máximo de 12 fragmentos. Límite SQL 3200 ms, 2200 ms en follow-up, presupuesto de recuperación 9500 ms y total HTTP 24000 ms. Evitar consultas adicionales si la primera proporciona cuatro fuentes pertinentes.
+
+**Pendiente de DONE:** CI de la revisión exacta, revisión de seguridad independiente, despliegue y medición E2E del mismo caso en RDS de producción (éxito, cobertura de fuentes y duración). Si falla, medir `EXPLAIN ANALYZE` y reevaluar estrategia de índice/instancia, sin ampliar límites indefinidamente.
+
 ### BC-108 — Recuperación de timeouts del chat y atribución local de fuentes
 - Priority: P0
 - Status: IN_REVIEW
