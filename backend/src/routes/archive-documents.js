@@ -1,4 +1,5 @@
 import express from 'express';
+import { authorizeReaderPage } from '../middleware/boscogest-reader.js';
 import { requireAuthorization } from '../middleware/authorization.js';
 import { watermarkPageJpeg } from '../documents/jpeg-watermark.js';
 
@@ -25,7 +26,7 @@ export function createArchiveDocumentRouter(pool, authService, { pdfViewerEnable
   });
 
   if (pageImageEnabled) {
-    router.get('/:documentId/pages/:pageNumber/image', authenticated, imageRateLimiter, async (req, res) => {
+    router.get('/:documentId/pages/:pageNumber/image', authorizeReaderPage(authenticated), imageRateLimiter, async (req, res) => {
       const documentId = Number(req.params.documentId);
       const pageNumber = Number(req.params.pageNumber);
       if (!Number.isSafeInteger(documentId) || documentId < 1
@@ -34,7 +35,11 @@ export function createArchiveDocumentRouter(pool, authService, { pdfViewerEnable
       }
       try {
         const [rows] = await pool.execute(
-          'SELECT d.s3_key FROM archive_documents d JOIN archive_pages p ON p.document_id = d.id WHERE d.id = ? AND d.indexed_at IS NOT NULL AND p.page_number = ? LIMIT 1',
+          `SELECT d.s3_key,
+                  (SELECT MAX(page_number) FROM archive_pages WHERE document_id=d.id AND page_number<p.page_number) AS prev_page,
+                  (SELECT MIN(page_number) FROM archive_pages WHERE document_id=d.id AND page_number>p.page_number) AS next_page
+             FROM archive_documents d JOIN archive_pages p ON p.document_id = d.id
+            WHERE d.id = ? AND d.indexed_at IS NOT NULL AND p.page_number = ? LIMIT 1`,
           [documentId, pageNumber],
         );
         if (!rows.length || !/^originals\/[^/]+\.pdf$/i.test(rows[0].s3_key)) {
@@ -71,6 +76,8 @@ export function createArchiveDocumentRouter(pool, authService, { pdfViewerEnable
           'Content-Length': String(identified.length),
           'X-Content-Type-Options': 'nosniff',
         });
+        if (rows[0].prev_page) res.set('X-Previous-Page', String(rows[0].prev_page));
+        if (rows[0].next_page) res.set('X-Next-Page', String(rows[0].next_page));
         return res.end(identified);
       } catch (error) {
         console.error('Protected visual page preview failed', { name: error?.name, code: error?.code });

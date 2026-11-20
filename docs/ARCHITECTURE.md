@@ -163,3 +163,7 @@ New product requests BC-016 (official TLS domain for Amplify/API with same-site 
 ## Catálogo de revistas para BoscoGest
 
 Con la búsqueda pública habilitada, `GET /api/archive/catalog?page=1` devuelve hasta 24 publicaciones indexadas con páginas, ordenadas por año, y `has_more`. La consulta comparte la base de datos y el límite de peticiones del archivo. Solo expone ID, publicación, año y primera página. BoscoGest consulta esos datos al abrir Revistas. El enlace `/#revista=ID&pagina=N` abre el lector de BoscoChat, que aplica la autenticación y los permisos habituales.
+
+### Lectura dentro de BoscoGest
+
+Un socio con cuenta activa y afiliación activa puede abrir una página del archivo con su sesión de BoscoGest. Su servidor firma con Ed25519 una autorización de 60 segundos limitada a su ID, al documento y a la página. Solo la ruta de imagen acepta esa firma. Verifica la clave pública en la URL HTTPS fija de BoscoGest y usa un espacio de identificadores distinto para la marca de agua y el límite de peticiones. La sesión del socio y el PDF original permanecen en sus sistemas respectivos.

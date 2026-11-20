@@ -13,8 +13,9 @@ export function createArchiveSearchRateLimiter({
   return async function archiveSearchRateLimiter(req, res, next) {
     try {
       const timestamp = now();
-      const ipHash = createHmac('sha256', hashKey).update(scope + ':ip:' + req.ip).digest('hex');
-      const identityHash = createHmac('sha256', hashKey).update(scope + ':identity:' + req.ip).digest('hex');
+      const source = req.archiveReaderId ?? req.ip;
+      const ipHash = createHmac('sha256', hashKey).update(scope + ':ip:' + source).digest('hex');
+      const identityHash = createHmac('sha256', hashKey).update(scope + ':identity:' + source).digest('hex');
       const blocked = await store.consume({ ip: ipHash, identity: identityHash }, {
         timestamp,
         resetAt: timestamp + windowMs,
