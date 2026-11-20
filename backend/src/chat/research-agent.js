@@ -89,6 +89,21 @@ export function planResearchQueries(question, history = []) {
 export function evidenceScore(source, focus) {
   const text = normalized(source.excerpt);
   const local = focus.location ? text.includes(normalized(focus.location)) : true;
+  // A long page may mention "Cádiz" while discussing a different national
+  // association elsewhere. Require the city and local entity to appear close
+  // to one another before treating it as documentary evidence about Cádiz.
+  const nearbyEntity = (() => {
+    if (!focus.location || !focus.entity) return true;
+    const city = normalized(focus.location);
+    const entities = focus.entity === 'antiguos alumnos'
+      ? /antiguos?\\s+alumn|asociacion/g
+      : focus.entity === 'oratorio' ? /oratorio/g
+        : /colegio|escuela|centro|instituto/g;
+    const cityAt = [];
+    for (let at = text.indexOf(city); at >= 0; at = text.indexOf(city, at + city.length)) cityAt.push(at);
+    return [...text.matchAll(entities)].some(match =>
+      cityAt.some(position => Math.abs(position - match.index) <= 300));
+  })();
   const entity = focus.entity === 'antiguos alumnos'
     ? /antiguos?\s+alumn|asociacion/.test(text)
     : focus.entity === 'colegio salesiano'
@@ -100,7 +115,8 @@ export function evidenceScore(source, focus) {
       ? /fundad|fundaci|inaugur|origen|comienz/.test(text)
       : focus.intent === 'actividades'
         ? /encuentro|actividad|fiesta|celebr|teatro|reuni/.test(text) : true;
-  return { valid: local && entity && direct, score: Number(local)*5 + Number(entity)*3 + Number(direct)*3 };
+  return { valid: local && entity && direct && nearbyEntity,
+    score: Number(local)*5 + Number(entity)*3 + Number(direct)*3 + Number(nearbyEntity)*4 };
 }
 
 /**
