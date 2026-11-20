@@ -8,7 +8,7 @@ export async function handler(event) {
   const depth = event?.depth ?? 'research';
   if (!['research', 'auto', 'brief'].includes(depth)
     || typeof system !== 'string' || system.length < 40 || system.length > 3500
-    || typeof user !== 'string' || user.length < 5 || user.length > 16000) {
+    || typeof user !== 'string' || user.length < 5 || user.length > 26000) {
     throw new Error('INVALID_CHAT_INFERENCE_REQUEST');
   }
   const client = new BedrockRuntimeClient({
