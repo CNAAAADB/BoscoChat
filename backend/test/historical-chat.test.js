@@ -97,7 +97,9 @@ test('BC-102 documents are selected only by read-only parameterized FULLTEXT and
   assert.match(captured[0].sql, /MATCH\(p.text_content\) AGAINST \(\?/);
   assert.match(captured[0].sql, /LIMIT \?/);
   assert.doesNotMatch(captured[0].sql, /INSERT|UPDATE|DELETE/i);
-  assert.deepEqual(captured[0].params, ['Don Bosco España', 'Don Bosco España', 12]);
+  assert.deepEqual(captured[0].params, ['+Bosco +España', '+Bosco +España', 36]);
+  assert.match(captured[0].sql, /FORCE INDEX/);
+  assert.doesNotMatch(captured[0].sql, /ORDER BY/);
 });
 
 test('BC-102 historical OCR is untrusted and never a direct instruction', () => {
