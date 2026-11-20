@@ -3,6 +3,7 @@ import { currentSession, login, logout, register } from './api/auth.js';
 import { changeUserRole, createUser, deleteUser, listUsers, setUserSuspended, issuePasswordReset, redeemPasswordReset } from './api/users.js';
 import HistoricalManagement from './HistoricalManagement.jsx';
 import HistoricalChat from './HistoricalChat.jsx';
+import { clearChatSession } from './chat-session.js';
 
 const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 // Switch on only after RDS archive migration, real ingestion and API deployment.
@@ -172,6 +173,7 @@ export default function App() {
     } catch (error) {
       setAuthError(error.message);
     } finally {
+      clearChatSession(window.sessionStorage, user?.id);
       setUser(null);
       setView('home');
     }
@@ -468,7 +470,7 @@ export default function App() {
       ) : null}
 
       {view === 'admin' && canManageDocuments && HISTORICAL_MANAGEMENT_ENABLED ? <HistoricalManagement /> : null}
-      {isAdministrator && ADMIN_CHAT_ENABLED ? <div style={{ display: view === 'chat' ? 'block' : 'none' }}><HistoricalChat key={user.id} onOpenSource={(source) => openSearchResult({ document_id: source.documentId, page_number: source.page, publication: source.publication, publication_year: source.year })} /></div> : null}
+      {isAdministrator && ADMIN_CHAT_ENABLED ? <div style={{ display: view === 'chat' ? 'block' : 'none' }}><HistoricalChat key={user.id} userId={user.id} onOpenSource={(source) => openSearchResult({ document_id: source.documentId, page_number: source.page, publication: source.publication, publication_year: source.year })} /></div> : null}
 
       {view === 'password-reset' ? (
         <form style={{ ...styles.card, maxWidth: 550 }} onSubmit={async (event) => {
