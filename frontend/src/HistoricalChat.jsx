@@ -71,9 +71,12 @@ export default function HistoricalChat({ onOpenSource, userId }) {
             <p style={{ lineHeight: 1.7, marginBottom: 4 }}>{message.text}</p>
             {message.role === 'assistant' && message.council ? (
               <p style={{ fontSize: 12, color: '#b7c3de', margin: '8px 0' }} role="status">
-                {message.council.status === 'agreed'
+                {(message.council.rounds === 2
+                  ? 'Se realizó una segunda deliberación' + (message.council.followupSearches ? ' con búsqueda documental adicional' : '') + '. '
+                  : '')
+                + (message.council.status === 'agreed'
                   ? 'Análisis contrastado por varios especialistas. El acuerdo entre modelos no sustituye la comprobación de fuentes.'
-                  : 'Los especialistas no han resuelto todas las discrepancias. Revisa las citas y las incertidumbres indicadas.'}
+                  : 'Los especialistas no han resuelto todas las discrepancias. Revisa las citas y las incertidumbres indicadas.')}
               </p>
             ) : null}
             {message.sources?.length ? (
