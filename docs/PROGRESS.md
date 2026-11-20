@@ -1,3 +1,9 @@
+## BC-012 — Incidencia al abrir cita del chatbot en el visor (2026-11-20)
+- Captura proporcionada: Don Bosco en España (1978), página 23, muestra «No se ha podido completar la solicitud». CloudWatch backend 2026-11-20 10:54:46 UTC confirma `GET /api/archive/documents/33/pages/23/image` fallando con `ER_LOCK_DEADLOCK` y estado SQL `40001` (HTTP 500), antes de acceder al renderizador PDF; por tanto no indica PDF corrupto o referencia inexistente.
+- Causa identificada: el limitador MySQL compartido que protege las imágenes hace lecturas/incrementos transaccionales; una colisión concurrente InnoDB aborta una transacción. Se reintenta hasta tres veces únicamente tras rollback seguro; si persiste se devuelve 503 temporal, sin desactivar la cuota.
+- UX: el visor reintenta una sola vez lecturas GET autenticadas si recibe 503. Al abrir una referencia desde el chatbot se habilita «Volver al chat» y se conserva el historial en React durante la navegación.
+- Pruebas nuevas: deadlock transitorio, persistente, error no transitorio, contención en limpieza y endpoint protegido con 503 sin saltarse limitador. Pendiente verificación CI, despliegue y prueba manual real con sesión admin.
+
 ## BC-101 — Modo Investigación con respuestas detalladas y citas (2026-11-19)
 - Selección expresa del responsable: `Investigación — análisis detallado y referencias` como modo predeterminado del chatbot de administrador.
 - Añadido selector `Investigación / Automática / Breve` en `HistoricalChat.jsx`, valor inicial `research`; preferencia transmitida como dato validado (`depth`), no como instrucción arbitraria del navegador.

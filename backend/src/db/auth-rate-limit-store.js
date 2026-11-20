@@ -6,7 +6,23 @@ export class MysqlAuthRateLimitStore {
   }
 
   async consume(keys, { timestamp, resetAt, ipLimit, identityLimit }) {
-    await this.#cleanup(timestamp);
+    // InnoDB may abort one transaction when independent Lambda requests touch
+    // the same two rate-limit buckets concurrently (ER_LOCK_DEADLOCK / 40001).
+    // A rolled-back transaction has not consumed the quota; retry it in full,
+    // never bypassing the shared rate limit or incrementing twice.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        await this.#cleanup(timestamp);
+        return await this.#consumeOnce(keys, { timestamp, resetAt, ipLimit, identityLimit });
+      } catch (error) {
+        if (!isRetryableRateLimitConflict(error) || attempt === 2) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 20 * (attempt + 1)));
+      }
+    }
+    throw new Error('UNREACHABLE_RATE_LIMIT_RETRY');
+  }
+
+  async #consumeOnce(keys, { timestamp, resetAt, ipLimit, identityLimit }) {
     const connection = await this.pool.getConnection();
     try {
       await connection.beginTransaction();
@@ -15,12 +31,15 @@ export class MysqlAuthRateLimitStore {
         await connection.commit();
         return ipEntry;
       }
-
       const identityEntry = await increment(connection, keys.identity, timestamp, resetAt, identityLimit);
       await connection.commit();
       return identityEntry.count > identityLimit ? identityEntry : null;
     } catch (error) {
-      await connection.rollback();
+      try {
+        await connection.rollback();
+      } catch {
+        // Keep the original database error; a failed rollback also fails closed.
+      }
       throw error;
     } finally {
       connection.release();
@@ -61,4 +80,12 @@ async function increment(connection, key, timestamp, resetAt, limit) {
     [key],
   );
   return { count: rows[0].attempt_count, resetAt: new Date(rows[0].reset_at).getTime() };
+}
+
+function isRetryableRateLimitConflict(error) {
+  return error?.code === 'ER_LOCK_DEADLOCK'
+    || error?.code === 'ER_LOCK_WAIT_TIMEOUT'
+    || error?.errno === 1213
+    || error?.errno === 1205
+    || error?.sqlState === '40001';
 }

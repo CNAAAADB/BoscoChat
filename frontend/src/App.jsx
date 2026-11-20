@@ -32,6 +32,18 @@ function highlightSearchTerms(text, search) {
 const ROLES = [{ value: 'free', label: 'Usuario' }, { value: 'documentary_manager', label: 'Historiador' }, { value: 'administrator', label: 'Administrador de plataforma' }];
 const ROLE_LABELS = { free: 'Usuario', pro: 'Usuario', premium: 'Usuario', advanced: 'Usuario', documentary_manager: 'Historiador', administrator: 'Administrador de plataforma' };
 
+// Authenticated, idempotent page reads may be retried once on an explicitly
+// temporary 503 (e.g. exhausted InnoDB deadlock retries). Never retry auth
+// failures, missing pages or rate-limit responses.
+async function fetchViewerPage(url) {
+  let response = await fetch(url, { credentials: 'include' });
+  if (response.status === 503) {
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    response = await fetch(url, { credentials: 'include' });
+  }
+  return response;
+}
+
 export default function App() {
   const [linkedIssue] = useState(() => {
     const params = new URLSearchParams(window.location.hash.slice(1));
@@ -55,6 +67,7 @@ export default function App() {
   const [searchYear, setSearchYear] = useState('');
   const [searchMode, setSearchMode] = useState('relevance');
   const [selectedPage, setSelectedPage] = useState(linkedIssue);
+  const [documentReturnView, setDocumentReturnView] = useState('buscador');
   const [pagePreview, setPagePreview] = useState(null);
   const [pageBusy, setPageBusy] = useState(false);
   const [pageError, setPageError] = useState('');
@@ -231,6 +244,7 @@ export default function App() {
 
   const openSearchResult = (result) => {
     if (!ARCHIVE_SEARCH_ENABLED) return;
+    setDocumentReturnView(view === 'chat' ? 'chat' : 'buscador');
     setSelectedPage({ documentId: result.document_id, pageNumber: result.page_number, title: result.publication, year: result.publication_year });
     setPagePreview(null);
     setPageError('');
@@ -243,7 +257,7 @@ export default function App() {
     let cancelled = false;
     setPageBusy(true);
     setPageError('');
-    fetch(`${API_URL}/archive/documents/${encodeURIComponent(selectedPage.documentId)}/pages/${encodeURIComponent(selectedPage.pageNumber)}`, { credentials: 'include' })
+    fetchViewerPage(`${API_URL}/archive/documents/${encodeURIComponent(selectedPage.documentId)}/pages/${encodeURIComponent(selectedPage.pageNumber)}`)
       .then(async (response) => {
         const data = await response.json().catch(() => null);
         if (!response.ok) throw new Error(data?.error?.message ?? 'No se ha podido abrir el documento.');
@@ -263,7 +277,7 @@ export default function App() {
     setVisualPageError('');
     setVisualPageBusy(true);
     const imageUrl = API_URL + '/archive/documents/' + encodeURIComponent(selectedPage.documentId) + '/pages/' + encodeURIComponent(selectedPage.pageNumber) + '/image';
-    fetch(imageUrl, { credentials: 'include' })
+    fetchViewerPage(imageUrl)
       .then(async (response) => {
         if (!response.ok) {
           const data = await response.json().catch(() => null);
@@ -449,12 +463,12 @@ export default function App() {
               {!ARCHIVE_PAGE_IMAGE_ENABLED && !ARCHIVE_PDF_VIEW_ENABLED ? <p>Vista de texto de la página. El PDF original estará disponible cuando se habilite el visor protegido.</p> : null}
             </>
           )}
-          <button style={{ ...styles.btnPrimary, marginTop: 20 }} onClick={() => setView('buscador')}>Volver a resultados</button>
+          <button style={{ ...styles.btnPrimary, marginTop: 20 }} onClick={() => setView(documentReturnView)}>{documentReturnView === 'chat' ? 'Volver al chat' : 'Volver a resultados'}</button>
         </section>
       ) : null}
 
       {view === 'admin' && canManageDocuments && HISTORICAL_MANAGEMENT_ENABLED ? <HistoricalManagement /> : null}
-      {view === 'chat' && isAdministrator && ADMIN_CHAT_ENABLED ? <HistoricalChat key={user.id} onOpenSource={(source) => openSearchResult({ document_id: source.documentId, page_number: source.page, publication: source.publication, publication_year: source.year })} /> : null}
+      {isAdministrator && ADMIN_CHAT_ENABLED ? <div style={{ display: view === 'chat' ? 'block' : 'none' }}><HistoricalChat key={user.id} onOpenSource={(source) => openSearchResult({ document_id: source.documentId, page_number: source.page, publication: source.publication, publication_year: source.year })} /></div> : null}
 
       {view === 'password-reset' ? (
         <form style={{ ...styles.card, maxWidth: 550 }} onSubmit={async (event) => {
