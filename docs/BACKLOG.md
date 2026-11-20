@@ -24,7 +24,7 @@ This file is the product/work source of truth. It is seeded from `docs/requireme
 - SRS: RF-DOCMGMT-01, RF-DOCMGMT-02, RF-SEARCH-06, RF-SEARCH-07, RF-SEARCH-11, RF-SEARCH-12, RF-RAG-03, RF-RAG-04
 - Design/mockup: docs/design/BC-105_MONTHLY_FRAGMENTATION.md
 - Issue: #80
-- PR: pending
+- PR: #81 (draft, in review)
 
 **Story**
 As a historian or administrator, I want to scan annual PDF collections for issue boundaries, review/edit monthly segments, and publish separate searchable issue PDFs without losing the original.
