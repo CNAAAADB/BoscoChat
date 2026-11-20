@@ -1,3 +1,12 @@
+## BC-105 — Fragmentación de revistas mensuales (2026-11-20)
+- Rama `feature/bc-105-monthly-pdf-fragmentation`, GitHub issue #80; implementación en revisión, **no desplegada**.
+- `frontend/src/HistoricalManagement.jsx`: botón de escaneo, edición de intervalos, mes inicial/final, número, dividir/unir, guardar y confirmar, estado/errores.
+- `backend/src/routes/fragmentation.js`: autorización administrator/documentary_manager, flag OFF, detección basada en OCR indexado, persistencia de propuesta y dispatch asíncrono.
+- `backend/worker/fragmentation.js`: qpdf en worker privado, S3 versionado, almacenamiento de originales y fragmentos, copia de páginas OCR, activación MySQL en una transacción, desindexación del anual y tombstone de versión.
+- `backend/src/db/fragmentation-migration.js`: esquema aditivo para trabajos y metadatos del número; `archive-search.js` devuelve mes/número por resultado.
+- Pruebas unitarias del detector, validación de cobertura, worker con versión fuente alterada y solicitudes duplicadas. Verificación CI y revisión independiente pendientes.
+- TRACE-GAP: los originales de imagen sin OCR necesitan una etapa OCR/visión adicional; estabilidad de límites detectados con revistas reales; recuperación operacional ante trabajos abandonados; despliegue DDL/IAM/S3, pruebas reales, seguridad y rendimiento. No activar en producción todavía.
+
 ## BC-102 — Investigación documental multi-paso (2026-11-20)
 - El responsable detecta que las preguntas sobre presidentes de antiguos alumnos de Cádiz pierden contexto, buscan autoridades nacionales y repiten excusas en lugar de acumular fuentes.
 - Se incorpora búsqueda de hasta cuatro rutas documentales independientes: presidencia, junta directiva, elecciones y nombramientos, con el foco geográfico e institucional heredado de la conversación; dos consultas iniciales y ampliación si las pruebas son insuficientes.
