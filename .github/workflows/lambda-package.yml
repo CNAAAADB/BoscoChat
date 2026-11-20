@@ -96,6 +96,10 @@ jobs:
         working-directory: frontend
         run: npm run lint
 
+      - name: Test browser-tab conversation persistence
+        working-directory: frontend
+        run: node --test test/chat-session.test.js
+
       - name: Build
         working-directory: frontend
         run: npm run build
