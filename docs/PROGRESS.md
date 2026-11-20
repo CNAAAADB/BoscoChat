@@ -1,3 +1,9 @@
+## BC-109 — Investigación inicial sin fuentes por límite FULLTEXT (2026-11-20)
+- Screenshot actual: mensaje «La búsqueda del archivo está tardando demasiado…» con la primera pregunta sobre Cádiz. CloudWatch request backend 13:58:28–13:58:32 UTC: tres logs `Historical research query unavailable { code: 'ER_QUERY_TIMEOUT' }` a 13:58:29, 13:58:31 y 13:58:32. BC-108 ya desplegado; 503 antes de llamar a Bedrock. RDS MySQL 8.4 sobre db.t4g.micro, FULLTEXT `ft_archive_pages_text`.
+- Corrección propuesta BC-109 #88: usar FTS boolean indexado (dos términos relevantes, sin global SQL ORDER), leer 36 candidatos y reordenar en JS; presupuestos SQL 3200/2200ms, búsqueda 9.5s y petición 24s. Saltar búsquedas posteriores cuando hay >=4 páginas pertinentes.
+- Mantener `BOSCOCHAT_COUNCIL_CHAT_ENABLED=true`, expansión=false; conservar role/quotas, referencias SQL comprobables y fallback por timeout sin ejecutar SQL creado por IA.
+- Pendiente: CI, revisión independiente, despliegue y prueba del mismo caso con RDS real; ninguna afirmación de reparación hasta E2E.
+
 ## BC-108 — Timeout de chat y atribución histórica, 2026-11-20
 - Incidente del administrador: respuesta en la web sobre asociación de antiguos alumnos de Cádiz seguida por «No se ha podido contactar con el asistente». CloudWatch us-east-1: backend 13:02:26–13:02:48 UTC terminó en ~22.2 s, siguiente llamada 13:03:56–13:04:25 UTC agotó 28 s (requestId 5341baf0-9557-49f9-99e0-9026e1f2b228). Worker IA de esa segunda llamada arrancó a 13:04:22 y acabó a 13:04:29 (~6.2 s), cuando backend ya había expirado.
 - Config verificada: backend Lambda Timeout=28, inferencia Timeout=25, `BOSCOCHAT_COUNCIL_CHAT_ENABLED` y `BOSCOCHAT_COUNCIL_EXPANSION_ENABLED` no configuradas (OFF). El debate multiagente no fue responsable de este incidente concreto.
