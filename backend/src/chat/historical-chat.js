@@ -230,10 +230,16 @@ export async function callBedrockChat(prompt, { region = 'us-east-1', abortSigna
       || result.text.length < 1 || result.text.length > 10000) {
       throw new Error('CHAT_INFERENCE_RESPONSE_INVALID');
     }
+    const council = result.council;
+    const validCouncil = council && ['agreed', 'needs_review'].includes(council.status)
+      && Number.isSafeInteger(council.agreedCount) && council.agreedCount >= 0 && council.agreedCount <= 8
+      && Number.isSafeInteger(council.disputedCount) && council.disputedCount >= 0 && council.disputedCount <= 8;
     return { text: result.text, usage: {
       inputTokens: Math.max(0, Number(result.usage?.inputTokens) || 0),
       outputTokens: Math.max(0, Number(result.usage?.outputTokens) || 0),
-    } };
+    }, ...(validCouncil ? { council: {
+      status: council.status, agreedCount: council.agreedCount, disputedCount: council.disputedCount,
+    } } : {}) };
   } finally {
     client.destroy();
   }

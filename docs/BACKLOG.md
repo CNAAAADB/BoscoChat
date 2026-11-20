@@ -516,6 +516,31 @@ Ground chat answers in MySQL archive data, not unsupported model recollection.
 - [ ] Citation opens the existing authorized page viewer at the correct page.
 - [ ] If evidence is missing, state it clearly; do not fabricate a citation.
 
+### BC-107 — Reusable evidence-first multi-agent deliberation
+- Priority: P1
+- Status: IN_REVIEW
+- Owner role: Developer
+- Depends on: BC-101, BC-102 (chat), BC-106 (future TIFF catalogue)
+- SRS: RF-RAG-01/02/03/04/05, RF-DOCMGMT-01/02/03, RF-CHAT-06, RNF-PERF-02, RNF-SEC-03
+- Design: DEC-006
+- Issue: #84
+- PR: #85 (draft, isolated, feature OFF)
+
+**Story**
+Two independent specialists analyse source-backed propositions in parallel. A separate critic challenges them; a deterministic adjudicator retains only permitted references and records unresolved alternatives. For chat, synthesis is citations-first and any lack of consensus must be visible. For documentary catalogue, all proposals remain non-publishable until a historian approves them.
+
+**Acceptance criteria**
+- [x] Shared bounded concurrent evidence council with reference allowlisting, structured proposals, critique and no automatic false-consensus promotion.
+- [x] No-commit document catalogue adapter for eventual TIFF/PDF ingest; always requires human review.
+- [x] Opt-in server-side research chat pipeline with two analysts, critic and synthesis using existing isolated inference Lambda; original single-model flow unchanged by default.
+- [x] Bounded agent number, requests and maxTokens; backend role and SQL evidence barriers preserved.
+- [x] Producer tests for disagreement, forged references, failed specialists, approval gate and disabled default.
+- [ ] CI on exact head, independent verification/security review and adversarial OCR test corpus.
+- [ ] Benchmark quality vs existing single-model assistant and p50/p95 latency, budget, quotas and retries with real AWS inference before enabling flag.
+- [ ] Integrate BC-106 TIFF upload/OCR and BC-105 segmentation only after real scanned corpus available; no claim that the read-only adapter performs ingestion.
+
+**Operational gate:** `BOSCOCHAT_COUNCIL_CHAT_ENABLED` defaults false. Multi-agent agreement does not itself prove historical truth; each source must be independently checked against the original page.
+
 ### BC-104 — Conversational quotas
 - Priority: P2
 - Status: IDEA

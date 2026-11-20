@@ -15,10 +15,10 @@ const identities = {
 const auth = { async session(token) { return identities[token] ?? null; } };
 const source = [{ ref: 'F1', documentId: 42, publication: 'Don Bosco en España', year: 1925, page: 7, excerpt: 'El oratorio celebró su reunión en 1925.' }];
 
-async function server(testFn, { enabled = true, retrieve = async () => source, converse = async () => ({ text: 'La reunión se celebró en 1925 [F1].', usage: { inputTokens: 60, outputTokens: 25 } }), store = { async consume() { return null; } }, pool = {} } = {}) {
+async function server(testFn, { enabled = true, retrieve = async () => source, converse = async () => ({ text: 'La reunión se celebró en 1925 [F1].', usage: { inputTokens: 60, outputTokens: 25 } }), store = { async consume() { return null; } }, pool = {}, councilEnabled = false } = {}) {
   const app = express();
   app.use(express.json());
-  app.use('/api/admin/chat', createHistoricalChatRouter(pool, auth, { enabled, rateLimitStore: store, hashKey: 'x'.repeat(40), retrieve, converse }));
+  app.use('/api/admin/chat', createHistoricalChatRouter(pool, auth, { enabled, rateLimitStore: store, hashKey: 'x'.repeat(40), retrieve, converse, councilEnabled }));
   const listener = app.listen(0);
   await new Promise((resolve) => listener.once('listening', resolve));
   try { await testFn('http://127.0.0.1:' + listener.address().port); }
@@ -461,4 +461,32 @@ test('BC-107 council flag is off by default and enabled only for research with >
     } });
     assert.equal(prompt.council, undefined);
   }
+});
+
+test('BC-107 research pilot sends verified reference allowlist only when server flag is active', async () => {
+  const candidates = [
+    { ...source[0], documentId: 10, page: 2 },
+    { ...source[0], documentId: 11, page: 5 },
+  ];
+  let invoked = 0;
+  await server(async base => {
+    const res = await post(base, 'administrator', {
+      question: '¿Qué pasó en el oratorio salesiano?', depth: 'research',
+    });
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.council.status, 'agreed');
+    assert.equal(data.sources.length, 1);
+    assert.match(data.answer, /referencia no verificada/);
+    assert.equal(invoked, 1);
+  }, {
+    councilEnabled: true, retrieve: async () => candidates,
+    converse: async prompt => {
+      invoked++;
+      assert.deepEqual(prompt.council.refs, ['F1', 'F2']);
+      return { text: 'Se registra un acto [F1] y otro inventado [F9].',
+        usage: { inputTokens: 24, outputTokens: 10 },
+        council: { status: 'agreed', agreedCount: 1, disputedCount: 0 } };
+    },
+  });
 });

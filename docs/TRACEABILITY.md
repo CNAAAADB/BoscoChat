@@ -1,3 +1,11 @@
+## BC-107 — Orquestación deliberativa basada en evidencias (2026-11-20)
+- Solicitud: equipo de agentes paralelos con crítica y consenso fundamentado tanto para catalogación histórica como para chat. Issue #84 / PR #85.
+- Diseño: DEC-006, dos especialistas independientes más crítico y árbitro determinista; sin votos como prueba de verdad, human-in-the-loop obligatorio para publicar cambios documentales.
+- Código: `backend/src/agents/evidence-council.js`, `backend/src/documents/document-council.js`, `backend/worker/historical-chat-bedrock.js`, `backend/src/routes/historical-chat.js`, `backend/src/app.js`; UI estado de debate en `frontend/src/HistoricalChat.jsx`.
+- Pruebas: `backend/test/evidence-council.test.js`, `backend/test/chat-council-worker.test.js`, `backend/test/historical-chat.test.js` y suite existente. CI pendiente.
+- Trazabilidad SRS: RF-RAG-01/02/03/04/05, RF-CHAT-06, RF-DOCMGMT-01/02/03, RNF-PERF-02, RNF-SEC-03, RNF-DATA-01.
+- TRACE-GAP: verificación histórica independiente de las afirmaciones (referencias validadas no son inferencias válidas per se), evaluación con corpus etiquetado, costes, latencia, seguridad de OCR adversarial, integración real con #82, pruebas de permisos y revisión independiente. Feature flag OFF.
+
 ## BC-102 — Investigador iterativo, fuentes comprobadas (2026-11-20)
 - Evidencia: conversación de antiguos alumnos de Cádiz; las preguntas «¿Cuántos presidentes ha tenido?» y «¿Y cuántos menciona la revista?» devolvían referencias a presidentes nacionales o cargos sin relación.
 - Código: backend/src/chat/research-agent.js incorpora researchFocus, planResearchQueries, conductHistoricalResearch y revisitCitedSources. Hasta cuatro búsquedas de lectura, ranking contextual, deduplicación y revalidación de páginas previamente citadas contra índice vigente.

@@ -1,3 +1,11 @@
+## BC-107 — Núcleo multiagente y piloto opcional del chat (2026-11-20)
+- Issue #84; PR #85 (draft). Implementación propuesta **no fusionada ni activada**.
+- `backend/src/agents/evidence-council.js`: dos especialistas independientes en paralelo, crítico separado, validación estricta de evidencia y adjudicación que registra desacuerdos. Acuerdo entre agentes NO equivale a verdad histórica.
+- `backend/src/documents/document-council.js`: revisión de metadatos por páginas, siempre no publicable sin historiador. Falta conectar el procesador de TIFF y OCR de BC-106.
+- `backend/worker/historical-chat-bedrock.js`: ruta opcional del modo Investigación, cuatro inferencias como máximo (2 especialistas concurrentes, crítico, redacción), límites de tokens y JSON estructurado. `BOSCOCHAT_COUNCIL_CHAT_ENABLED` OFF por defecto en Express; se conservan roles, citas SQL y cuotas.
+- Pruebas de rechazo de citas inexistentes, desacuerdo, fallos de agentes, modo original y revisión humana.
+- TRACE-GAP: comprobación semántica real de cada afirmación contra texto/página, evaluación de exactitud con fuentes reales, coste, p95 y timeout actual de 22s, auditoría independiente, despliegue de imagen aislada, calidad de fuentes OCR y RDS. No aprobar como DONE.
+
 ## BC-102 — Investigación documental multi-paso (2026-11-20)
 - El responsable detecta que las preguntas sobre presidentes de antiguos alumnos de Cádiz pierden contexto, buscan autoridades nacionales y repiten excusas en lugar de acumular fuentes.
 - Se incorpora búsqueda de hasta cuatro rutas documentales independientes: presidencia, junta directiva, elecciones y nombramientos, con el foco geográfico e institucional heredado de la conversación; dos consultas iniciales y ampliación si las pruebas son insuficientes.

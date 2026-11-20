@@ -92,12 +92,17 @@ export function createHistoricalChatRouter(pool, authService, {
       // Citation IDs and navigation targets are generated only from trusted SQL rows.
       // Do not display every retrieved result as if it were a source for the
       // answer. Only expose citations the model actually included.
-      const cited = new Set([...text.matchAll(/\[F[1-6]\]/g)].map(m => m[0].slice(1,-1)));
+      // A model can invent a citation label even after critique. In the opt-in
+      // council route, replace any label not present in the server's SQL result.
+      const allowed = new Set(sources.map(s => s.ref));
+      const safeText = council ? text.replace(/\[F\d{1,4}\]/g, label =>
+        allowed.has(label.slice(1, -1)) ? label : '[referencia no verificada]') : text;
+      const cited = new Set([...safeText.matchAll(/\[F[1-6]\]/g)].map(m => m[0].slice(1,-1)));
       const safeSources = sources.filter(source => cited.has(source.ref))
         .map(({ ref, documentId, publication, year, page }) => ({ ref, documentId, publication, year, page }));
       res.set('Cache-Control', 'private, no-store');
       console.info('Historical chat inference', { userId: req.user.id, sourceCount: safeSources.length, searchCount: research?.queries?.length ?? 1, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens });
-      return res.json({ answer: text, sources: safeSources, usage, depth: input.depth,
+      return res.json({ answer: safeText, sources: safeSources, usage, depth: input.depth,
         ...(council ? { council: { status: council.status, agreedCount: council.agreedCount,
           disputedCount: council.disputedCount } } : {}),
       });

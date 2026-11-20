@@ -52,3 +52,12 @@ Record material product/architecture/security/privacy decisions here.
 - Consequences: S3 EventBridge must be explicitly enabled on the existing bucket; deploying the CloudFormation stack alone does not start event delivery. Historical PDFs require a deliberate one-time backfill; SQS is at-least-once, so workers must handle duplicate messages and failures safely. Requires CI, independent verification/security, operational alarms, ECR image publishing, cost/load tests, least-privilege IAM and secret-lifecycle handling before production use.
 - Related stories/PRs: BC-007; PR #25 (implementation proposal).
 
+
+### DEC-006 — Consejo multiagente con consenso fundamentado, no por mayoría
+- Date: 2026-11-20
+- Status: proposed
+- Context: BC-107 amplía tanto el chat de investigación como la futura catalogación TIFF/PDF para incorporar especialistas, contradicción y revisión de evidencia.
+- Decision: Mantener un motor propio simple y reutilizable de propuestas JSON acotadas, ejecución paralela de dos roles, crítica posterior y resolución determinista sobre referencias de fuente autorizadas. La comprobación de existencia de la referencia NO implica validar automáticamente el hecho citado. Las discrepancias requieren revisión o respuestas inciertas; ningún resultado de IA puede publicar originales, modificar índice o asignar identidades por sí solo. Usar el worker aislado Bedrock existente para piloto opcional de chat (sin DB/S3 en el modelo), no crear de momento Bedrock Agents Classic o nuevas infraestructuras. Respetar el modo de chat antiguo cuando la bandera está desactivada.
+- Consequences: El modo Investigación multiagente puede llamar cuatro veces al modelo (dos en paralelo más crítica y síntesis), elevando coste y latencia. `BOSCOCHAT_COUNCIL_CHAT_ENABLED` apagada hasta completar límites de AWS, verificación de calidad y p95 frente al timeout actual de 22 segundos; permisos y cuotas compartidos. Las tareas documentales futuras serán asíncronas y la publicación exigirá aprobación de historiador.
+- Related stories/PRs: BC-107 #84 / PR #85; BC-105 #80; BC-106 #82; BC-201 #83.
+

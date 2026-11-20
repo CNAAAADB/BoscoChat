@@ -37,7 +37,7 @@ export default function HistoricalChat({ onOpenSource, userId }) {
       const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(payload?.error?.message ?? 'No se ha podido contactar con el asistente.');
       if (typeof payload.answer !== 'string' || !Array.isArray(payload.sources)) throw new Error('Respuesta inesperada del asistente.');
-      setMessages((prior) => [...prior, { role: 'assistant', text: payload.answer, sources: payload.sources }].slice(-40));
+      setMessages((prior) => [...prior, { role: 'assistant', text: payload.answer, sources: payload.sources, ...(payload.council ? { council: payload.council } : {}) }].slice(-40));
     } catch (failure) {
       setMessages((prior) => prior.slice(0, -1));
       setQuestion(input);
@@ -69,6 +69,13 @@ export default function HistoricalChat({ onOpenSource, userId }) {
           <article key={index} style={{ background: message.role === 'user' ? '#242747' : '#111629', borderRadius: 14, padding: 18, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', textAlign: 'left', justifySelf: message.role === 'user' ? 'end' : 'start', width: 'min(100%, 760px)', boxSizing: 'border-box' }}>
             <strong style={{ color: '#E6D7AA' }}>{message.role === 'user' ? 'Tu pregunta' : 'BoscoChat'}</strong>
             <p style={{ lineHeight: 1.7, marginBottom: 4 }}>{message.text}</p>
+            {message.role === 'assistant' && message.council ? (
+              <p style={{ fontSize: 12, color: '#b7c3de', margin: '8px 0' }} role="status">
+                {message.council.status === 'agreed'
+                  ? 'Análisis contrastado por varios especialistas. El acuerdo entre modelos no sustituye la comprobación de fuentes.'
+                  : 'Los especialistas no han resuelto todas las discrepancias. Revisa las citas y las incertidumbres indicadas.'}
+              </p>
+            ) : null}
             {message.sources?.length ? (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }} aria-label="Fuentes documentales">
                 {message.sources.map((source) => (
