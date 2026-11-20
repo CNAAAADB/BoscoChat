@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import express from 'express';
 import { createHistoricalChatRouter } from '../src/routes/historical-chat.js';
-import { validateChatInput, retrieveChatSources, rankChatSources, retrievalSearchExpression, countPhraseIntent, countIndexedPhrase, chatPrompt } from '../src/chat/historical-chat.js';
+import { validateChatInput, retrieveChatSources, rankChatSources, retrievalSearchExpression, boundedChatBooleanSearch, countPhraseIntent, countIndexedPhrase, chatPrompt } from '../src/chat/historical-chat.js';
 
 const identities = {
   administrator: { id: 1, role: 'administrator' },
@@ -153,7 +153,12 @@ test('BC-102 long natural questions become safe bounded search expressions', asy
   assert.doesNotMatch(expression, /[?¿',;()]/);
   const pool = { async execute(sql, params) {
     assert.match(sql, /indexed_at IS NOT NULL/);
-    assert.deepEqual(params.slice(0, 2), [expression, expression]);
+    const fast = boundedChatBooleanSearch(question);
+    assert.deepEqual(params.slice(0, 2), [fast, fast]);
+    assert.match(sql, /IN BOOLEAN MODE/);
+    assert.match(sql, /FORCE INDEX \(ft_archive_pages_text\)/);
+    assert.doesNotMatch(sql, /ORDER BY/);
+    assert.equal(params[2], 36);
     return [[]];
   } };
   assert.deepEqual(await retrieveChatSources(pool, question), []);
@@ -566,4 +571,42 @@ test('BC-107 no disagreement keeps single inference and never invokes a second d
     },
   });
   assert.equal(modelCalls, 1);
+});
+
+test('BC-109 bounded Boolean FTS uses location and specific issue, not conversational filler', () => {
+  assert.equal(boundedChatBooleanSearch('Cádiz antiguos alumnos presidente'),
+    '+Cádiz +presidente antiguos alumnos');
+  assert.equal(boundedChatBooleanSearch('Cádiz antiguos alumnos junta directiva'),
+    '+Cádiz +directiva antiguos alumnos junta');
+  assert.equal(boundedChatBooleanSearch('Puedes contarme todo lo que sepas sobre la asociación de Cádiz?'),
+    '+asociación +Cádiz');
+  assert.equal(boundedChatBooleanSearch('Don Bosco en España'), '+Bosco +España');
+  assert.equal(boundedChatBooleanSearch('???'), null);
+});
+
+test('BC-109 bounded in-memory ranking selects highest confidence without a DB-wide sort', async () => {
+  const pool = { async execute(sql, args) {
+    assert.doesNotMatch(sql, /ORDER BY/);
+    assert.match(sql, /MAX_EXECUTION_TIME\(3200\)/);
+    assert.equal(args[2], 36);
+    return [[
+      { document_id: 14, publication: 'Revista', publication_year: 1954, page_number: 6,
+        excerpt: 'Se menciona brevemente Cádiz.', score: 0.2 },
+      { document_id: 18, publication: 'Revista', publication_year: 1964, page_number: 10,
+        excerpt: 'La Asociación de Antiguos Alumnos de Cádiz organiza la fiesta.', score: 4.5 },
+    ]];
+  } };
+  const rows = await retrieveChatSources(pool, 'Cádiz antiguos alumnos');
+  assert.equal(rows[0].documentId, 18);
+  assert.equal(rows[0].page, 10);
+  assert.equal(rows[0].ref, 'F1');
+  assert.equal(rows[1].documentId, 14);
+});
+
+test('BC-109 follow-up uses a shorter SQL cap than initial archive retrieval', async () => {
+  const pool = { async execute(sql) {
+    assert.match(sql, /MAX_EXECUTION_TIME\(2200\)/);
+    return [[]];
+  } };
+  assert.deepEqual(await retrieveChatSources(pool, 'Cádiz antiguos alumnos', { followup: true }), []);
 });
