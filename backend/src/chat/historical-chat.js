@@ -148,12 +148,12 @@ export function rankChatSources(question, candidates, { maxSources = 3 } = {}) {
   return selected.slice(0,maxSources).map((s,i)=>({ ...s.source, ref:'F'+(i+1) }));
 }
 
-export async function retrieveChatSources(pool, question) {
+export async function retrieveChatSources(pool, question, { followup = false } = {}) {
   // Never interpolate a user's text as SQL syntax. Only indexed pages are eligible.
   const expression = retrievalSearchExpression(question);
   if (!expression) return [];
   const [rows] = await pool.execute(
-    `SELECT d.id AS document_id, d.publication, d.publication_year,
+    `SELECT ${followup ? '/*+ MAX_EXECUTION_TIME(1200) */' : ''} d.id AS document_id, d.publication, d.publication_year,
             p.page_number, LEFT(p.text_content, 6500) AS excerpt,
             MATCH(p.text_content) AGAINST (? IN NATURAL LANGUAGE MODE) AS score
        FROM archive_pages p JOIN archive_documents d ON d.id = p.document_id
