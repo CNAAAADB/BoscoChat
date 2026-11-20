@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { loadChatSession, saveChatSession, clearChatSession } from './chat-session.js';
+import { chatHttpError, chatNetworkError } from './chat-errors.js';
 
 const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 
@@ -35,13 +36,13 @@ export default function HistoricalChat({ onOpenSource, userId }) {
         body: JSON.stringify({ question: input, history, depth, sourceTrail }),
       });
       const payload = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(payload?.error?.message ?? 'No se ha podido contactar con el asistente.');
-      if (typeof payload.answer !== 'string' || !Array.isArray(payload.sources)) throw new Error('Respuesta inesperada del asistente.');
+      if (!response.ok) throw new Error(chatHttpError(response.status, payload));
+      if (typeof payload?.answer !== 'string' || !Array.isArray(payload.sources)) throw new Error('El servidor ha enviado una respuesta incompleta. Tu conversación se conserva; puedes reintentarlo.');
       setMessages((prior) => [...prior, { role: 'assistant', text: payload.answer, sources: payload.sources, ...(payload.council ? { council: payload.council } : {}) }].slice(-40));
     } catch (failure) {
       setMessages((prior) => prior.slice(0, -1));
       setQuestion(input);
-      setError(failure.message);
+      setError(chatNetworkError(failure));
     } finally {
       setBusy(false);
     }
