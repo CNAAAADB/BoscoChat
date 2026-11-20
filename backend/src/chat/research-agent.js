@@ -31,7 +31,12 @@ export function researchFocus(question, history = []) {
   const context = [question, ...previousQuestions];
   const entity = context.map(topic).find(Boolean) ?? null;
   const q = normalized(question);
-  const intent = /presid|junta\s+directiva|eleccion|reeleccion/.test(q)
+  const previousIntent = normalized(previousQuestions[0] ?? '');
+  // A follow-up such as "¿y cuántos menciona la revista?" refers to the
+  // presidency discussed in the immediately preceding user question.
+  const elliptical = /^(?:y\s+)?(?:cuantos?|cuantas?|cuales?|quienes?)\b/.test(q);
+  const intentText = elliptical ? q + ' ' + previousIntent : q;
+  const intent = /presid|junta\s+directiva|eleccion|reeleccion/.test(intentText)
     ? 'presidencia' : /fundac|origen|comienzo/.test(q)
       ? 'fundacion' : /encuentro|actividad|fiesta|celebracion/.test(q)
         ? 'actividades' : 'general';
