@@ -1,3 +1,11 @@
+## BC-107 — Segunda ronda deliberativa y búsqueda de evidencias (2026-11-20)
+- El responsable solicita que, cuando haya contradicciones entre agentes, BoscoChat realice búsqueda documental adicional y replantee la conclusión en otra ronda.
+- PR #85 ampliado (sin merge ni deploy). Un worker de inferencia aislado emite `probe` sólo ante desacuerdo; el backend ejecuta un máximo de una consulta adicional determinada por `planResearchQueries` / `chooseDebateFollowup`, nunca por texto generado por el modelo. El resultado se filtra por contexto, se evita duplicidad y se limita a seis referencias SQL autorizadas.
+- Segunda invocación opcional del worker: especialistas reevalúan las objeciones con fuentes actualizadas, crítico comprueba y sintetizador responde; dos rondas máximo. Un límite de 22 segundos se comparte entre ambas invocaciones, con suma de tokens/coste de las dos.
+- Flags obligatorias OFF: `BOSCOCHAT_COUNCIL_CHAT_ENABLED` y `BOSCOCHAT_COUNCIL_EXPANSION_ENABLED`. Solo modo Investigación, administrador, 2+ fuentes. La UI muestra si se activó réplica/búsqueda.
+- Regresiones: fase probe, consulta extra controlada, ausencia de segunda fase si no existe desacuerdo, referencia inventada, límite de rondas y fallos de consulta; CI y revisión independiente aún requieren comprobación exacta de SHA.
+- TRACE-GAP: viabilidad de dos invocaciones Lambda y hasta siete consultas de modelo dentro de 22 s, presupuesto/cuotas reales, benchmark de precisión y OCR adversarial, auditoría de IAM, posible migración futura a trabajos de investigación asíncronos. Mantener apagado en AWS.
+
 ## BC-107 — Núcleo multiagente y piloto opcional del chat (2026-11-20)
 - Issue #84; PR #85 (draft). Implementación propuesta **no fusionada ni activada**.
 - `backend/src/agents/evidence-council.js`: dos especialistas independientes en paralelo, crítico separado, validación estricta de evidencia y adjudicación que registra desacuerdos. Acuerdo entre agentes NO equivale a verdad histórica.
