@@ -83,7 +83,8 @@ export async function searchArchivePages(pool, rawQuery, { year = null, page = 1
             fi.month_start AS month_start, fi.month_end AS month_end, fi.issue_number AS issue_number,
             p.page_number, LEFT(p.text_content, 1600) AS text_content,
             MATCH(p.text_content) AGAINST (? IN ${sqlMode} MODE) AS relevance
-       ORDER BY relevance DESC, d.publication_year ASC, d.id ASC, p.page_number ASC
+       ${where}
+      ORDER BY relevance DESC, d.publication_year ASC, d.id ASC, p.page_number ASC
       LIMIT ? OFFSET ?`,
     [plan.expression, plan.expression, parsedYear, parsedYear, safePageSize, offset],
   );
