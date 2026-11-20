@@ -535,11 +535,13 @@ Two independent specialists analyse source-backed propositions in parallel. A se
 - [x] Opt-in server-side research chat pipeline with two analysts, critic and synthesis using existing isolated inference Lambda; original single-model flow unchanged by default.
 - [x] Bounded agent number, requests and maxTokens; backend role and SQL evidence barriers preserved.
 - [x] Producer tests for disagreement, forged references, failed specialists, approval gate and disabled default.
+- [x] Opt-in two-stage rebuttal: on dispute, server-owned deterministic plan makes at most one further read-only search and re-invokes analysts with new OCR evidence; fixed two-round ceiling, shared 22-second request deadline, cumulative token usage; no model-authored SQL.
+- [x] Frontend indicates when a second deliberation and an additional search were performed.
 - [ ] CI on exact head, independent verification/security review and adversarial OCR test corpus.
-- [ ] Benchmark quality vs existing single-model assistant and p50/p95 latency, budget, quotas and retries with real AWS inference before enabling flag.
+- [ ] Benchmark quality vs existing single-model assistant and p50/p95 latency, budget, quotas and retries with real AWS inference before enabling flags. Especially validate two Lambda invocations (up to seven Bedrock calls) inside 22-second total deadline; if not viable, design asynchronous research response.
 - [ ] Integrate BC-106 TIFF upload/OCR and BC-105 segmentation only after real scanned corpus available; no claim that the read-only adapter performs ingestion.
 
-**Operational gate:** `BOSCOCHAT_COUNCIL_CHAT_ENABLED` defaults false. Multi-agent agreement does not itself prove historical truth; each source must be independently checked against the original page.
+**Operational gate:** `BOSCOCHAT_COUNCIL_CHAT_ENABLED` and `BOSCOCHAT_COUNCIL_EXPANSION_ENABLED` both default false; expanded debate needs BOTH flags and >=2 authorized sources. Multi-agent agreement does not itself prove historical truth; each source must be independently checked against the original page.
 
 ### BC-104 — Conversational quotas
 - Priority: P2
