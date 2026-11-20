@@ -18,6 +18,10 @@ export function objectsFromQueueEvent(event) {
     if (size != null && (!Number.isSafeInteger(size) || size < 1 || size > 350 * 1024 * 1024)) {
       throw new Error('Invalid S3 object size');
     }
+    // The OCR staging prefix has its own explicit submit API. Its S3
+    // notifications must be acknowledged, not retried as malformed PDFs.
+    if (typeof key === 'string'
+      && (/^imports\/(?:tiff|jobs|reviews)\//.test(key))) continue;
     if (parseArchiveKey(key).status !== 'recognized') {
       // A safe, nonannual PDF belongs in the private directory but awaits
       // cataloguing; acknowledge its notification without poisoning the DLQ.
