@@ -90,7 +90,7 @@ export function createHistoricalChatRouter(pool, authService, {
           verifiedPreviousSources: previous.length, retrievedSources: investigation.sources.length };
       } else {
         sources = rankChatSources(input.question,
-          await withinChatBudget(() => retrieve(pool, input.question), searchDeadline, 1_900),
+          await withinChatBudget(() => retrieve(pool, input.question), searchDeadline, 3_400),
           { maxSources: 3 });
       }
       const prompt = chatPrompt({ ...input, sources, count, research });
