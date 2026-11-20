@@ -152,6 +152,14 @@ export function createApp({
         error: { code: error.code, message: error.message, ...(error.details ? { details: error.details } : {}) },
       });
     }
+    if (error?.code === 'ER_LOCK_DEADLOCK' || error?.code === 'ER_LOCK_WAIT_TIMEOUT' || error?.sqlState === '40001') {
+      // Shared rate-limit storage remains fail-closed on persistent contention,
+      // but a temporary DB conflict should never be presented as a broken PDF.
+      console.warn('Transient MySQL contention after safe retries', { path: req.path, code: error?.code });
+      return res.status(503).set('Retry-After', '1').json({
+        error: { code: 'TEMPORARY_DATABASE_CONTENTION', message: 'El visor está ocupado temporalmente. Vuelve a intentarlo.' },
+      });
+    }
     console.error('Unhandled request error', { method: req.method, path: req.path, name: error?.name, code: typeof error?.code === 'string' ? error.code : undefined, sqlState: typeof error?.sqlState === 'string' ? error.sqlState : undefined });
     return res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'No se ha podido completar la solicitud.' } });
   });
