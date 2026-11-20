@@ -16,6 +16,60 @@ This file is the product/work source of truth. It is seeded from `docs/requireme
 
 ---
 
+### BC-106 — Ingestión ZIP TIFF, OCR y catalogación multimodal de revistas
+- Priority: P1
+- Status: IDEA
+- Owner role: Product/Developer
+- Depends on: BC-006, BC-007, BC-017
+- SRS: RF-DOCMGMT-01, RF-DOCMGMT-02, RF-DOCMGMT-04, RF-SEARCH-05/06/07/11/12, RF-RAG-03/04, RNF-SEC-02/03, RNF-MAINT-01/02
+- Design/mockup: GitHub issue #82 (refinement, samples pending)
+- Issue: #82
+- PR: -
+
+**Story**
+As a historian or administrator I can upload a ZIP containing ordered TIFF page scans belonging to one or several magazines, regardless of publication. BoscoChat OCRs the scans, proposes issue boundaries and cataloguing metadata (publication, year, month(s), issue), lets me review evidence and corrections, then creates per-issue PDFs and searchable index, retaining each original TIFF.
+
+**Acceptance criteria**
+- [ ] Upload UI selects PDF or ZIP TIFF and explains that TIFF pages must be in an unambiguous reading order; a ZIP may contain several magazine issues.
+- [ ] Direct private S3 import, durable async job state/progress, per-file SHA-256, bounded decompression and ZIP security protections.
+- [ ] Validate TIFF types, sensible order, duplicates/gaps, dimensions, multi-page TIFF policy, and ZIP contents before ingestion.
+- [ ] OCR each page (compare Textract/Tesseract on a real Spanish historical sample); preserve text, reading order, coordinates, quality, and ability to correct.
+- [ ] Multimodal cover/issue classification across **any** publication; report evidence + confidence, never invent absent publication/year/month/issue.
+- [ ] Editable proposed boundaries/catalogue and mandatory human review on low confidence before publishing.
+- [ ] Produce indexed per-issue PDFs without exposing internal S3 keys; preserve immutable TIFF originals, link back to page provenance, avoid duplicate editions; support failure/retry/rollback.
+- [ ] Link to BC-201 for extracted photographs/illustrations; identification of persons is a later gated BC-203/204 capability.
+- [ ] CI, real corpus QA, security/GDPR review, cost quotas and independently verified E2E before deployment.
+
+**Product note**: The owner has not yet reviewed their TIFF naming/folder structure; the importer must not assume one fixed convention. This is newly authorized scope outside the March 2026 SRS baseline; reconcile before READY.
+
+### BC-105 — Monthly PDF fragmentation for Gestión histórica
+- Priority: P1
+- Status: IN_REVIEW
+- Owner role: Developer
+- Depends on: BC-007, BC-017
+- SRS: RF-DOCMGMT-01, RF-DOCMGMT-02, RF-SEARCH-06, RF-SEARCH-07, RF-SEARCH-11, RF-SEARCH-12, RF-RAG-03, RF-RAG-04
+- Design/mockup: docs/design/BC-105_MONTHLY_FRAGMENTATION.md
+- Issue: #80
+- PR: #81 (draft, in review; do not merge as complete until BC-106 integration and OCR/vision evaluated)
+
+**Story**
+As a historian or administrator, I want to scan annual PDF collections for issue boundaries, review/edit monthly segments, and publish separate searchable issue PDFs without losing the original.
+
+**Acceptance criteria**
+- [x] Authenticated role-restricted, feature-flagged scan proposal from indexed PDF OCR.
+- [x] Editable page ranges, issue number and month span; split/merge and coverage validation.
+- [x] Private PDF splitting via qpdf in worker; source preserved and S3 output never overwritten.
+- [x] Transactional activation of child indexes with source tombstone to prevent delayed reingestion.
+- [x] Issue/month metadata returned to archive search.
+- [ ] CI and independent security/integration verification on exact PR head.
+- [ ] Representative scanned annual PDF and OCR fallback validation.
+- [ ] Apply and verify additive MySQL migration; publish new worker with qpdf and IAM GetObjectVersion/PutObject; enable flags in AWS only after staging.
+- [ ] Recover abandoned or failed fragments, implement operational job timeout/recovery and rollback drills.
+
+**Limitations / gate:** Detection currently uses OCR pages already indexed in MySQL, not visual cover detection or new OCR for image-only originals. Low-confidence output MUST be reviewed; a single detected issue is never split automatically. Feature flags remain disabled by default. No claim of production readiness.
+
+---
+
 # Phase 1 — MVP
 
 ### BC-001 — User registration and authentication
@@ -534,14 +588,21 @@ Ground chat answers in MySQL archive data, not unsupported model recollection.
 
 # Phase 3 — Visual analysis and historical entities
 
-### BC-201 — Image extraction during ingestion
-- Priority: P3
+### BC-201 — Extraction of periodical images with linked directory
+- Priority: P1 (original image extraction and archive catalogue); future people/places recognition stays Phase 3
 - Status: IDEA
 - Owner role: Developer
-- Depends on: BC-007
-- SRS: RF-DOCMGMT-03
-- Design/mockup: TBD
+- Depends on: BC-007, BC-106
+- SRS: RF-DOCMGMT-03, RNF-DATA-01
+- Design/mockup: GitHub issue #83
+- Issue: #83
 - PR: -
+
+**Acceptance criteria**
+- [ ] Detect/crop photographs and illustrations from magazine pages; retain coordinates, parent issue/page, immutable source ID and version.
+- [ ] Store private image assets with thumbnails, full traceability and a historian-editable linked directory.
+- [ ] Search/browse images by magazine, issue/year/page, with OCR captions when available.
+- [ ] Do not identify people by face automatically; facial and personal identification remain subject to BC-203/204 and privacy approval.
 
 ### BC-202 — Historical person and location entities
 - Priority: P3

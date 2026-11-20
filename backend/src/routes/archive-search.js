@@ -1,14 +1,14 @@
 import express from 'express';
 import { searchArchivePages } from '../documents/archive-search.js';
 
-export function createArchiveSearchRouter(pool) {
+export function createArchiveSearchRouter(pool, { issueMetadataEnabled = false } = {}) {
   const router = express.Router();
   // Public discovery, with no PDF download or direct object keys exposed.
   // Apply WAF/API Gateway rate limits before opening this endpoint to the Internet.
   router.get('/search', async (req, res, next) => {
     res.set('Cache-Control', 'private, no-store');
     try {
-      const result = await searchArchivePages(pool, req.query.q, { year: req.query.year, mode: req.query.mode, page: req.query.page, pageSize: req.query.pageSize });
+      const result = await searchArchivePages(pool, req.query.q, { year: req.query.year, mode: req.query.mode, page: req.query.page, pageSize: req.query.pageSize, issueMetadataEnabled });
       // Explicit protocol marker for diagnosing frontend/backend deployment drift.
       res.set('X-BoscoChat-Search-API', 'paginated-v1');
       return res.json(result);

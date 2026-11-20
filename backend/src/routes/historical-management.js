@@ -8,6 +8,7 @@ import { signedArchiveUpload, signedArchiveDownload, MAX_PDF_BYTES } from '../do
 const BUCKET = 'boscochat-archivo-pdfs';
 const REGION = 'us-east-1';
 const allowed = new Set([ROLES.DOCUMENTARY_MANAGER, ROLES.ADMINISTRATOR]);
+const fragmentFilename = /^Don Bosco en Espa(?:ñ|n)a_\d{4}_\d{2}(?:-\d{2})?_p\d{4}\.pdf$/iu;
 
 function replyError(res, status, code, message) {
   return res.status(status).json({ error: { code, message } });
@@ -29,6 +30,7 @@ export function createHistoricalManagementRouter(pool, authService, {
   deletionEnabled = false,
   manualIndexEnabled = false,
   unindexEnabled = false,
+  fragmentationEnabled = false,
 } = {}) {
   const router = express.Router();
   router.use(requireAuthorization(authService, allowed));
@@ -68,8 +70,13 @@ export function createHistoricalManagementRouter(pool, authService, {
         'SELECT d.s3_key, d.publication, d.publication_year, d.indexed_at, COUNT(p.page_number) AS pages FROM archive_documents d LEFT JOIN archive_pages p ON p.document_id = d.id WHERE d.s3_key LIKE \'originals/%\' GROUP BY d.id',
       );
       const indexed = new Map(statusRows.map((row) => [row.s3_key, row]));
+      const fragmented = fragmentationEnabled
+        ? new Set((await pool.execute("SELECT source_key FROM archive_fragmentation_jobs WHERE status = 'completed'"))[0].map((r) => r.source_key))
+        : new Set();
       const query = filter.toLocaleLowerCase('es');
       const documents = objects
+        // Incomplete S3 uploads are never published in the archive directory.
+        .filter((o) => !fragmentationEnabled || !fragmentFilename.test(o.Key.slice('originals/'.length)) || indexed.has(o.Key))
         .filter((o) => !query || o.Key.slice('originals/'.length).toLocaleLowerCase('es').includes(query))
         .map((o) => {
           const meta = parseArchiveKey(o.Key);
@@ -80,7 +87,9 @@ export function createHistoricalManagementRouter(pool, authService, {
             publication: db?.publication ?? (meta.status === 'recognized' ? meta.publication : null),
             sizeBytes: o.Size,
             lastModified: o.LastModified ? new Date(o.LastModified).toISOString() : null,
-            status: db?.indexed_at && Number(db.pages) > 0 ? 'indexed' : meta.status === 'recognized' ? 'pending' : 'stored',
+            status: fragmented.has(o.Key) ? 'fragmented'
+              : db?.indexed_at && Number(db.pages) > 0 ? 'indexed'
+                : meta.status === 'recognized' ? 'pending' : 'stored',
             pages: Number(db?.pages ?? 0),
             indexedAt: db?.indexed_at ? new Date(db.indexed_at).toISOString() : null,
           };
@@ -133,6 +142,10 @@ export function createHistoricalManagementRouter(pool, authService, {
         'SELECT publication, publication_year, indexed_at FROM archive_documents WHERE s3_key = ?', [key],
       );
       if (catalogRows[0]?.indexed_at) return replyError(res, 409, 'DOCUMENT_ALREADY_INDEXED', 'Este documento ya está indexado.');
+      if (fragmentationEnabled) {
+        const [completed] = await pool.execute("SELECT id FROM archive_fragmentation_jobs WHERE source_key = ? AND status = 'completed' LIMIT 1", [key]);
+        if (completed.length) return replyError(res, 409, 'SOURCE_ALREADY_FRAGMENTED', 'El PDF anual se conserva como respaldo de los números ya publicados.');
+      }
       let catalog = null;
       if (auto.status !== 'recognized') {
         const publication = req.body?.publication ?? catalogRows[0]?.publication;
@@ -150,6 +163,9 @@ export function createHistoricalManagementRouter(pool, authService, {
         catch (error) { if (isAbsentObject(error)) return null; throw error; }
       });
       if (!head) return replyError(res, 404, 'DOCUMENT_NOT_FOUND', 'Documento no encontrado.');
+      if (fragmentationEnabled && fragmentFilename.test(filename)) {
+        return replyError(res, 409, 'FRAGMENT_MANUAL_INDEX_FORBIDDEN', 'Los números generados deben publicarse conjuntamente, no indexarse manualmente.');
+      }
       if (typeof head.VersionId !== 'string' || !head.VersionId || head.VersionId === 'null') return replyError(res, 409, 'ARCHIVE_VERSIONING_REQUIRED', 'No se puede indexar sin comprobar la versión del original.');
       const bytes = Number(head.ContentLength);
       if (!Number.isSafeInteger(bytes) || bytes < 1 || bytes > MAX_PDF_BYTES) {
@@ -263,6 +279,10 @@ export function createHistoricalManagementRouter(pool, authService, {
     if (!key) return replyError(res, 400, 'INVALID_DOCUMENT_FILENAME', 'Nombre de documento no válido.');
     let connection;
     try {
+      if (fragmentationEnabled) {
+        const [backups] = await pool.execute("SELECT id FROM archive_fragmentation_jobs WHERE source_key = ? AND status = 'completed' LIMIT 1", [key]);
+        if (backups.length) return replyError(res, 409, 'FRAGMENT_PARENT_PROTECTED', 'Este PDF anual es el respaldo de los números fragmentados y no puede eliminarse desde la gestión ordinaria.');
+      }
       const head = await withS3(async (client, { HeadObjectCommand }) => {
         try { return await client.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key })); }
         catch (error) { if (isAbsentObject(error)) return null; throw error; }

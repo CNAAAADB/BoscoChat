@@ -17,6 +17,7 @@ import { createArchiveDiagnosticRouter } from './routes/archive-diagnostics.js';
 import { createArchiveSearchRouter } from './routes/archive-search.js';
 import { createArchiveDocumentRouter } from './routes/archive-documents.js';
 import { createHistoricalManagementRouter } from './routes/historical-management.js';
+import { createFragmentationRouter } from './routes/fragmentation.js';
 import { createHistoricalChatRouter } from './routes/historical-chat.js';
 
 export function createApp({
@@ -104,16 +105,20 @@ export function createApp({
       app.use('/api/archive', createArchiveSearchRateLimiter({
         store: sharedAuthRateLimitStore ?? undefined,
         hashKey: authRateLimitHashKey,
-      }), createArchiveSearchRouter(pool));
+      }), createArchiveSearchRouter(pool, { issueMetadataEnabled: environment.ARCHIVE_FRAGMENTATION_ENABLED === 'true' }));
     }
     if (environment.ARCHIVE_PAGE_IMAGE_ENABLED === 'true' && Buffer.byteLength(environment.ARCHIVE_WATERMARK_HMAC_KEY ?? '') < 32) {
       throw new Error('ARCHIVE_WATERMARK_HMAC_KEY_REQUIRED');
     }
     if (environment.HISTORICAL_MANAGEMENT_ENABLED === 'true') {
+      app.use('/api/admin/historical', createFragmentationRouter(pool, service, {
+        enabled: environment.ARCHIVE_FRAGMENTATION_ENABLED === 'true',
+      }));
       app.use('/api/admin/historical', createHistoricalManagementRouter(pool, service, {
         deletionEnabled: environment.ARCHIVE_DOCUMENT_DELETE_ENABLED === 'true',
         manualIndexEnabled: environment.ARCHIVE_MANUAL_INDEX_ENABLED === 'true',
         unindexEnabled: environment.ARCHIVE_UNINDEX_ENABLED === 'true',
+        fragmentationEnabled: environment.ARCHIVE_FRAGMENTATION_ENABLED === 'true',
       }));
     }
     app.use('/api/archive/documents', createArchiveDocumentRouter(pool, service, {

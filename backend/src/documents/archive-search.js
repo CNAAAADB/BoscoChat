@@ -51,7 +51,7 @@ export function excerptNearMatch(text, words, maxLength = 280) {
   return (start ? '…' : '') + value.slice(start, end) + (end < value.length ? '…' : '');
 }
 
-export async function searchArchivePages(pool, rawQuery, { year = null, page = 1, pageSize = 10, mode = 'relevance' } = {}) {
+export async function searchArchivePages(pool, rawQuery, { year = null, page = 1, pageSize = 10, mode = 'relevance', issueMetadataEnabled = false } = {}) {
   const plan = searchPlan(rawQuery, mode);
   const parsedYear = year == null || year === '' ? null : Number(year);
   if (parsedYear !== null && (!Number.isInteger(parsedYear) || parsedYear < 1922 || parsedYear > 2100)) {
@@ -68,7 +68,12 @@ export async function searchArchivePages(pool, rawQuery, { year = null, page = 1
   }
   const offset = (safePage - 1) * safePageSize;
   const sqlMode = plan.sqlMode; // An internal constant, not supplied by a caller.
+  const issueJoin = issueMetadataEnabled ? 'LEFT JOIN archive_fragmentation_issues fi ON fi.document_id = d.id' : '';
+  const issueColumns = issueMetadataEnabled
+    ? 'fi.month_start AS month_start, fi.month_end AS month_end, fi.issue_number AS issue_number'
+    : 'NULL AS month_start, NULL AS month_end, NULL AS issue_number';
   const where = `FROM archive_pages p JOIN archive_documents d ON d.id = p.document_id
+      ${issueJoin}
       WHERE d.indexed_at IS NOT NULL
         AND MATCH(p.text_content) AGAINST (? IN ${sqlMode} MODE)
         AND (? IS NULL OR d.publication_year = ?)`;
@@ -79,6 +84,7 @@ export async function searchArchivePages(pool, rawQuery, { year = null, page = 1
   const total = Number(countRows[0]?.total ?? 0);
   const [rows] = await pool.execute(
     `SELECT d.id AS document_id, d.publication, d.publication_year,
+            ${issueColumns},
             p.page_number, LEFT(p.text_content, 1600) AS text_content,
             MATCH(p.text_content) AGAINST (? IN ${sqlMode} MODE) AS relevance
        ${where}
@@ -90,6 +96,9 @@ export async function searchArchivePages(pool, rawQuery, { year = null, page = 1
     document_id: row.document_id,
     publication: row.publication,
     publication_year: row.publication_year,
+    month_start: row.month_start ?? null,
+    month_end: row.month_end ?? null,
+    issue_number: row.issue_number ?? null,
     page_number: row.page_number,
     text_content: excerptNearMatch(row.text_content, plan.words),
   }));

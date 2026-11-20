@@ -1,3 +1,17 @@
+## BC-106 / BC-201 — Ingestión TIFF OCR y archivo de imágenes (2026-11-20)
+- #82 BC-106: nueva historia propuesta para carga ZIP TIFF, aviso de orden, procesamiento seguro, OCR de cada página, clasificación multimodal de título/año/mes/número, revisión de cortes, generación de PDF individuales y publicación en índice. Código/pruebas/deploy: TRACE-GAP. SRS relacionado RF-DOCMGMT-01/02/04, RF-SEARCH-05/06/07/11/12, RF-RAG-03/04; nueva modalidad ZIP debe reconciliarse con baseline.
+- #83 BC-201: detección/extracción de fotografías/ilustraciones, S3 privado y directorio vinculado a publicación/número/página con coordenadas y procedencia. Código/pruebas/deploy: TRACE-GAP. RF-DOCMGMT-03.
+- IA fuerte con revisión humana y control de coste; nombrado de personas por caras no autorizado como hecho histórico sin validación (BC-203/204, RNF-DATA-02).
+- #80 BC-105 / PR #81 es solo base PDF; impedido su cierre o fusión como solución completa hasta cerrar compatibilidad con importación TIFF genérica, validación real y revisión independiente.
+
+## BC-105 — Fragmentación de PDF por números y meses (2026-11-20)
+- Requisito de responsable: botón «Escanear fragmentación por meses» en Gestión histórica; reconocer varios números en un PDF anual, separarlos y sustituir de modo seguro el índice anual.
+- RF-DOCMGMT-01/02, RF-SEARCH-06/07/11/12, RF-RAG-03/04, RNF-SEC-02/03, RNF-MAINT-01.
+- Código: `frontend/src/HistoricalManagement.jsx`, `frontend/src/api/historical.js`, `backend/src/routes/fragmentation.js`, `backend/src/documents/fragmentation.js`, `backend/worker/fragmentation.js`, `backend/src/db/fragmentation-migration.js`, `backend/src/documents/archive-search.js`, `backend/src/app.js`, `backend/worker/handler.js`.
+- Pruebas: `backend/test/fragmentation.test.js`, `backend/test/fragmentation-worker.test.js`. Revisión CI, QA independiente y AWS E2E: TRACE-GAP.
+- Seguridad: comprobación de rol backend, flag OFF, comprobación VersionId, no sobrescritura de objetos, publicación atómica del índice y supresión S3-event reindex con tombstone. Validación IAM/retención/latencia: TRACE-GAP.
+- Precisión: únicamente detección heurística sobre OCR existente; lectura de portadas por IA/OCR nuevo no implementada; calidad con documentos representativos: TRACE-GAP. Estado: IN_REVIEW.
+
 ## BC-102 — Investigador iterativo, fuentes comprobadas (2026-11-20)
 - Evidencia: conversación de antiguos alumnos de Cádiz; las preguntas «¿Cuántos presidentes ha tenido?» y «¿Y cuántos menciona la revista?» devolvían referencias a presidentes nacionales o cargos sin relación.
 - Código: backend/src/chat/research-agent.js incorpora researchFocus, planResearchQueries, conductHistoricalResearch y revisitCitedSources. Hasta cuatro búsquedas de lectura, ranking contextual, deduplicación y revalidación de páginas previamente citadas contra índice vigente.

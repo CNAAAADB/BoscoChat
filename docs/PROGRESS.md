@@ -1,3 +1,19 @@
+## Nuevos requisitos editoriales BC-106 y BC-201 — 2026-11-20
+- El responsable requiere en Gestión histórica un selector PDF o ZIP con páginas TIFF ordenadas; se explicará el requisito de orden y que un ZIP puede incluir varios ejemplares de cualquier publicación.
+- Ingestión prevista: S3 privado y validación segura de ZIP/TIFF; OCR de imágenes; detección multimodal de publicación, año/mes/número, cortes, evidencia y confianza; revisión humana; PDF derivados e índice por página; originales TIFF inmutables.
+- BC-106 #82 creado (IDEA); BC-201 #83 ampliado al directorio de imágenes extraídas, vinculado a cada ejemplar y página. Detección semántica de personas/lugares e identificación facial quedan para fase futura con revisión de datos personales/biométricos.
+- BC-105/PR #81 permanece borrador; NO fusionar como solución de ingestión genérica. Reutilizar lógica segura existente tras refactor; necesita muestras TIFF reales, diseño/migración, comparación OCR Textract/Tesseract, pruebas, coste y seguridad.
+- TRACE-GAP: el responsable aún no tiene los TIFF a mano para confirmar nombres, orden, tamaño/calidad y tipos de digitalización; no afirmar implementación ni despliegue del flujo ZIP.
+
+## BC-105 — Fragmentación de revistas mensuales (2026-11-20)
+- Rama `feature/bc-105-monthly-pdf-fragmentation`, GitHub issue #80; implementación en revisión, **no desplegada**.
+- `frontend/src/HistoricalManagement.jsx`: botón de escaneo, edición de intervalos, mes inicial/final, número, dividir/unir, guardar y confirmar, estado/errores.
+- `backend/src/routes/fragmentation.js`: autorización administrator/documentary_manager, flag OFF, detección basada en OCR indexado, persistencia de propuesta y dispatch asíncrono.
+- `backend/worker/fragmentation.js`: qpdf en worker privado, S3 versionado, almacenamiento de originales y fragmentos, copia de páginas OCR, activación MySQL en una transacción, desindexación del anual y tombstone de versión.
+- `backend/src/db/fragmentation-migration.js`: esquema aditivo para trabajos y metadatos del número; `archive-search.js` devuelve mes/número por resultado.
+- Pruebas unitarias del detector, validación de cobertura, worker con versión fuente alterada y solicitudes duplicadas. Verificación CI y revisión independiente pendientes.
+- TRACE-GAP: los originales de imagen sin OCR necesitan una etapa OCR/visión adicional; estabilidad de límites detectados con revistas reales; recuperación operacional ante trabajos abandonados; despliegue DDL/IAM/S3, pruebas reales, seguridad y rendimiento. No activar en producción todavía.
+
 ## BC-102 — Investigación documental multi-paso (2026-11-20)
 - El responsable detecta que las preguntas sobre presidentes de antiguos alumnos de Cádiz pierden contexto, buscan autoridades nacionales y repiten excusas en lugar de acumular fuentes.
 - Se incorpora búsqueda de hasta cuatro rutas documentales independientes: presidencia, junta directiva, elecciones y nombramientos, con el foco geográfico e institucional heredado de la conversación; dos consultas iniciales y ampliación si las pruebas son insuficientes.

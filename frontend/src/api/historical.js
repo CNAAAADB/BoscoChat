@@ -53,3 +53,17 @@ export async function historicalUpload(file, onProgress) {
   }
   return prepared;
 }
+
+export function historicalFragmentScan(filename) {
+  return request('/admin/historical/documents/fragmentation-scan', { method: 'POST', body: JSON.stringify({ filename }) });
+}
+export function historicalFragmentJob(id) {
+  return request('/admin/historical/fragmentation-jobs/' + encodeURIComponent(id));
+}
+export function historicalFragmentSave(id, segments) {
+  return request('/admin/historical/fragmentation-jobs/' + encodeURIComponent(id) + '/segments',
+    { method: 'PUT', body: JSON.stringify({ segments }) });
+}
+export function historicalFragmentCommit(id) {
+  return request('/admin/historical/fragmentation-jobs/' + encodeURIComponent(id) + '/commit', { method: 'POST', body: '{}' });
+}
