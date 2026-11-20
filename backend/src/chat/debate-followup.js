@@ -40,7 +40,23 @@ export async function collectDebateFollowup(pool, query, existing, { retrieve, l
   if (existing.length >= 6) return { attempted: false, sources: [] };
   // Maximum one read-only archive search. Never retry an error from a low-quality OCR index.
   try {
-    const result = await retrieve(pool, query);
+    // The DB implementation applies MAX_EXECUTION_TIME(1200) to this
+    // follow-up SELECT. The promise cap also bounds the HTTP wait if the
+    // injected/test retrieval implementation is unexpectedly slow.
+    let timeoutId;
+    const timeout = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => {
+        const error = new Error('DEBATE_SEARCH_TIMEOUT');
+        error.code = 'DEBATE_SEARCH_TIMEOUT';
+        reject(error);
+      }, 1500);
+    });
+    let result;
+    try {
+      result = await Promise.race([retrieve(pool, query, { followup: true }), timeout]);
+    } finally {
+      clearTimeout(timeoutId);
+    }
     if (!Array.isArray(result)) throw new Error('INVALID_DEBATE_RESULTS');
     const seen = new Set(existing.map(s => s.documentId + ':' + s.page));
     const selected = [];
