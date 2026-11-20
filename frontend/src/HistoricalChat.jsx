@@ -20,6 +20,9 @@ export default function HistoricalChat({ onOpenSource, userId }) {
     const input = question.trim();
     if (busy || input.length < 3 || input.length > 500) return;
     const history = messages.slice(-8).map((m) => ({ role: m.role, text: m.role === 'assistant' ? m.text.slice(0, 1800) : m.text }));
+    const sourceTrail = messages.filter(m => m.role === 'assistant')
+      .slice(-3).flatMap(m => m.sources ?? [])
+      .slice(-6).map(({ documentId, page }) => ({ documentId, page }));
     setMessages((prior) => [...prior, { role: 'user', text: input }]);
     setQuestion('');
     setBusy(true);
@@ -29,7 +32,7 @@ export default function HistoricalChat({ onOpenSource, userId }) {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: input, history, depth }),
+        body: JSON.stringify({ question: input, history, depth, sourceTrail }),
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(payload?.error?.message ?? 'No se ha podido contactar con el asistente.');

@@ -4,6 +4,7 @@ import { requireAuthorization } from '../middleware/authorization.js';
 import { createArchiveSearchRateLimiter } from '../middleware/archive-search-rate-limit.js';
 import { MemoryAuthRateLimitStore } from '../middleware/auth-rate-limit.js';
 import { validateChatInput, retrieveChatSources, rankChatSources, countPhraseIntent, countIndexedPhrase, chatPrompt, callBedrockChat } from '../chat/historical-chat.js';
+import { conductHistoricalResearch, revisitCitedSources } from '../chat/research-agent.js';
 
 export function createHistoricalChatRouter(pool, authService, {
   enabled = false,
@@ -57,18 +58,29 @@ export function createHistoricalChatRouter(pool, authService, {
           console.warn('Historical chat exact-count unavailable', { code: error?.code, name: error?.name });
         }
       }
-      let sources = await retrieve(pool, input.question);
-      // A follow-up like "¿Y en Madrid?" often requires terms from the
-      // previous question to retrieve the right documentary context.
-      if (sources.length === 0 && input.history.length) {
-        const priorQuestion = [...input.history].reverse().find(turn => turn.role === 'user')?.text;
-        if (priorQuestion) {
-          const joined = priorQuestion.slice(0, 230) + ' ' + input.question.slice(0, 230);
-          sources = await retrieve(pool, joined);
+      // Investigation is multi-pass and entity-focused; archived references
+      // from previous turns are reauthorized against current indexed rows.
+      // The alternative concise modes keep the existing lightweight search.
+      let sources;
+      let research = null;
+      if (input.depth === 'research') {
+        const investigation = await conductHistoricalResearch(pool, input.question, input.history, { retrieve });
+        const previous = await revisitCitedSources(pool, input.sourceTrail);
+        const combined = new Map();
+        // Previously cited, still indexed evidence is useful for follow-ups.
+        // Never trust the browser's publication/year or excerpt as evidence.
+        for (const s of [...previous, ...investigation.sources]) {
+          const key = s.documentId + ':' + s.page;
+          if (!combined.has(key)) combined.set(key,s);
         }
+        sources = [...combined.values()].slice(0,6).map((s,i)=>({ ...s, ref:'F'+(i+1) }));
+        research = { focus: investigation.focus, queries: investigation.queries,
+          candidates: investigation.candidateCount,
+          verifiedPreviousSources: previous.length, retrievedSources: investigation.sources.length };
+      } else {
+        sources = rankChatSources(input.question, await retrieve(pool, input.question), { maxSources: 3 });
       }
-      sources = rankChatSources(input.question, sources, { maxSources: input.depth === 'research' ? 6 : 3 });
-      const prompt = chatPrompt({ ...input, sources, count });
+      const prompt = chatPrompt({ ...input, sources, count, research });
       const { text, usage } = await converse(prompt, {
         region,
         abortSignal: AbortSignal.timeout(22000),
@@ -80,7 +92,7 @@ export function createHistoricalChatRouter(pool, authService, {
       const safeSources = sources.filter(source => cited.has(source.ref))
         .map(({ ref, documentId, publication, year, page }) => ({ ref, documentId, publication, year, page }));
       res.set('Cache-Control', 'private, no-store');
-      console.info('Historical chat inference', { userId: req.user.id, sourceCount: safeSources.length, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens });
+      console.info('Historical chat inference', { userId: req.user.id, sourceCount: safeSources.length, searchCount: research?.queries?.length ?? 1, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens });
       return res.json({ answer: text, sources: safeSources, usage, depth: input.depth });
     } catch (error) {
       if (error?.status === 400 && error?.code === 'INVALID_CHAT_INPUT') {
