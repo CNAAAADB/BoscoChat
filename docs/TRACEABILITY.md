@@ -1,3 +1,11 @@
+## BC-012 — Citas del chatbot a PDF, incidente de contención (2026-11-20)
+- Observación usuario: visor Don Bosco en España 1978 página 23 da error al abrir referencia desde Chat histórico.
+- Evidencia AWS CloudWatch: 2026-11-20T10:54:46.270Z `GET /api/archive/documents/33/pages/23/image`, `ER_LOCK_DEADLOCK`, `sqlState 40001`; el endpoint falla en middleware de rate limiting, no alcanza el renderizador, cuyos logs carecen de invocaciones relevantes.
+- Código: `backend/src/db/auth-rate-limit-store.js` añade reintento acotado sobre transacciones completamente revertidas; `backend/src/app.js` devuelve 503 y Retry-After tras agotar reintentos. Se mantienen límites y denegación por defecto.
+- Frontend `frontend/src/App.jsx`: reintento GET sólo en 503; botón contextual «Volver al chat» y estado de conversación conservado cuando se abre una cita.
+- Tests `backend/test/archive-rate-limit-deadlock.test.js` y `backend/test/archive-page-image-route.test.js`: regresión de interbloqueo y fallos sin omitir autorización.
+- TRACE-GAP: verificación funcional con documento real y análisis de carga del almacén de cuotas tras despliegue.
+
 ## BC-101 — Profundidad Investigación predeterminada (2026-11-19)
 - Requisito del responsable: respuestas históricas detalladas, con fechas y fuentes de revistas, no siempre breves.
 - UI `frontend/src/HistoricalChat.jsx`: selector de profundidad; `research` por defecto.
