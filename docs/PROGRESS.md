@@ -3,7 +3,7 @@
 - Parser ZIP/TIFF propio con límites de tamaño, profundidad, páginas, CRC, IFD único, pixeles, symlinks y ZIP-bomb. Lectura numerada obligatoria por carpeta; original inmutable en S3.
 - Amazon Textract DetectDocumentText para cada TIFF de una página; borrador JSON con texto OCR, coordenadas de líneas, confianza y posibles menciones de año/mes sin interpretarlas como metadatos confirmados. No PDF nuevo ni publicación en índice/chat.
 - Backend Node usa worker contenedor Python+boto3; CI prevista con pruebas Python aisladas y suite Node. Acceso limitado a administrator/documentary_manager. Banderas OFF por defecto.
-- TRACE-GAP: permisos IAM S3 imports y textract, pruebas en contenedor y validación humana con muestras de distintas décadas, coste y latencia, persistencia/reintentos de trabajos, división multiagente y PDF/índice revisados.
+- Bloqueo CI 2026-11-20 22:41 UTC: las tres ejecuciones en PR #90 fallaron antes de asignar runner (runner_id=0, steps=[] y 3 segundos); no son resultados de tests, no permiten verificar código, formato ni contenedor. TRACE-GAP: permisos IAM S3 imports y textract, pruebas en contenedor y validación humana con muestras de distintas décadas, coste y latencia, persistencia/reintentos de trabajos, división multiagente y PDF/índice revisados.
 
 ## BC-109 — Investigación inicial sin fuentes por límite FULLTEXT (2026-11-20)
 - Screenshot actual: mensaje «La búsqueda del archivo está tardando demasiado…» con la primera pregunta sobre Cádiz. CloudWatch request backend 13:58:28–13:58:32 UTC: tres logs `Historical research query unavailable { code: 'ER_QUERY_TIMEOUT' }` a 13:58:29, 13:58:31 y 13:58:32. BC-108 ya desplegado; 503 antes de llamar a Bedrock. RDS MySQL 8.4 sobre db.t4g.micro, FULLTEXT `ft_archive_pages_text`.
