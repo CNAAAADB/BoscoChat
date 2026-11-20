@@ -62,12 +62,26 @@ async function buildOutputs(job, segments, { s3, GetObjectCommand, HeadObjectCom
       const bytes = await readFile(target);
       if (bytes.length < 1 || bytes.length > 350 * 1024 * 1024) throw new Error('FRAGMENT_SIZE_INVALID');
       // Never overwrite an existing archive file.
-      await s3.send(new PutObjectCommand({
-        Bucket: BUCKET, Key: key, Body: bytes, ContentType: 'application/pdf',
-        ServerSideEncryption: 'AES256', IfNoneMatch: '*',
-        Metadata: { 'fragment-job': job.id, 'source-version': job.source_version_id,
-          'page-start': String(segment.startPage), 'page-end': String(segment.endPage) },
-      }));
+      try {
+        await s3.send(new PutObjectCommand({
+          Bucket: BUCKET, Key: key, Body: bytes, ContentType: 'application/pdf',
+          ServerSideEncryption: 'AES256', IfNoneMatch: '*',
+          Metadata: { 'fragment-job': job.id, 'source-version': job.source_version_id,
+            'page-start': String(segment.startPage), 'page-end': String(segment.endPage) },
+        }));
+      } catch (error) {
+        if (error?.$metadata?.httpStatusCode !== 412 && error?.name !== 'PreconditionFailed') throw error;
+        // A failed attempt may be retried. Reuse only the exact segment
+        // produced by the SAME job; never overwrite an unrelated archive item.
+        const prior = await s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }));
+        if (prior.Metadata?.['fragment-job'] !== job.id ||
+            prior.Metadata?.['source-version'] !== job.source_version_id ||
+            prior.Metadata?.['page-start'] !== String(segment.startPage) ||
+            prior.Metadata?.['page-end'] !== String(segment.endPage) ||
+            Number(prior.ContentLength) !== bytes.length) {
+          throw new Error('FRAGMENT_KEY_COLLISION');
+        }
+      }
       outputs.push({ key, bytes: bytes.length, ...segment });
     }
     return outputs;
