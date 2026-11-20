@@ -1,3 +1,9 @@
+## BC-107 — Ronda de réplica y búsqueda contextual (2026-11-20)
+- Discrepancias de agentes → respuesta `probe` del worker; `backend/src/chat/debate-followup.js` crea como máximo una consulta adicional determinista, sin SQL derivado de IA, y filtra resultados por entidad/ubicación antes de permitir nueva evidencia.
+- `backend/src/routes/historical-chat.js` conserva cuota y rol administrador, limita referencias a 6, presupuesto compartido de 22 s y solicita segunda ronda `resolve` solo si hubo desacuerdo. `backend/worker/historical-chat-bedrock.js` exige acta previa validada y no admite terceras fases.
+- Pruebas: `backend/test/debate-followup.test.js`, `backend/test/chat-council-worker.test.js`, `backend/test/historical-chat.test.js`. Seguridad: no permitir citas F9, referencias obsoletas ni acciones de escritura; la coherencia histórica sigue sin estar verificada solo por consenso.
+- Flag adicional: `BOSCOCHAT_COUNCIL_EXPANSION_ENABLED` OFF. TRACE-GAP: latencia, costes y calidad de OCR en AWS real, revisión independiente e integración con el flujo TIFF.
+
 ## BC-107 — Orquestación deliberativa basada en evidencias (2026-11-20)
 - Solicitud: equipo de agentes paralelos con crítica y consenso fundamentado tanto para catalogación histórica como para chat. Issue #84 / PR #85.
 - Diseño: DEC-006, dos especialistas independientes más crítico y árbitro determinista; sin votos como prueba de verdad, human-in-the-loop obligatorio para publicar cambios documentales.
