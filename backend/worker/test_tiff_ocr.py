@@ -42,12 +42,19 @@ class TestTiffOcr(unittest.TestCase):
         self.assertEqual(order, [f"{i}.tif" for i in range(2, 11)])
 
     def test_multiple_issues_in_folders_preserve_sequence(self):
-        make_zip(self.path, [("1954 Feb/0002.tiff", make_tiff()),
-                             ("1954 Jan/0001.tif", make_tiff()),
-                             ("1954 Feb/0001.tiff", make_tiff())])
+        make_zip(self.path, [("02 Febrero/0002.tiff", make_tiff()),
+                             ("01 Enero/0001.tif", make_tiff()),
+                             ("02 Febrero/0001.tiff", make_tiff())])
         names = [name for name, _ in ocr.inspect_zip(self.path)]
-        self.assertEqual(names, ["1954 Jan/0001.tif", "1954 Feb/0001.tiff",
-                                 "1954 Feb/0002.tiff"])
+        self.assertEqual(names, ["01 Enero/0001.tif", "02 Febrero/0001.tiff",
+                                 "02 Febrero/0002.tiff"])
+
+    def test_multiple_issues_without_numbered_folders_are_ambiguous(self):
+        make_zip(self.path, [("Febrero/0001.tif", make_tiff()),
+                             ("Enero/0001.tif", make_tiff())])
+        with self.assertRaises(ocr.RejectedImport) as error:
+            ocr.inspect_zip(self.path)
+        self.assertEqual(error.exception.code, "AMBIGUOUS_ISSUE_ORDER")
 
     def test_archive_rejects_ambiguous_missing_and_unsafe_files(self):
         cases = [
