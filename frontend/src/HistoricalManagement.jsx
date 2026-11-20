@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { historicalDocuments, historicalDownload, historicalUpload, historicalDelete, historicalIndex, historicalUnindex } from './api/historical.js';
+import { historicalDocuments, historicalDownload, historicalUpload, historicalDelete, historicalIndex, historicalUnindex, historicalFragmentScan, historicalFragmentJob, historicalFragmentSave, historicalFragmentCommit } from './api/historical.js';
 
 const panel = { background: 'rgba(25,25,45,0.9)', border: '1px solid #28295E', borderRadius: 30, padding: 'clamp(20px, 4vw, 42px)', maxWidth: 1100, margin: '0 auto 40px' };
 const control = { background: '#111', border: '1px solid #777', borderRadius: 12, color: '#fff', padding: 12, boxSizing: 'border-box', maxWidth: '100%' };
@@ -9,6 +9,7 @@ const fileLimit = 350 * 1024 * 1024;
 const CAN_DELETE = import.meta.env.VITE_ARCHIVE_DOCUMENT_DELETE === 'true';
 const CAN_INDEX = import.meta.env.VITE_ARCHIVE_MANUAL_INDEX === 'true';
 const CAN_UNINDEX = import.meta.env.VITE_ARCHIVE_UNINDEX === 'true';
+const CAN_FRAGMENT = import.meta.env.VITE_ARCHIVE_FRAGMENTATION === 'true';
 
 function sizeLabel(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
@@ -28,6 +29,8 @@ export default function HistoricalManagement() {
   const [actionSuccess, setActionSuccess] = useState(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [fragmentJob, setFragmentJob] = useState(null);
+  const [fragmentError, setFragmentError] = useState('');
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -125,6 +128,26 @@ export default function HistoricalManagement() {
     finally { setBusy(false); setActiveAction(null); }
   };
 
+  const runFragmentAction = async (operation) => {
+    setBusy(true);
+    setFragmentError('');
+    try {
+      const response = await operation();
+      setFragmentJob(response.job);
+      await refresh();
+    } catch (failure) { setFragmentError(failure.message); }
+    finally { setBusy(false); }
+  };
+
+  const editFragment = (index, key, value) => {
+    setFragmentJob((job) => ({
+      ...job, segments: job.segments.map((segment, i) => i === index
+        ? { ...segment, [key]: value } : segment),
+    }));
+  };
+  const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
   const download = async (filename) => {
     setError('');
     // Create the window during the user's click, before awaiting the authenticated request.
@@ -174,12 +197,65 @@ export default function HistoricalManagement() {
                 setCatalogPublication(doc.publication ?? doc.filename.replace(/\.pdf$/i, ''));
                 setCatalogYear(doc.year ? String(doc.year) : '');
               }} style={button}>Catalogar e indexar</button> : null}
+              {CAN_FRAGMENT && doc.status === 'indexed' && doc.publication === 'Don Bosco en España' ? (
+                <button type="button" disabled={busy} onClick={() => runFragmentAction(() => historicalFragmentScan(doc.filename))} style={button}>Escanear fragmentación por meses</button>
+              ) : null}
               {CAN_UNINDEX && doc.status === 'indexed' ? <button type="button" disabled={busy} onClick={() => unindex(doc.filename)} style={button}>Desindexar PDF</button> : null}
               {CAN_DELETE ? <button type="button" disabled={busy} onClick={() => remove(doc.filename)} style={{ ...button, background: '#ff9797' }}>Eliminar PDF</button> : null}
             </div>
             {activeAction?.filename === doc.filename ? <p role="status" style={{ width: '100%', color: '#efcd80', margin: 0 }}>{activeAction.label}</p> : null}
             {actionError?.filename === doc.filename ? <p role="alert" style={{ width: '100%', color: '#ff9898', margin: 0 }}>Operación fallida: {actionError.message}</p> : null}
             {actionSuccess?.filename === doc.filename && doc.status !== 'indexed' ? <p role="status" style={{ width: '100%', color: '#a4dfb4', margin: 0 }}>{actionSuccess.message}</p> : null}
+            {CAN_FRAGMENT && fragmentJob?.filename === doc.filename ? (
+              <div style={{ width: '100%', borderTop: '1px solid #353554', paddingTop: 14 }}>
+                <h4 style={{ margin: '0 0 8px' }}>Propuesta de fragmentación · {fragmentJob.year}</h4>
+                <p style={{ color: '#c7c7d6' }}>Estado: {fragmentJob.status} · {fragmentJob.pageCount} páginas. Revisa todos los cortes antes de publicar.</p>
+                {fragmentError ? <p role="alert" style={{ color: '#ff9898' }}>{fragmentError}</p> : null}
+                {fragmentJob.errorCode ? <p role="alert" style={{ color: '#ff9898' }}>Error: {fragmentJob.errorCode}. El original permanece disponible.</p> : null}
+                {fragmentJob.segments.map((segment, i) => (
+                  <div key={i} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'end', gap: 8, marginBottom: 12 }}>
+                    <label style={{ display: 'grid', gap: 4 }}>Desde
+                      <input type="number" min="1" max={fragmentJob.pageCount} style={{ ...control, width: 100 }} disabled={busy || !['proposed', 'failed'].includes(fragmentJob.status)} value={segment.startPage} onChange={(e) => editFragment(i, 'startPage', Number(e.target.value))} />
+                    </label>
+                    <label style={{ display: 'grid', gap: 4 }}>Hasta
+                      <input type="number" min="1" max={fragmentJob.pageCount} style={{ ...control, width: 100 }} disabled={busy || !['proposed', 'failed'].includes(fragmentJob.status)} value={segment.endPage} onChange={(e) => editFragment(i, 'endPage', Number(e.target.value))} />
+                    </label>
+                    <label style={{ display: 'grid', gap: 4 }}>Mes inicial
+                      <select style={control} disabled={busy || !['proposed', 'failed'].includes(fragmentJob.status)} value={segment.monthStart ?? ''} onChange={(e) => editFragment(i, 'monthStart', Number(e.target.value))}>
+                        <option value="">Revisar</option>
+                        {monthNames.map((m, n) => <option key={m} value={n + 1}>{m}</option>)}
+                      </select>
+                    </label>
+                    <label style={{ display: 'grid', gap: 4 }}>Mes final
+                      <select style={control} disabled={busy || !['proposed', 'failed'].includes(fragmentJob.status)} value={segment.monthEnd ?? ''} onChange={(e) => editFragment(i, 'monthEnd', Number(e.target.value))}>
+                        <option value="">Revisar</option>
+                        {monthNames.map((m, n) => <option key={m} value={n + 1}>{m}</option>)}
+                      </select>
+                    </label>
+                    <label style={{ display: 'grid', gap: 4 }}>Número
+                      <input type="text" maxLength={20} style={{ ...control, width: 110 }} disabled={busy || !['proposed', 'failed'].includes(fragmentJob.status)} value={segment.issueNumber ?? ''} onChange={(e) => editFragment(i, 'issueNumber', e.target.value)} />
+                    </label>
+                    <span style={{ fontSize: 13, color: '#d8cdb0' }}>Confianza: {segment.confidence ?? 'revisada'}</span>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {['proposed', 'failed'].includes(fragmentJob.status) ? (
+                    <>
+                      <button disabled={busy} type="button" style={button} onClick={() => runFragmentAction(() => historicalFragmentSave(fragmentJob.id, fragmentJob.segments))}>Guardar límites</button>
+                      <button disabled={busy || fragmentJob.segments.length < 2} type="button" style={button} onClick={() => {
+                        if (window.confirm('¿Publicar los números detectados? Se conservará el PDF anual como original de respaldo.')) {
+                          runFragmentAction(() => historicalFragmentSave(fragmentJob.id, fragmentJob.segments).then(() => historicalFragmentCommit(fragmentJob.id)));
+                        }
+                      }}>Confirmar y generar PDF</button>
+                    </>
+                  ) : null}
+                  <button disabled={busy} type="button" style={button} onClick={() => runFragmentAction(() => historicalFragmentJob(fragmentJob.id))}>Actualizar progreso</button>
+                  <button disabled={busy} type="button" style={button} onClick={() => { setFragmentJob(null); setFragmentError(''); }}>Cerrar</button>
+                </div>
+                {fragmentJob.segments.length === 1 ? <p>Solo se ha detectado un número. Puedes corregir los cortes en una versión posterior; no se fragmentará automáticamente.</p> : null}
+                {fragmentJob.status === 'completed' ? <p role="status" style={{ color: '#a4dfb4' }}>Números publicados e indexados. El PDF anual ya no aparece en las búsquedas.</p> : null}
+              </div>
+            ) : null}
             {catalogFile === doc.filename && doc.status === 'stored' && CAN_INDEX ? (
               <form onSubmit={(event) => {
                 event.preventDefault();
