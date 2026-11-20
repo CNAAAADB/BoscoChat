@@ -243,7 +243,7 @@ test('BC-101 rejects malformed or excessive chat context', async () => {
   }), /historial/);
   assert.throws(() => validateChatInput({
     question: 'Una consulta',
-    history: Array.from({ length: 8 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', text: 'a' })),
+    history: Array.from({ length: 10 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', text: 'a' })),
   }), /historial/);
 });
 
@@ -330,7 +330,7 @@ test('BC-101 research prompt requests detailed evidence and sends mode to worker
   assert.equal(p.depth, 'research');
   assert.match(p.system, /MODO INVESTIGACIÓN/);
   assert.match(p.system, /fechas/);
-  assert.match(p.system, /no impongas un límite arbitrario/);
+  assert.match(p.system, /cuatro a ocho párrafos/);
   assert.match(p.user, /Don Bosco en España/);
   const short = chatPrompt({ question: '¿Qué pasó?', depth: 'brief', sources: [] });
   assert.match(short.system, /MODO BREVE/);
@@ -372,4 +372,24 @@ test('BC-101 API passes research depth and returns source F4 when cited', async 
       return { text: 'Según el documento [F4], hay una actividad documentada.', usage: { inputTokens: 80, outputTokens: 30 } };
     },
   });
+});
+
+test('BC-101 four complete exchanges remain available to follow-up questions', () => {
+  const history = Array.from({ length: 8 }, (_, i) => ({
+    role: i % 2 ? 'assistant' : 'user',
+    text: (i % 2 ? 'Respuesta documentada ' : 'Pregunta histórica ') + (i + 1),
+  }));
+  const validated = validateChatInput({ question: '¿Y después?', depth: 'research', history });
+  assert.equal(validated.history.length, 8);
+  const prompt = chatPrompt({ ...validated, sources: [] });
+  assert.match(prompt.user, /Respuesta documentada 8/);
+  assert.match(prompt.user, /Pregunta histórica 1/);
+  assert.match(prompt.system, /300 a 600 palabras/);
+});
+
+test('BC-101 bounded research history rejects oversized assistant text', () => {
+  assert.throws(() => validateChatInput({
+    question: '¿Cuándo sucedió?',
+    history: [{ role: 'user', text: 'Cuéntame la historia' }, { role: 'assistant', text: 'x'.repeat(1801) }],
+  }), /historial/);
 });
