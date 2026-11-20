@@ -107,3 +107,16 @@ test('BC-107 two agreeing models cannot validate a quote absent from its cited O
   const accepted = reconcileCouncil(proposals, ['P1'], [], { P1: 'Portada de 1962' });
   assert.equal(accepted.status, 'agreed');
 });
+
+test('BC-107 fabricated evidence never reaches critic or agreed output', async () => {
+  let criticised = false;
+  const result = await runEvidenceCouncil({
+    roles: ['bibliographer', 'structural_reader'], allowedRefs: ['P1'],
+    invoke: async () => ({ claims: [{ field: 'year', value: '1954', refs: ['P9'] }] }),
+    critic: async () => { criticised = true; return { objections: [] }; },
+  });
+  assert.equal(result.status, 'needs_review');
+  assert.equal(result.reason, 'invalid_specialist_proposal');
+  assert.deepEqual(result.agreed, []);
+  assert.equal(criticised, false);
+});

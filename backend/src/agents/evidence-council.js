@@ -111,12 +111,21 @@ export async function runEvidenceCouncil({ roles, invoke, critic, allowedRefs, e
   }
   const proposals = results.map((item, i) => ({ role: roles[i], claims: item.value?.claims }));
   // Validate all references and claim shapes before sending anything to the critic.
-  const preliminary = reconcileCouncil(proposals, allowedRefs, [], evidenceByRef);
+  let preliminary;
+  try {
+    preliminary = reconcileCouncil(proposals, allowedRefs, [], evidenceByRef);
+  } catch {
+    return { status: 'needs_review', agreed: [], disputed: [],
+      participants: roles, reason: 'invalid_specialist_proposal' };
+  }
   let objections;
   try {
     const result = await critic(proposals, preliminary);
     objections = result?.objections;
-    if (!Array.isArray(objections)) throw new Error('INVALID_COUNCIL_CRITIC');
+    const knownFields = new Set(proposals.flatMap(p => p.claims.map(c => c.field)));
+    if (!Array.isArray(objections) || objections.some(field => !knownFields.has(field))) {
+      throw new Error('INVALID_COUNCIL_CRITIC');
+    }
   } catch {
     return { status: 'needs_review', agreed: [], disputed: preliminary.disputed,
       participants: roles, reason: 'critic_unavailable' };

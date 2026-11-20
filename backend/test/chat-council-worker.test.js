@@ -61,12 +61,14 @@ test('BC-107 contestation is made explicit to synthesis instead of false consens
   assert.equal(o.council.disputedCount, 1);
 });
 
-test('BC-107 model cannot inject a fabricated citation into the council', async () => {
-  await assert.rejects(() => runChatInference({ ...event, council }, {
+test('BC-107 invented model citation fails closed but returns a cautious answer', async () => {
+  const result = await runChatInference({ ...event, council }, {
     infer: async arg => arg.phase === 'proposal'
       ? { text: JSON.stringify({ claims: [{ field: 'f1', value: 'inventado', refs: ['F9'] }] }) }
-      : { text: '{"objections":[]}' },
-  }), /INVALID_COUNCIL_CLAIM/);
+      : { text: 'No puedo justificar la afirmación con las fuentes disponibles.' },
+  });
+  assert.equal(result.council.status, 'needs_review');
+  assert.equal(result.council.agreedCount, 0);
   await assert.rejects(() => runChatInference({ ...event, council: { refs: ['F1', 'F9'], evidence: council.evidence } }, {
     infer: async () => ({ text: 'respuesta' }),
   }), /INVALID_COUNCIL_REQUEST/);
