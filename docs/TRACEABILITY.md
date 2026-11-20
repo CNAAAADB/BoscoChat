@@ -1,3 +1,9 @@
+## BC-108 — Timeout del chat histórico y atribuciones sobre Cádiz (2026-11-20)
+- Evidencia AWS: CloudWatch backend requestId 5341baf0-9557-49f9-99e0-9026e1f2b228 `Status: timeout` `Duration: 28000 ms`; modelo llamado tras ~26 s. Config backend 28 s; multiagente OFF.
+- Código: `backend/src/chat/chat-budget.js` (presupuesto de petición e invocaciones), `backend/src/chat/historical-chat.js` (SQL FULLTEXT/recuento y prompt), `backend/src/chat/research-agent.js` (deadline de investigación y referencias previas, coherencia local), `backend/src/routes/historical-chat.js` (presupuesto desde entrada y 503/504), `frontend/src/chat-errors.js` y `frontend/src/HistoricalChat.jsx` (mensajes y preservación).
+- Pruebas: `backend/test/chat-timeouts.test.js`, `backend/test/historical-research-agent.test.js`, `frontend/test/chat-errors.test.js`; CI, E2E producción y revisión independiente: TRACE-GAP.
+- Requisitos: RF-RAG-01/02/03/04, RF-CHAT-01/06, RNF-PERF-02/SEC-03. El sistema debe separar hechos de la asociación de noticias editoriales o contextualización sobre Salesianos en España y no inferir fecha de fundación sin fuente documental directa.
+
 ## BC-107 — Ronda de réplica y búsqueda contextual (2026-11-20)
 - Discrepancias de agentes → respuesta `probe` del worker; `backend/src/chat/debate-followup.js` crea como máximo una consulta adicional determinista, sin SQL derivado de IA, y filtra resultados por entidad/ubicación antes de permitir nueva evidencia.
 - `backend/src/routes/historical-chat.js` conserva cuota y rol administrador, limita referencias a 6, presupuesto compartido de 22 s y solicita segunda ronda `resolve` solo si hubo desacuerdo. `backend/worker/historical-chat-bedrock.js` exige acta previa validada y no admite terceras fases.
