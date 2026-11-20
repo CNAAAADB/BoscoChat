@@ -15,10 +15,10 @@ const identities = {
 const auth = { async session(token) { return identities[token] ?? null; } };
 const source = [{ ref: 'F1', documentId: 42, publication: 'Don Bosco en España', year: 1925, page: 7, excerpt: 'El oratorio celebró su reunión en 1925.' }];
 
-async function server(testFn, { enabled = true, retrieve = async () => source, converse = async () => ({ text: 'La reunión se celebró en 1925 [F1].', usage: { inputTokens: 60, outputTokens: 25 } }), store = { async consume() { return null; } }, pool = {} } = {}) {
+async function server(testFn, { enabled = true, retrieve = async () => source, converse = async () => ({ text: 'La reunión se celebró en 1925 [F1].', usage: { inputTokens: 60, outputTokens: 25 } }), store = { async consume() { return null; } }, pool = {}, councilEnabled = false, councilExpansionEnabled = false } = {}) {
   const app = express();
   app.use(express.json());
-  app.use('/api/admin/chat', createHistoricalChatRouter(pool, auth, { enabled, rateLimitStore: store, hashKey: 'x'.repeat(40), retrieve, converse }));
+  app.use('/api/admin/chat', createHistoricalChatRouter(pool, auth, { enabled, rateLimitStore: store, hashKey: 'x'.repeat(40), retrieve, converse, councilEnabled, councilExpansionEnabled }));
   const listener = app.listen(0);
   await new Promise((resolve) => listener.once('listening', resolve));
   try { await testFn('http://127.0.0.1:' + listener.address().port); }
@@ -442,4 +442,128 @@ test('BC-102 research API keeps reverified previous citations and passes verifie
   });
   assert.equal(modelInvocations,1);
   assert.ok(researchSearches>=2);
+});
+
+test('BC-107 council flag is off by default and enabled only for research with >=2 verified sources', async () => {
+  const candidates = [
+    { ...source[0], ref: 'F1' },
+    { ...source[0], ref: 'F2', documentId: 55, page: 2 },
+  ];
+  for (const depth of ['brief', 'research']) {
+    let prompt;
+    await server(async base => {
+      const response = await post(base, 'administrator', { question: '¿Qué sucedió en el oratorio?', depth });
+      assert.equal(response.status, 200);
+    }, { retrieve: async () => candidates, converse: async p => {
+      prompt = p;
+      assert.equal(p.council, undefined);
+      return { text: 'El oratorio está documentado [F1].', usage: { inputTokens: 4, outputTokens: 3 } };
+    } });
+    assert.equal(prompt.council, undefined);
+  }
+});
+
+test('BC-107 research pilot sends verified reference allowlist only when server flag is active', async () => {
+  const candidates = [
+    { ...source[0], documentId: 10, page: 2 },
+    { ...source[0], documentId: 11, page: 5 },
+  ];
+  let invoked = 0;
+  await server(async base => {
+    const res = await post(base, 'administrator', {
+      question: '¿Qué pasó en el oratorio salesiano?', depth: 'research',
+    });
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.council.status, 'agreed');
+    assert.equal(data.sources.length, 1);
+    assert.match(data.answer, /referencia no verificada/);
+    assert.equal(invoked, 1);
+  }, {
+    councilEnabled: true, retrieve: async () => candidates,
+    converse: async prompt => {
+      invoked++;
+      assert.deepEqual(prompt.council.refs, ['F1', 'F2']);
+      assert.equal(prompt.council.evidence.length, 2);
+      assert.ok(prompt.council.evidence[0].text.includes('oratorio'));
+      return { text: 'Se registra un acto [F1] y otro inventado [F9].',
+        usage: { inputTokens: 24, outputTokens: 10 },
+        council: { status: 'agreed', agreedCount: 1, disputedCount: 0 } };
+    },
+  });
+});
+
+test('BC-107 disagreement triggers at most one server-owned search and a second evidenced debate', async () => {
+  const calls = [];
+  const candidates = [
+    { documentId: 61, page: 1, publication: 'Revista salesiana', year: 1954,
+      excerpt: 'En el oratorio de Cádiz hubo una reunión en 1954.' },
+    { documentId: 62, page: 2, publication: 'Revista salesiana', year: 1954,
+      excerpt: 'Los antiguos alumnos del oratorio de Cádiz celebraron actividades.' },
+  ];
+  const extra = { documentId: 63, page: 3, publication: 'Revista salesiana', year: 1954,
+    excerpt: 'En el oratorio de Cádiz se anunció otra reunión.' };
+  await server(async base => {
+    const response = await post(base, 'administrator', {
+      question: '¿Qué pasó en el oratorio de Cádiz?', depth: 'research',
+    });
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.council.rounds, 2);
+    assert.equal(data.council.followupSearches, 1);
+    assert.equal(data.sources.length, 1);
+    assert.equal(data.sources[0].documentId, 63);
+    assert.deepEqual(data.usage, { inputTokens: 15, outputTokens: 8 });
+    assert.deepEqual(calls.map(x => x.phase), ['probe', 'resolve']);
+  }, {
+    councilEnabled: true, councilExpansionEnabled: true,
+    retrieve: async (_pool, query) => {
+      if (/documentacion historia/.test(query)) return [extra, ...candidates];
+      return candidates;
+    },
+    converse: async prompt => {
+      calls.push({ phase: prompt.council?.phase, evidence: prompt.council?.evidence });
+      if (prompt.council.phase === 'probe') {
+        assert.equal(prompt.council.refs.length, 2);
+        return { probe: { status: 'needs_review', agreed: [], disputed: [
+          { field: 'f1', reasons: ['conflicting_values'], alternatives: [] },
+        ] }, usage: { inputTokens: 5, outputTokens: 3 } };
+      }
+      assert.equal(prompt.council.phase, 'resolve');
+      assert.equal(prompt.council.refs.length, 3);
+      assert.match(prompt.user, /otra reunión/i);
+      return {
+        text: 'Existe otra reunión documentada [F3].',
+        council: { status: 'agreed', agreedCount: 1, disputedCount: 0, rounds: 2 },
+        usage: { inputTokens: 10, outputTokens: 5 },
+      };
+    },
+  });
+});
+
+test('BC-107 no disagreement keeps single inference and never invokes a second debate', async () => {
+  let modelCalls = 0;
+  await server(async base => {
+    const response = await post(base, 'administrator', {
+      question: '¿Qué ocurrió en el oratorio de Cádiz?', depth: 'research',
+    });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).council.rounds, 1);
+  }, {
+    councilEnabled: true, councilExpansionEnabled: true,
+    retrieve: async () => [
+      { documentId: 10, page: 1, publication: 'Revista', year: 1960,
+        excerpt: 'En el oratorio de Cádiz hubo una fiesta' },
+      { documentId: 11, page: 2, publication: 'Revista', year: 1960,
+        excerpt: 'Oratorio de Cádiz y sus antiguos alumnos' },
+    ],
+    converse: async prompt => {
+      modelCalls++;
+      assert.equal(prompt.council.phase, 'probe');
+      return { text: 'Se documenta una fiesta [F1].',
+        council: { status: 'agreed', agreedCount: 1, disputedCount: 0, rounds: 1 },
+        usage: { inputTokens: 8, outputTokens: 4 } };
+    },
+  });
+  assert.equal(modelCalls, 1);
 });

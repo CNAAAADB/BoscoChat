@@ -28,6 +28,9 @@ export function loadChatSession(storage, userId, now = Date.now()) {
     const valid = parsed.messages.every((m) => m && typeof m === 'object'
       && (m.role === 'user' || m.role === 'assistant')
       && typeof m.text === 'string' && m.text.length > 0 && m.text.length <= 12000
+      && (m.council === undefined || (m.council && ['agreed', 'needs_review'].includes(m.council.status)
+        && Number.isSafeInteger(m.council.agreedCount) && m.council.agreedCount >= 0 && m.council.agreedCount <= 8
+        && Number.isSafeInteger(m.council.disputedCount) && m.council.disputedCount >= 0 && m.council.disputedCount <= 8))
       && (m.sources === undefined || (Array.isArray(m.sources) && m.sources.length <= 6
         && m.sources.every((s) => s && /^F[1-6]$/.test(s.ref)
           && Number.isSafeInteger(s.documentId) && s.documentId > 0
@@ -44,8 +47,9 @@ export function saveChatSession(storage, userId, messages, depth, now = Date.now
   const key = chatSessionKey(userId);
   if (!key || !storage || !DEPTHS.has(depth)) return false;
   try {
-    const compact = messages.slice(-MAX_MESSAGES).map(({ role, text, sources }) => ({
+    const compact = messages.slice(-MAX_MESSAGES).map(({ role, text, sources, council }) => ({
       role, text, ...(role === 'assistant' && sources?.length ? { sources } : {}),
+      ...(role === 'assistant' && council ? { council } : {}),
     }));
     const serialized = JSON.stringify({ version: 1, savedAt: now, depth, messages: compact });
     if (serialized.length > MAX_SNAPSHOT_BYTES) return false;

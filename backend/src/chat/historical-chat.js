@@ -148,12 +148,12 @@ export function rankChatSources(question, candidates, { maxSources = 3 } = {}) {
   return selected.slice(0,maxSources).map((s,i)=>({ ...s.source, ref:'F'+(i+1) }));
 }
 
-export async function retrieveChatSources(pool, question) {
+export async function retrieveChatSources(pool, question, { followup = false } = {}) {
   // Never interpolate a user's text as SQL syntax. Only indexed pages are eligible.
   const expression = retrievalSearchExpression(question);
   if (!expression) return [];
   const [rows] = await pool.execute(
-    `SELECT d.id AS document_id, d.publication, d.publication_year,
+    `SELECT ${followup ? '/*+ MAX_EXECUTION_TIME(1200) */' : ''} d.id AS document_id, d.publication, d.publication_year,
             p.page_number, LEFT(p.text_content, 6500) AS excerpt,
             MATCH(p.text_content) AGAINST (? IN NATURAL LANGUAGE MODE) AS score
        FROM archive_pages p JOIN archive_documents d ON d.id = p.document_id
@@ -226,14 +226,33 @@ export async function callBedrockChat(prompt, { region = 'us-east-1', abortSigna
       throw new Error('CHAT_INFERENCE_FAILED');
     }
     const result = JSON.parse(Buffer.from(response.Payload).toString('utf8'));
+    const usage = {
+      inputTokens: Math.max(0, Number(result.usage?.inputTokens) || 0),
+      outputTokens: Math.max(0, Number(result.usage?.outputTokens) || 0),
+    };
+    if (result.status === 'probe') {
+      const minutes = result.council?.minutes;
+      if (result.council?.status !== 'needs_review'
+        || !minutes || minutes.status !== 'needs_review'
+        || !Array.isArray(minutes.agreed) || !Array.isArray(minutes.disputed)
+        || minutes.agreed.length > 8 || minutes.disputed.length > 8
+        || JSON.stringify(minutes).length > 8000) {
+        throw new Error('CHAT_INFERENCE_RESPONSE_INVALID');
+      }
+      return { probe: minutes, usage };
+    }
     if (result.status !== 'ok' || typeof result.text !== 'string'
       || result.text.length < 1 || result.text.length > 10000) {
       throw new Error('CHAT_INFERENCE_RESPONSE_INVALID');
     }
-    return { text: result.text, usage: {
-      inputTokens: Math.max(0, Number(result.usage?.inputTokens) || 0),
-      outputTokens: Math.max(0, Number(result.usage?.outputTokens) || 0),
-    } };
+    const council = result.council;
+    const validCouncil = council && ['agreed', 'needs_review'].includes(council.status)
+      && Number.isSafeInteger(council.agreedCount) && council.agreedCount >= 0 && council.agreedCount <= 8
+      && Number.isSafeInteger(council.disputedCount) && council.disputedCount >= 0 && council.disputedCount <= 8;
+    return { text: result.text, usage, ...(validCouncil ? { council: {
+      status: council.status, agreedCount: council.agreedCount, disputedCount: council.disputedCount,
+      rounds: [1, 2].includes(council.rounds) ? council.rounds : 1,
+    } } : {}) };
   } finally {
     client.destroy();
   }

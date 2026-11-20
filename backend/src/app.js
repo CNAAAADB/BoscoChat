@@ -96,6 +96,8 @@ export function createApp({
   if (pool) {
     app.use('/api/admin/chat', createHistoricalChatRouter(pool, service, {
       enabled: environment.BOSCOCHAT_CHAT_ADMIN_ENABLED === 'true',
+      councilEnabled: environment.BOSCOCHAT_COUNCIL_CHAT_ENABLED === 'true',
+      councilExpansionEnabled: environment.BOSCOCHAT_COUNCIL_EXPANSION_ENABLED === 'true',
       region: environment.BOSCOCHAT_BEDROCK_REGION ?? 'us-east-1',
       rateLimitStore: sharedAuthRateLimitStore ?? undefined,
       hashKey: authRateLimitHashKey,

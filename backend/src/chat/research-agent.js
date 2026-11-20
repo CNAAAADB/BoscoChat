@@ -85,7 +85,7 @@ export function planResearchQueries(question, history = []) {
   return { focus, queries: queries.slice(0,MAX_QUERIES) };
 }
 
-function evidenceScore(source, focus) {
+export function evidenceScore(source, focus) {
   const text = normalized(source.excerpt);
   const local = focus.location ? text.includes(normalized(focus.location)) : true;
   const entity = focus.entity === 'antiguos alumnos'

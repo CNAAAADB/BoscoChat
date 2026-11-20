@@ -1,3 +1,17 @@
+## BC-107 — Ronda de réplica y búsqueda contextual (2026-11-20)
+- Discrepancias de agentes → respuesta `probe` del worker; `backend/src/chat/debate-followup.js` crea como máximo una consulta adicional determinista, sin SQL derivado de IA, y filtra resultados por entidad/ubicación antes de permitir nueva evidencia.
+- `backend/src/routes/historical-chat.js` conserva cuota y rol administrador, limita referencias a 6, presupuesto compartido de 22 s y solicita segunda ronda `resolve` solo si hubo desacuerdo. `backend/worker/historical-chat-bedrock.js` exige acta previa validada y no admite terceras fases.
+- Pruebas: `backend/test/debate-followup.test.js`, `backend/test/chat-council-worker.test.js`, `backend/test/historical-chat.test.js`. Seguridad: no permitir citas F9, referencias obsoletas ni acciones de escritura; la coherencia histórica sigue sin estar verificada solo por consenso.
+- Flag adicional: `BOSCOCHAT_COUNCIL_EXPANSION_ENABLED` OFF. TRACE-GAP: latencia, costes y calidad de OCR en AWS real, revisión independiente e integración con el flujo TIFF.
+
+## BC-107 — Orquestación deliberativa basada en evidencias (2026-11-20)
+- Solicitud: equipo de agentes paralelos con crítica y consenso fundamentado tanto para catalogación histórica como para chat. Issue #84 / PR #85.
+- Diseño: DEC-006, dos especialistas independientes más crítico y árbitro determinista; sin votos como prueba de verdad, human-in-the-loop obligatorio para publicar cambios documentales.
+- Código: `backend/src/agents/evidence-council.js`, `backend/src/documents/document-council.js`, `backend/worker/historical-chat-bedrock.js`, `backend/src/routes/historical-chat.js`, `backend/src/app.js`; UI estado de debate en `frontend/src/HistoricalChat.jsx`.
+- Pruebas: `backend/test/evidence-council.test.js`, `backend/test/chat-council-worker.test.js`, `backend/test/historical-chat.test.js` y suite existente. CI pendiente.
+- Trazabilidad SRS: RF-RAG-01/02/03/04/05, RF-CHAT-06, RF-DOCMGMT-01/02/03, RNF-PERF-02, RNF-SEC-03, RNF-DATA-01.
+- TRACE-GAP: verificación histórica independiente de las afirmaciones (referencias validadas no son inferencias válidas per se), evaluación con corpus etiquetado, costes, latencia, seguridad de OCR adversarial, integración real con #82, pruebas de permisos y revisión independiente. Feature flag OFF.
+
 ## BC-102 — Investigador iterativo, fuentes comprobadas (2026-11-20)
 - Evidencia: conversación de antiguos alumnos de Cádiz; las preguntas «¿Cuántos presidentes ha tenido?» y «¿Y cuántos menciona la revista?» devolvían referencias a presidentes nacionales o cargos sin relación.
 - Código: backend/src/chat/research-agent.js incorpora researchFocus, planResearchQueries, conductHistoricalResearch y revisitCitedSources. Hasta cuatro búsquedas de lectura, ranking contextual, deduplicación y revalidación de páginas previamente citadas contra índice vigente.
