@@ -2,7 +2,7 @@
 // A Promise timeout cannot cancel a query already executing; MySQL SELECTs
 // also carry MAX_EXECUTION_TIME hints to bound server-side work.
 export const CHAT_REQUEST_BUDGET_MS = 24_000;
-export const CHAT_SEARCH_BUDGET_MS = 7_000;
+export const CHAT_SEARCH_BUDGET_MS = 9_500;
 
 export function chatTimeout() {
   const error = new Error('CHAT_TIMEOUT');
