@@ -2,7 +2,7 @@
 // A follow-up is about the preceding entity unless the user changes subject.
 // Never allow an LLM to supply SQL, table names, document IDs or tool actions.
 import { retrieveChatSources } from './historical-chat.js';
-import { withinChatBudget, remainingChatMs } from './chat-budget.js';
+import { withinChatBudget, remainingChatMs, chatTimeout } from './chat-budget.js';
 
 const MAX_QUERIES = 4;
 const MAX_SOURCES = 6;
@@ -145,7 +145,10 @@ export async function revisitCitedSources(pool, trail = [], { deadline = Date.no
       ), deadline, 1_500);
     } catch (error) {
       console.warn('Prior citation lookup unavailable', { code: error?.code, name: error?.name });
-      if (remainingChatMs(deadline) < 600) break;
+      if (remainingChatMs(deadline) < 600) {
+      if (!found.size) throw chatTimeout();
+      break;
+    }
       continue;
     }
     const row = rows[0];
