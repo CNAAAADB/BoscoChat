@@ -177,7 +177,7 @@ export async function retrieveChatSources(pool, question, { followup = false } =
     `SELECT ${followup ? '/*+ MAX_EXECUTION_TIME(2200) */' : '/*+ MAX_EXECUTION_TIME(3200) */'} d.id AS document_id, d.publication, d.publication_year,
             p.page_number, LEFT(p.text_content, 6500) AS excerpt,
             MATCH(p.text_content) AGAINST (? IN BOOLEAN MODE) AS score
-       FROM archive_pages p FORCE INDEX (ft_archive_pages_text)
+       FROM archive_pages p
        JOIN archive_documents d ON d.id = p.document_id
       WHERE MATCH(p.text_content) AGAINST (? IN BOOLEAN MODE)
         AND d.indexed_at IS NOT NULL
