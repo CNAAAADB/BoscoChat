@@ -21,3 +21,14 @@ test('BoscoGest proofs authorize only the signed page within their lifetime', as
   }
   assert.deepEqual(await read(valid, generateKeyPairSync('ed25519').privateKey), [401, undefined]);
 });
+
+test('the deployed reader verifier rejects an untrusted key offline', async (t) => {
+  const fetch = t.mock.method(globalThis, 'fetch', () => { throw new Error('offline'); });
+  const claims = 'bg-page-v1:7:2:15:' + (Math.floor(Date.now() / 1000) + 60);
+  const signature = sign(null, Buffer.from(claims), generateKeyPairSync('ed25519').privateKey);
+  const req = { get: () => claims + '.' + signature.toString('base64url'), params: { documentId: '7', pageNumber: '2' } };
+  const res = { status(code) { this.code = code; return this; }, json() {} };
+  await authorizeReaderPage(() => assert.fail('unexpected fallback'))(req, res, () => assert.fail('unexpected acceptance'));
+  assert.equal(res.code, 401);
+  assert.equal(fetch.mock.callCount(), 0);
+});
