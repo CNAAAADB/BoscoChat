@@ -6,6 +6,7 @@ import { MemoryAuthRateLimitStore } from '../middleware/auth-rate-limit.js';
 import { validateChatInput, retrieveChatSources, rankChatSources, countPhraseIntent, countIndexedPhrase, chatPrompt, callBedrockChat } from '../chat/historical-chat.js';
 import { conductHistoricalResearch, revisitCitedSources } from '../chat/research-agent.js';
 import { chooseDebateFollowup, collectDebateFollowup, filterDebateFollowup } from '../chat/debate-followup.js';
+import { CHAT_REQUEST_BUDGET_MS, CHAT_SEARCH_BUDGET_MS, withinChatBudget } from '../chat/chat-budget.js';
 
 export function createHistoricalChatRouter(pool, authService, {
   enabled = false,
@@ -47,6 +48,11 @@ export function createHistoricalChatRouter(pool, authService, {
   });
 
   router.post('/message', async (req, res) => {
+    // BC-108: include every DB lookup in the wall-clock budget. Previously
+    // the 22 s budget began after research, allowing Lambda to die at 28 s.
+    const requestStartedAt = Date.now();
+    const deadline = requestStartedAt + CHAT_REQUEST_BUDGET_MS;
+    const searchDeadline = requestStartedAt + CHAT_SEARCH_BUDGET_MS;
     try {
       const input = validateChatInput(req.body);
       // Any deterministic database count is evidence for the model, not a
@@ -56,7 +62,7 @@ export function createHistoricalChatRouter(pool, authService, {
       let count = null;
       if (countPhrase) {
         try {
-          count = await countIndexedPhrase(pool, countPhrase);
+          count = await withinChatBudget(() => countIndexedPhrase(pool, countPhrase), searchDeadline, 1_900);
         } catch (error) {
           console.warn('Historical chat exact-count unavailable', { code: error?.code, name: error?.name });
         }
@@ -67,8 +73,10 @@ export function createHistoricalChatRouter(pool, authService, {
       let sources;
       let research = null;
       if (input.depth === 'research') {
-        const investigation = await conductHistoricalResearch(pool, input.question, input.history, { retrieve });
-        const previous = await revisitCitedSources(pool, input.sourceTrail);
+        const investigation = await conductHistoricalResearch(pool, input.question, input.history, {
+          retrieve, deadline: searchDeadline,
+        });
+        const previous = await revisitCitedSources(pool, input.sourceTrail, { deadline: searchDeadline });
         const combined = new Map();
         // Previously cited, still indexed evidence is useful for follow-ups.
         // Never trust the browser's publication/year or excerpt as evidence.
@@ -81,7 +89,9 @@ export function createHistoricalChatRouter(pool, authService, {
           candidates: investigation.candidateCount,
           verifiedPreviousSources: previous.length, retrievedSources: investigation.sources.length };
       } else {
-        sources = rankChatSources(input.question, await retrieve(pool, input.question), { maxSources: 3 });
+        sources = rankChatSources(input.question,
+          await withinChatBudget(() => retrieve(pool, input.question), searchDeadline, 1_900),
+          { maxSources: 3 });
       }
       const prompt = chatPrompt({ ...input, sources, count, research });
       if (councilEnabled && input.depth === 'research' && sources.length >= 2) {
@@ -89,9 +99,9 @@ export function createHistoricalChatRouter(pool, authService, {
           evidence: sources.map(s => ({ ref: s.ref, text: s.excerpt })),
         };
       }
-      // One strict 22s wall-clock budget for BOTH optional rounds, including
-      // DB follow-up. A slow first round never earns a new unbounded timeout.
-      const deadline = Date.now() + 22_000;
+      // The budget started BEFORE full-text research. Never grant a fresh
+      // inference timeout after a slow database search: backend Lambda is 28 s.
+      const searchDurationMs = Date.now() - requestStartedAt;
       async function invokeWithinBudget(inputPrompt) {
         const remaining = deadline - Date.now();
         if (remaining < 1000) {
@@ -149,7 +159,7 @@ export function createHistoricalChatRouter(pool, authService, {
       const safeSources = sources.filter(source => cited.has(source.ref))
         .map(({ ref, documentId, publication, year, page }) => ({ ref, documentId, publication, year, page }));
       res.set('Cache-Control', 'private, no-store');
-      console.info('Historical chat inference', { userId: req.user.id, sourceCount: safeSources.length, searchCount: research?.queries?.length ?? 1, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens });
+      console.info('Historical chat inference', { userId: req.user.id, sourceCount: safeSources.length, searchCount: research?.queries?.length ?? 1, searchDurationMs, totalDurationMs: Date.now() - requestStartedAt, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens });
       return res.json({ answer: safeText, sources: safeSources, usage, depth: input.depth,
         ...(council ? { council: { status: council.status, agreedCount: council.agreedCount,
           disputedCount: council.disputedCount,
@@ -160,8 +170,14 @@ export function createHistoricalChatRouter(pool, authService, {
       if (error?.status === 400 && error?.code === 'INVALID_CHAT_INPUT') {
         return res.status(400).json({ error: { code: error.code, message: error.message } });
       }
-      if (error?.name === 'AbortError' || error?.name === 'TimeoutError') {
-        return res.status(504).json({ error: { code: 'CHAT_TIMEOUT', message: 'El modelo ha tardado demasiado. Inténtalo de nuevo.' } });
+      if (error?.message === 'RESEARCH_SEARCH_UNAVAILABLE') {
+        return res.status(503).json({ error: {
+          code: 'CHAT_SEARCH_UNAVAILABLE',
+          message: 'La búsqueda del archivo está tardando demasiado. Conservamos tu conversación; vuelve a intentarlo.',
+        } });
+      }
+      if (error?.name === 'AbortError' || error?.name === 'TimeoutError' || error?.code === 'CHAT_TIMEOUT') {
+        return res.status(504).json({ error: { code: 'CHAT_TIMEOUT', message: 'La investigación ha tardado demasiado. Tu conversación se conserva; vuelve a intentarlo.' } });
       }
       // Do not reveal OCR passages, prompts, model details, credentials or internal errors.
       console.error('Historical chat failed', { name: error?.name, code: error?.code });
