@@ -69,6 +69,7 @@ export async function searchArchivePages(pool, rawQuery, { year = null, page = 1
   const offset = (safePage - 1) * safePageSize;
   const sqlMode = plan.sqlMode; // An internal constant, not supplied by a caller.
   const where = `FROM archive_pages p JOIN archive_documents d ON d.id = p.document_id
+      LEFT JOIN archive_fragmentation_issues fi ON fi.document_id = d.id
       WHERE d.indexed_at IS NOT NULL
         AND MATCH(p.text_content) AGAINST (? IN ${sqlMode} MODE)
         AND (? IS NULL OR d.publication_year = ?)`;
@@ -82,8 +83,7 @@ export async function searchArchivePages(pool, rawQuery, { year = null, page = 1
             fi.month_start AS month_start, fi.month_end AS month_end, fi.issue_number AS issue_number,
             p.page_number, LEFT(p.text_content, 1600) AS text_content,
             MATCH(p.text_content) AGAINST (? IN ${sqlMode} MODE) AS relevance
-       LEFT JOIN archive_fragmentation_issues fi ON fi.document_id = d.id
-      ORDER BY relevance DESC, d.publication_year ASC, d.id ASC, p.page_number ASC
+       ORDER BY relevance DESC, d.publication_year ASC, d.id ASC, p.page_number ASC
       LIMIT ? OFFSET ?`,
     [plan.expression, plan.expression, parsedYear, parsedYear, safePageSize, offset],
   );
