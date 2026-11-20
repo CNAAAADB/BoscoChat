@@ -186,6 +186,7 @@ export function createTiffImportRouter(pool, authService, {
           engine: review?.engine ?? null,
           publicationAllowed: false,
           notes: review?.notes ?? null,
+          metadataHints: Array.isArray(review?.hints) ? review.hints.slice(0,8) : [],
           errorCode: review?.errorCode ?? null,
           pages: (review?.pages ?? []).map(p => ({
             pageNumber: p.pageNumber, sourceFilename: p.sourceFilename,
