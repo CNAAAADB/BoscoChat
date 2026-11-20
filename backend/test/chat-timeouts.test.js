@@ -16,7 +16,7 @@ test('BC-108 timeout helper bounds a hanging retrieval without waiting for Lambd
   assert.equal(remainingChatMs(Date.now() - 100), 0);
 });
 
-test('BC-108 every chat FULLTEXT and phrase-count SELECT is limited on the MySQL server', async () => {
+test('BC-109 fast FULLTEXT and phrase-count SELECT remain bounded on MySQL', async () => {
   const queries = [];
   const pool = {
     async execute(sql, values) {
@@ -28,8 +28,8 @@ test('BC-108 every chat FULLTEXT and phrase-count SELECT is limited on the MySQL
   await retrieveChatSources(pool, 'antiguos alumnos Cádiz', { followup: true });
   await countIndexedPhrase(pool, 'antiguos alumnos');
   assert.equal(queries.length, 3);
-  assert.match(queries[0].sql, /SELECT \/\*\+ MAX_EXECUTION_TIME\(1500\) \*\//);
-  assert.match(queries[1].sql, /SELECT \/\*\+ MAX_EXECUTION_TIME\(1200\) \*\//);
+  assert.match(queries[0].sql, /SELECT \/\*\+ MAX_EXECUTION_TIME\(3200\) \*\//);
+  assert.match(queries[1].sql, /SELECT \/\*\+ MAX_EXECUTION_TIME\(2200\) \*\//);
   assert.match(queries[2].sql, /SELECT \/\*\+ MAX_EXECUTION_TIME\(1500\) \*\//);
   assert.equal(queries.every(q => !/DROP TABLE|DELETE FROM/i.test(q.sql)), true);
 });
