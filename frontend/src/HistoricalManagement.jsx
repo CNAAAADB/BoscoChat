@@ -145,6 +145,26 @@ export default function HistoricalManagement() {
         ? { ...segment, [key]: value } : segment),
     }));
   };
+  const splitFragment = (index) => {
+    setFragmentJob((job) => {
+      const segments = [...job.segments];
+      const original = segments[index];
+      if (original.endPage <= original.startPage) return job;
+      const midpoint = Math.floor((original.startPage + original.endPage) / 2);
+      segments.splice(index, 1,
+        { ...original, endPage: midpoint, issueNumber: '' },
+        { ...original, startPage: midpoint + 1, issueNumber: '', confidence: 'baja' });
+      return { ...job, segments };
+    });
+  };
+  const joinFragment = (index) => {
+    setFragmentJob((job) => {
+      if (index < 1) return job;
+      const segments = [...job.segments];
+      segments.splice(index - 1, 2, { ...segments[index - 1], endPage: segments[index].endPage });
+      return { ...job, segments };
+    });
+  };
   const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
     'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
@@ -236,6 +256,12 @@ export default function HistoricalManagement() {
                       <input type="text" maxLength={20} style={{ ...control, width: 110 }} disabled={busy || !['proposed', 'failed'].includes(fragmentJob.status)} value={segment.issueNumber ?? ''} onChange={(e) => editFragment(i, 'issueNumber', e.target.value)} />
                     </label>
                     <span style={{ fontSize: 13, color: '#d8cdb0' }}>Confianza: {segment.confidence ?? 'revisada'}</span>
+                    {['proposed', 'failed'].includes(fragmentJob.status) ? (
+                      <>
+                        <button type="button" disabled={busy || fragmentJob.segments.length >= 36 || segment.endPage <= segment.startPage} onClick={() => splitFragment(i)} style={button}>Dividir aquí</button>
+                        <button type="button" disabled={busy || i === 0} onClick={() => joinFragment(i)} style={button}>Unir con anterior</button>
+                      </>
+                    ) : null}
                   </div>
                 ))}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
