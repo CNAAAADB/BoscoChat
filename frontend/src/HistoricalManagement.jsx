@@ -206,7 +206,7 @@ export default function HistoricalManagement() {
               <strong style={{ overflowWrap: 'anywhere' }}>📄 {doc.filename}</strong>
               <div style={{ fontSize: 13, color: '#c7c7d6', marginTop: 8 }}>{sizeLabel(doc.sizeBytes)}{doc.year ? ` · ${doc.year}` : ''} · {doc.pages} páginas indexadas</div>
               <div style={{ color: doc.status === 'indexed' ? '#a4dfb4' : '#efcd80', marginTop: 5 }}>
-                {doc.status === 'indexed' ? 'Indexado y disponible para búsqueda' : doc.status === 'stored' ? 'Almacenado · pendiente de catalogación' : 'Pendiente de indexación'}
+                {doc.status === 'indexed' ? 'Indexado y disponible para búsqueda' : doc.status === 'fragmented' ? 'Fragmentado · original anual conservado como respaldo' : doc.status === 'stored' ? 'Almacenado · pendiente de catalogación' : 'Pendiente de indexación'}
               </div>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
