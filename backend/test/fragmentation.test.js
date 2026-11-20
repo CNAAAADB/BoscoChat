@@ -42,3 +42,14 @@ test('BC-105 refuses noncontiguous indexed pages before changing any archive sta
   assert.throws(() => detectMonthlySegments([{ page_number: 2, text_content: cover('enero', 1954, 1) }], 1954),
     /NON_CONTIGUOUS_ARCHIVE_PAGES/);
 });
+
+test('BC-105 identifies a double-month cover as one combined issue', () => {
+  const result = detectMonthlySegments(pages(
+    'Don Bosco en España. Número 9. enero-febrero de 1954.',
+    'Noticias de la casa',
+    cover('marzo', 1954, 10),
+  ), 1954);
+  assert.equal(result.length, 2);
+  assert.equal(result[0].monthStart, 1);
+  assert.equal(result[0].monthEnd, 2);
+});
