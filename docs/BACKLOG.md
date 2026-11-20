@@ -527,7 +527,7 @@ Ground chat answers in MySQL archive data, not unsupported model recollection.
 
 **Incidente:** tras desplegar BC-108, CloudWatch registró tres errores MySQL `ER_QUERY_TIMEOUT` consecutivos en la primera consulta de Investigación sobre Cádiz. El límite de 1.5 s interrumpió las tres búsquedas de texto; Bedrock ni siquiera llegó a invocarse. El consejo multiagente sigue activado y no causa este error.
 
-**Solución propuesta:** consulta FTS Boolean con 2 términos obligatorios acotados y algunos términos de ranking opcionales, `FORCE INDEX(ft_archive_pages_text)`, sin `ORDER BY score` global; limitar lectura a 36 candidatos y ordenarlos en memoria para construir un máximo de 12 fragmentos. Límite SQL 3200 ms, 2200 ms en follow-up, presupuesto de recuperación 9500 ms y total HTTP 24000 ms. Evitar consultas adicionales si la primera proporciona cuatro fuentes pertinentes.
+**Solución propuesta:** consulta FTS Boolean con 2 términos obligatorios acotados y algunos términos de ranking opcionales, FULLTEXT sobre `ft_archive_pages_text` sin un hint FORCE INDEX, y sin `ORDER BY score` global; limitar lectura a 36 candidatos y ordenarlos en memoria para construir un máximo de 12 fragmentos. Límite SQL 3200 ms, 2200 ms en follow-up, presupuesto de recuperación 9500 ms y total HTTP 24000 ms. Evitar consultas adicionales si la primera proporciona cuatro fuentes pertinentes.
 
 **Pendiente de DONE:** CI de la revisión exacta, revisión de seguridad independiente, despliegue y medición E2E del mismo caso en RDS de producción (éxito, cobertura de fuentes y duración). Si falla, medir `EXPLAIN ANALYZE` y reevaluar estrategia de índice/instancia, sin ampliar límites indefinidamente.
 
