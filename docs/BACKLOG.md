@@ -523,7 +523,7 @@ Ground chat answers in MySQL archive data, not unsupported model recollection.
 - Depends on: BC-101, BC-102
 - SRS: RF-RAG-01/02/03/04, RF-CHAT-01/06, RNF-PERF-02, RNF-SEC-03
 - Issue: #86
-- PR: pending independent verification
+- PR: #87 (ready for review; producer CI passed, independent verification pending)
 
 **Incident** (2026-11-20): a historical answer about the Cádiz alumni association completed in 22 s, but a later chat request timed out at the backend's 28-second AWS Lambda hard limit. Logs show next inference worker called only at ~26 s, indicating time spent ahead of model call. Production council flags are OFF; multiagent debate did not cause this instance. The model also conflated the history of the association with the magazine and Salesian arrival.
 

@@ -3,7 +3,7 @@
 - Config verificada: backend Lambda Timeout=28, inferencia Timeout=25, `BOSCOCHAT_COUNCIL_CHAT_ENABLED` y `BOSCOCHAT_COUNCIL_EXPANSION_ENABLED` no configuradas (OFF). El debate multiagente no fue responsable de este incidente concreto.
 - Propuesta en rama `fix/bc-108-chat-timeouts-source-grounding`: presupuesto global 24 s que empieza antes de las consultas SQL, etapa de búsqueda acotada a 7 s, MAX_EXECUTION_TIME para FULLTEXT/recuentos/citas previas; mensajes HTTP 503/504 y frontend específicos sin perder historial ni entrada para reintentar.
 - Mitigación de contenido: prompt distingue fundación local, publicación regional y contexto de llegada salesiana; las fuentes documentales locales deben vincular topónimo y entidad en proximidad. Se añaden regresiones.
-- QA pendiente: CI, verificación independiente, desempeño RDS y E2E con corpus histórico; no fusionado ni desplegado en AWS. TRACE-GAP: precisión real de citas y eventuales necesidades de búsqueda asíncrona.
+- CI productor de PR #87 superada en revisión 1fe8f081 (backend, frontend, integración MySQL y contenedor); verificación independiente, desempeño RDS y E2E con corpus histórico pendientes; no fusionado ni desplegado en AWS. TRACE-GAP: precisión real de citas y eventuales necesidades de búsqueda asíncrona.
 
 ## BC-107 — Segunda ronda deliberativa y búsqueda de evidencias (2026-11-20)
 - El responsable solicita que, cuando haya contradicciones entre agentes, BoscoChat realice búsqueda documental adicional y replantee la conclusión en otra ronda.
