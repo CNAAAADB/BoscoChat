@@ -245,7 +245,7 @@ export default function HistoricalManagement() {
           <div role="note" style={{ background: '#28253a', border: '1px solid #e6d7aa', borderRadius: 12, padding: 14, marginBottom: 16 }}>
             <strong>Antes de subir TIFF:</strong> reúne en un ZIP las páginas .tif o .tiff de una o varias revistas,
             en orden de lectura, con nombres numerados inequívocos (por ejemplo 0001.tif, 0002.tif, 0003.tif).
-            Puedes usar carpetas para separar revistas. Máximo 40 páginas, 100 MB por ZIP y 9 MB por TIFF.
+            Si incluyes varias revistas, numera sus carpetas (01 Enero, 02 Febrero) para fijar su orden. Máximo 40 páginas, 100 MB por ZIP y 9 MB por TIFF.
             BoscoChat hará OCR y propondrá indicios de fecha; aún <strong>no generará ni indexará nuevos PDF</strong>
             hasta que el historiador revise el contenido, la publicación y los límites de cada ejemplar.
           </div>
