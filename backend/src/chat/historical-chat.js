@@ -156,7 +156,7 @@ export function boundedChatBooleanSearch(question) {
   const noise = new Set(['contarme', 'sepas', 'sabes', 'saber', 'quiero',
     'necesito', 'dime', 'explicarme', 'informacion', 'información', 'investiga',
     'investigar', 'don', 'todos', 'todas', 'mucho', 'muchos', 'muchas', 'puedo']);
-  const tokens = [...new Set((text.match(/[\\p{L}\\p{N}]{3,}/gu) ?? [])
+  const tokens = [...new Set((text.match(/[\p{L}\p{N}]{3,}/gu) ?? [])
     .filter(word => !noise.has(word.toLocaleLowerCase('es'))))];
   if (!tokens.length) return null;
   // For a query such as "Cádiz antiguos alumnos presidente", anchor on the
