@@ -1,3 +1,10 @@
+## BC-101 — Estado de sesión y profundidad documental (2026-11-20)
+- Evidencia funcional: usuario confirma acceso a citas PDF, informa pérdida de conversación y respuestas breves aun con modo Investigación.
+- `frontend/src/chat-session.js`: carga, persistencia y borrado de historial temporal de la pestaña por ID de administrador, TTL 2 h, tope de 40 mensajes, esquema y controles de aislamiento; `frontend/src/HistoricalChat.jsx`: restablecimiento tras recarga y contexto de cuatro intercambios; `frontend/src/App.jsx`: limpieza al cerrar sesión y conservación durante consulta de PDF.
+- `backend/src/chat/historical-chat.js`: historia máxima ocho turnos, longitud máxima de respuesta previa 1.800 caracteres, prompt de Investigación que favorece contenido sustantivo con revistas/páginas y reconoce ausencia de pruebas; `backend/worker/historical-chat-bedrock.js`: hasta 1.900 tokens en Investigación con topes de entrada y salida explícitos.
+- Pruebas: `frontend/test/chat-session.test.js`, `backend/test/historical-chat.test.js`, workflow frontend CI actualizado.
+- TRACE-GAP: confirmación visual real tras despliegue, privacidad de texto histórico en almacenamiento temporal de navegador compartido, revisión independiente de seguridad/calidad y control de costes/latencia.
+
 ## BC-012 — Citas del chatbot a PDF, incidente de contención (2026-11-20)
 - Observación usuario: visor Don Bosco en España 1978 página 23 da error al abrir referencia desde Chat histórico.
 - Evidencia AWS CloudWatch: 2026-11-20T10:54:46.270Z `GET /api/archive/documents/33/pages/23/image`, `ER_LOCK_DEADLOCK`, `sqlState 40001`; el endpoint falla en middleware de rate limiting, no alcanza el renderizador, cuyos logs carecen de invocaciones relevantes.
