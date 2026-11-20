@@ -32,6 +32,8 @@ jobs:
         run: docker build --pull -f backend/worker/Dockerfile -t boscochat-pdf-worker:ci backend
       - name: Verify installed PDF tooling
         run: docker run --rm --entrypoint /bin/sh boscochat-pdf-worker:ci -c 'command -v pdfinfo && command -v pdftotext && command -v pdftoppm && python3 -c "import boto3; print(boto3.__version__)"'
+      - name: Validate TIFF ZIP parser and OCR review contract
+        run: docker run --rm --entrypoint python3 boscochat-pdf-worker:ci -m unittest discover -s worker -p test_tiff_ocr.py
 
   publish:
     name: Publish reviewed container to private ECR
