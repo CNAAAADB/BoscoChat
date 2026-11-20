@@ -18,6 +18,17 @@ function validateInput(event) {
   if (event?.council !== undefined) {
     const refs = event.council?.refs;
     const evidence = event.council?.evidence;
+    const phase = event.council?.phase ?? 'complete';
+    const previous = event.council?.previous;
+    if (!['complete', 'probe', 'resolve'].includes(phase)
+      || (phase === 'resolve' && (!previous || typeof previous !== 'object'
+        || Array.isArray(previous) || JSON.stringify(previous).length > 8000
+        || !['needs_review', 'agreed'].includes(previous.status)
+        || !Array.isArray(previous.agreed) || !Array.isArray(previous.disputed)
+        || previous.agreed.length > 8 || previous.disputed.length > 8))
+      || (phase !== 'resolve' && previous !== undefined)) {
+      throw new Error('INVALID_COUNCIL_PHASE');
+    }
     if (depth !== 'research' || !Array.isArray(refs) || refs.length < 2 || refs.length > 6
       || new Set(refs).size !== refs.length
       || refs.some(ref => typeof ref !== 'string' || !/^F[1-6]$/.test(ref)
@@ -29,6 +40,8 @@ function validateInput(event) {
     }
   }
   return { system, user, depth, refs: event.council?.refs ?? null,
+    phase: event.council?.phase ?? 'complete',
+    previous: event.council?.previous ?? null,
     evidenceByRef: event.council ? Object.fromEntries(event.council.evidence.map(x => [x.ref, x.text])) : null };
 }
 function strictJson(text) {
@@ -54,7 +67,7 @@ function combineUsage(responses) {
 }
 
 export async function runChatInference(event, { infer } = {}) {
-  const { system, user, depth, refs, evidenceByRef } = validateInput(event);
+  const { system, user, depth, refs, evidenceByRef, phase, previous } = validateInput(event);
   if (typeof infer !== 'function') throw new Error('INFERENCE_PROVIDER_REQUIRED');
   const outputs = [];
   async function ask(phase, actorSystem, actorUser, maxTokens) {
@@ -77,7 +90,9 @@ export async function runChatInference(event, { infer } = {}) {
     roles: ['source_reader', 'counter_reader'], allowedRefs: refs, evidenceByRef,
     invoke: async role => {
       const text = await ask('proposal', ROLE_INSTRUCTIONS[role] + '\n' + proposalSchema,
-        'Fuentes documentales no confiables y pregunta:\n' + user, 500);
+        'Fuentes documentales no confiables y pregunta:\n' + user
+          + (previous ? '\nACTA ANTERIOR NO CONFIABLE: ' + JSON.stringify(previous).slice(0, 8000)
+              + '\nRevisa las alternativas y rectifica cuando las nuevas fuentes lo requieran. No te limites a repetir a otros agentes.' : ''), 500);
       return strictJson(text);
     },
     critic: async (proposals, preliminary) => {
@@ -91,11 +106,23 @@ export async function runChatInference(event, { infer } = {}) {
       return strictJson(text);
     },
   });
+  if (phase === 'probe' && result.status === 'needs_review') {
+    // This worker has NO database access. The backend may choose one query from
+    // a server-owned, deterministic search plan and then request a rebuttal round.
+    return {
+      status: 'probe', usage: combineUsage(outputs),
+      council: { status: result.status, agreedCount: result.agreed.length,
+        disputedCount: result.disputed.length, rounds: 1,
+        minutes: { status: result.status, agreed: result.agreed, disputed: result.disputed,
+          reason: result.reason ?? null } },
+    };
+  }
   // The judge never creates new sources: the final synthesis may only cite the SQL-authorized refs.
   // Agreement and the critic are fallible. A final answer must state any unresolved uncertainty.
   const minutes = {
     status: result.status, agreed: result.agreed, disputed: result.disputed,
     reason: result.reason ?? null,
+    ...(previous ? { previousDisputes: previous.disputed.map(item => item.field).slice(0, 8) } : {}),
   };
   const text = await ask('synthesis',
     system + '\nEres el redactor final de un consejo de investigación documental. '
@@ -111,6 +138,7 @@ export async function runChatInference(event, { infer } = {}) {
     council: {
       status: result.status, agreedCount: result.agreed.length,
       disputedCount: result.disputed.length,
+      rounds: phase === 'resolve' ? 2 : 1,
       ...(result.reason ? { reason: result.reason } : {}),
     },
   };
