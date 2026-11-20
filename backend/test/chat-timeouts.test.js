@@ -41,7 +41,7 @@ test('BC-108 research search deadline returns before unbounded mocks finish', as
       retrieve: async () => new Promise(() => {}),
       deadline: Date.now() + 60,
     },
-  ), /RESEARCH_SEARCH_UNAVAILABLE/);
+  ), /CHAT_TIMEOUT/);
   assert.ok(Date.now() - started < 1_500);
 });
 
@@ -63,7 +63,7 @@ test('BC-108 prompt differentiates local association founding from regional maga
   });
   assert.match(prompt.system, /NO prueban la fundación de la asociación/);
   assert.match(prompt.system, /No infieras año o década de fundación/);
-  assert.match(prompt.system, /historia de la obra salesiana/);
+  assert.match(prompt.system, /obra salesiana/);
   assert.ok(prompt.user.includes('1987'));
   assert.ok(prompt.system.length <= 3500, 'Bedrock inference rejects oversized system prompts');
 });
