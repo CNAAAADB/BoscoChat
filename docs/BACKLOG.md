@@ -516,6 +516,27 @@ Ground chat answers in MySQL archive data, not unsupported model recollection.
 - [ ] Citation opens the existing authorized page viewer at the correct page.
 - [ ] If evidence is missing, state it clearly; do not fabricate a citation.
 
+### BC-108 — Recuperación de timeouts del chat y atribución local de fuentes
+- Priority: P0
+- Status: IN_REVIEW
+- Owner role: Developer
+- Depends on: BC-101, BC-102
+- SRS: RF-RAG-01/02/03/04, RF-CHAT-01/06, RNF-PERF-02, RNF-SEC-03
+- Issue: #86
+- PR: #87 (ready for review; producer CI passed, independent verification pending)
+
+**Incident** (2026-11-20): a historical answer about the Cádiz alumni association completed in 22 s, but a later chat request timed out at the backend's 28-second AWS Lambda hard limit. Logs show next inference worker called only at ~26 s, indicating time spent ahead of model call. Production council flags are OFF; multiagent debate did not cause this instance. The model also conflated the history of the association with the magazine and Salesian arrival.
+
+**Acceptance criteria**
+- [x] MySQL FULLTEXT and literal-count SELECTs have MAX_EXECUTION_TIME hints; research and previous-source lookups have bounded time budgets.
+- [x] Overall deadline starts before DB retrieval (24 s vs Lambda timeout 28 s), not after it.
+- [x] 503/504 cases yield specific user-facing messages; frontend preserves earlier chat and question for manual retry and distinguishes network failures.
+- [x] Historical prompt forbids inferring local association foundation from a magazine's chronology or Salesian arrival; source ranking requires local entity proximity.
+- [x] Automated regressions cover query time limits, source relevance, deadline and UX.
+- [ ] Producer CI and independent QA/security review at exact PR head, plus live E2E and measurements of query latency/answer quality; do not mark DONE without these.
+
+**Safety**: preserve authorization, quotas, private SQL and multiagent flags OFF; do not simply increase Lambda timeout. Query timeouts may still yield partial searches and should be explained rather than inventing facts.
+
 ### BC-107 — Reusable evidence-first multi-agent deliberation
 - Priority: P1
 - Status: IN_REVIEW

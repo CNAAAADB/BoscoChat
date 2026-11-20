@@ -72,3 +72,15 @@ test('BC-102 no unsupported claims when only documents about an unrelated associ
   assert.equal(result.sources.length,0);
   assert.ok(result.queries.length>=2);
 });
+
+test('BC-108 Cádiz reference far from national association is not evidence of local history', async () => {
+  const unrelated = page(111, 'En 1881 los salesianos llegaron al puerto de Cádiz. '
+    + 'La noticia continuó con actividades educativas. '.repeat(15)
+    + 'El presidente de la Asociación Nacional de Antiguos Alumnos visitó Madrid.');
+  const local = page(112, 'La Asociación de Antiguos Alumnos de Cádiz celebró su asamblea.');
+  const result = await conductHistoricalResearch({}, '¿Cuál es la historia de la asociación de Cádiz?', [], {
+    retrieve: async () => [unrelated, local],
+  });
+  assert.ok(result.sources.some(s => s.documentId === 112));
+  assert.ok(result.sources.every(s => s.documentId !== 111));
+});

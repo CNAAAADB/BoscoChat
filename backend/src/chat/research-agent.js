@@ -2,6 +2,7 @@
 // A follow-up is about the preceding entity unless the user changes subject.
 // Never allow an LLM to supply SQL, table names, document IDs or tool actions.
 import { retrieveChatSources } from './historical-chat.js';
+import { withinChatBudget, remainingChatMs, chatTimeout } from './chat-budget.js';
 
 const MAX_QUERIES = 4;
 const MAX_SOURCES = 6;
@@ -88,6 +89,21 @@ export function planResearchQueries(question, history = []) {
 export function evidenceScore(source, focus) {
   const text = normalized(source.excerpt);
   const local = focus.location ? text.includes(normalized(focus.location)) : true;
+  // A long page may mention "Cádiz" while discussing a different national
+  // association elsewhere. Require the city and local entity to appear close
+  // to one another before treating it as documentary evidence about Cádiz.
+  const nearbyEntity = (() => {
+    if (!focus.location || !focus.entity) return true;
+    const city = normalized(focus.location);
+    const entities = focus.entity === 'antiguos alumnos'
+      ? /antiguos?\s+alumn|asociacion/g
+      : focus.entity === 'oratorio' ? /oratorio/g
+        : /colegio|escuela|centro|instituto/g;
+    const cityAt = [];
+    for (let at = text.indexOf(city); at >= 0; at = text.indexOf(city, at + city.length)) cityAt.push(at);
+    return [...text.matchAll(entities)].some(match =>
+      cityAt.some(position => Math.abs(position - match.index) <= 300));
+  })();
   const entity = focus.entity === 'antiguos alumnos'
     ? /antiguos?\s+alumn|asociacion/.test(text)
     : focus.entity === 'colegio salesiano'
@@ -99,7 +115,8 @@ export function evidenceScore(source, focus) {
       ? /fundad|fundaci|inaugur|origen|comienz/.test(text)
       : focus.intent === 'actividades'
         ? /encuentro|actividad|fiesta|celebr|teatro|reuni/.test(text) : true;
-  return { valid: local && entity && direct, score: Number(local)*5 + Number(entity)*3 + Number(direct)*3 };
+  return { valid: local && entity && direct && nearbyEntity,
+    score: Number(local)*5 + Number(entity)*3 + Number(direct)*3 + Number(nearbyEntity)*4 };
 }
 
 /**
@@ -107,7 +124,7 @@ export function evidenceScore(source, focus) {
  * rather than trusting page text or publication names sent from the browser.
  * A deleted or unindexed page cannot become evidence again.
  */
-export async function revisitCitedSources(pool, trail = []) {
+export async function revisitCitedSources(pool, trail = [], { deadline = Date.now() + 7_000 } = {}) {
   const verified = [];
   const seen = new Set();
   for (const item of trail.slice(-4)) {
@@ -116,14 +133,21 @@ export async function revisitCitedSources(pool, trail = []) {
     const key = item.documentId + ':' + item.page;
     if (seen.has(key)) continue;
     seen.add(key);
-    const [rows] = await pool.execute(
-      `SELECT d.id AS document_id, d.publication, d.publication_year,
-              p.page_number, LEFT(p.text_content, 1250) AS excerpt
-         FROM archive_pages p JOIN archive_documents d ON d.id = p.document_id
-        WHERE d.indexed_at IS NOT NULL AND d.id = ? AND p.page_number = ?
-        LIMIT 1`,
-      [item.documentId, item.page],
-    );
+    let rows;
+    try {
+      [rows] = await withinChatBudget(() => pool.execute(
+        `SELECT /*+ MAX_EXECUTION_TIME(1200) */ d.id AS document_id, d.publication, d.publication_year,
+                p.page_number, LEFT(p.text_content, 1250) AS excerpt
+           FROM archive_pages p JOIN archive_documents d ON d.id = p.document_id
+          WHERE d.indexed_at IS NOT NULL AND d.id = ? AND p.page_number = ?
+          LIMIT 1`,
+        [item.documentId, item.page],
+      ), deadline, 1_500);
+    } catch (error) {
+      console.warn('Prior citation lookup unavailable', { code: error?.code, name: error?.name });
+      if (remainingChatMs(deadline) < 600) break;
+      continue;
+    }
     const row = rows[0];
     if (!row || !row.excerpt || !Number.isSafeInteger(Number(row.document_id))
       || !Number.isSafeInteger(Number(row.page_number))) continue;
@@ -140,6 +164,7 @@ export async function revisitCitedSources(pool, trail = []) {
 export async function conductHistoricalResearch(pool, question, history = [], {
   retrieve = retrieveChatSources,
   maxQueries = MAX_QUERIES,
+  deadline = Date.now() + 7_000,
 } = {}) {
   const { focus, queries } = planResearchQueries(question, history);
   const found = new Map();
@@ -149,9 +174,13 @@ export async function conductHistoricalResearch(pool, question, history = [], {
   // only if the initial evidence is too sparse.
   for (let i = 0; i < queries.length && i < maxQueries; i++) {
     if (i >= 2 && [...found.values()].filter(s => evidenceScore(s,focus).valid).length >= 4) break;
+    if (remainingChatMs(deadline) < 600) {
+      if (!found.size) throw chatTimeout();
+      break;
+    }
     const query = queries[i];
     try {
-      const results = await retrieve(pool,query);
+      const results = await withinChatBudget(() => retrieve(pool,query), deadline, 1_900);
       if (!Array.isArray(results)) throw new Error('INVALID_RESEARCH_RESULTS');
       performed.push(query);
       for (const s of results) {
