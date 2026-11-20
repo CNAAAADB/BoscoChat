@@ -4,6 +4,7 @@ import { safeArchivePdfKey } from './archive-filenames.js';
 const REGION = 'us-east-1';
 const BUCKET = 'boscochat-archivo-pdfs';
 const MAX_PDF_BYTES = 350 * 1024 * 1024;
+export const MAX_TIFF_ZIP_BYTES = 100 * 1024 * 1024;
 
 function encode(value) {
   return encodeURIComponent(String(value)).replace(/[!'()*]/g, (char) => '%' + char.charCodeAt(0).toString(16).toUpperCase());
@@ -42,15 +43,27 @@ function credentialScope(accessKey, day) {
 // Signed conditional PUT: S3 enforces atomic non-overwrite with If-None-Match: *.
 // Content-Length is part of the signature, fixing the accepted upload size.
 export function signedArchiveUpload({ key, fileSize, now, credentials = credentialsFromEnvironment() }) {
-  if (typeof key !== 'string' || !key.startsWith('originals/') || safeArchivePdfKey(key.slice('originals/'.length)) !== key
-    || !Number.isSafeInteger(fileSize) || fileSize < 1 || fileSize > MAX_PDF_BYTES) {
+  return signPrivateUpload({ key, fileSize, now, credentials, contentType: 'application/pdf', kind: 'pdf' });
+}
+
+export function signedTiffZipUpload({ key, fileSize, now, credentials = credentialsFromEnvironment() }) {
+  return signPrivateUpload({ key, fileSize, now, credentials, contentType: 'application/zip', kind: 'zip' });
+}
+
+function signPrivateUpload({ key, fileSize, now, credentials, contentType, kind }) {
+  const validPdf = kind === 'pdf' && typeof key === 'string' && key.startsWith('originals/')
+    && safeArchivePdfKey(key.slice('originals/'.length)) === key && fileSize <= MAX_PDF_BYTES;
+  const validZip = kind === 'zip' && typeof key === 'string'
+    && /^imports\/tiff\/[0-9a-f-]{36}\/[\\p{L}\\p{N}][\\p{L}\\p{N} ._()-]{0,155}\\.zip$/iu.test(key)
+    && !key.includes('..') && fileSize <= MAX_TIFF_ZIP_BYTES;
+  if ((!validPdf && !validZip) || !Number.isSafeInteger(fileSize) || fileSize < 1) {
     throw new Error('INVALID_ARCHIVE_UPLOAD');
   }
   const { timestamp, day } = timeParts(now);
   const host = BUCKET + '.s3.' + REGION + '.amazonaws.com';
   const path = '/' + key.split('/').map(encode).join('/');
   const headers = {
-    'Content-Type': 'application/pdf',
+    'Content-Type': contentType,
     'If-None-Match': '*',
     'x-amz-server-side-encryption': 'AES256',
   };
@@ -66,7 +79,7 @@ export function signedArchiveUpload({ key, fileSize, now, credentials = credenti
   const canonicalQuery = Object.entries(query).map(([k, v]) => [encode(k), encode(v)])
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([k, v]) => k + '=' + v).join('&');
   const canonicalHeaders = 'content-length:' + fileSize + '\n'
-    + 'content-type:application/pdf\n'
+    + 'content-type:' + contentType + '\n'
     + 'host:' + host + '\n'
     + 'if-none-match:*\n'
     + 'x-amz-server-side-encryption:AES256\n';

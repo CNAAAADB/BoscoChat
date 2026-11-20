@@ -1,3 +1,11 @@
+## BC-106A — OCR de TIFF importados desde ZIP (2026-11-20)
+- Solicitud: #82, componente de recepción ZIP + OCR previo a clasificar y segmentar ejemplares. Requisitos RF-DOCMGMT-01/02/03/04, RF-SEARCH-05/06, RNF-SEC-02/03, RNF-DATA-01.
+- UI: `frontend/src/HistoricalManagement.jsx`, `frontend/src/api/historical.js` (aviso de orden TIFF y progreso manual).
+- API: `backend/src/routes/tiff-imports.js`, `backend/src/documents/archive-s3-signing.js`, montaje protegido por `TIFF_OCR_IMPORT_ENABLED` en `backend/src/app.js`.
+- Procesamiento: `backend/worker/tiff-ocr.py` (ZIP seguro, TIFF IFD y Textract), acción independiente `ocr-tiff-zip` en `backend/worker/handler.js`, filtro EventBridge/SQS `backend/worker/ingestion-events.js`. ZIP original bajo imports/tiff; marcador de petición bajo imports/jobs; OCR privado bajo imports/reviews. Sin escritura MySQL ni publicación de PDF.
+- Tests: `backend/test/tiff-imports.test.js`, `backend/worker/test_tiff_ocr.py`, `backend/test/ingestion-events.test.js`, `backend/test/historical-management.test.js`; CI Docker/Python y Node configurada, pero GitHub Actions no asignó runner al PR #90 (runner_id=0, steps=[]), sin pruebas ejecutadas.
+- TRACE-GAP: IAM de nuevos prefijos y Textract, despliegue de imagen en Lambda correcto, esquema de seguimiento duradero y reintento, evaluación con TIFF reales, títulos/fechas/meses, acuerdo entre agentes, publicación y rollback; mantener feature flag OFF.
+
 ## BC-109 — Optimización búsquedas MySQL para conservar chat multiagente (2026-11-20)
 - Issue #88: el servidor devuelve 503 tras tres `ER_QUERY_TIMEOUT` de MAX_EXECUTION_TIME(1500) en las consultas FULLTEXT iniciales; no es fallo de inferencia.
 - `backend/src/chat/historical-chat.js`: expresión de búsqueda Boolean parametrizada, FTS en columna indexada `ft_archive_pages_text` sin FORCE INDEX ni ordenación global MySQL, máximo 36 páginas y ranking posterior local.

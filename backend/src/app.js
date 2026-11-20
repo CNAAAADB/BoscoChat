@@ -17,6 +17,7 @@ import { createArchiveDiagnosticRouter } from './routes/archive-diagnostics.js';
 import { createArchiveSearchRouter } from './routes/archive-search.js';
 import { createArchiveDocumentRouter } from './routes/archive-documents.js';
 import { createHistoricalManagementRouter } from './routes/historical-management.js';
+import { createTiffImportRouter } from './routes/tiff-imports.js';
 import { createHistoricalChatRouter } from './routes/historical-chat.js';
 
 export function createApp({
@@ -117,6 +118,9 @@ export function createApp({
         manualIndexEnabled: environment.ARCHIVE_MANUAL_INDEX_ENABLED === 'true',
         unindexEnabled: environment.ARCHIVE_UNINDEX_ENABLED === 'true',
       }));
+      if (environment.TIFF_OCR_IMPORT_ENABLED === 'true') {
+        app.use('/api/admin/historical/tiff-imports', createTiffImportRouter(pool, service));
+      }
     }
     app.use('/api/archive/documents', createArchiveDocumentRouter(pool, service, {
       pdfViewerEnabled: environment.ARCHIVE_PDF_VIEW_ENABLED === 'true',

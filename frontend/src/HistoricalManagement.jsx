@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { historicalDocuments, historicalDownload, historicalUpload, historicalDelete, historicalIndex, historicalUnindex } from './api/historical.js';
+import { historicalDocuments, historicalDownload, historicalUpload, historicalDelete, historicalIndex, historicalUnindex, historicalTiffUpload, historicalTiffReview } from './api/historical.js';
 
 const panel = { background: 'rgba(25,25,45,0.9)', border: '1px solid #28295E', borderRadius: 30, padding: 'clamp(20px, 4vw, 42px)', maxWidth: 1100, margin: '0 auto 40px' };
 const control = { background: '#111', border: '1px solid #777', borderRadius: 12, color: '#fff', padding: 12, boxSizing: 'border-box', maxWidth: '100%' };
@@ -9,6 +9,7 @@ const fileLimit = 350 * 1024 * 1024;
 const CAN_DELETE = import.meta.env.VITE_ARCHIVE_DOCUMENT_DELETE === 'true';
 const CAN_INDEX = import.meta.env.VITE_ARCHIVE_MANUAL_INDEX === 'true';
 const CAN_UNINDEX = import.meta.env.VITE_ARCHIVE_UNINDEX === 'true';
+const CAN_TIFF_OCR = import.meta.env.VITE_TIFF_OCR_IMPORT === 'true';
 
 function sizeLabel(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
@@ -18,6 +19,12 @@ export default function HistoricalManagement() {
   const [documents, setDocuments] = useState([]);
   const [query, setQuery] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
+  const [uploadKind, setUploadKind] = useState('pdf');
+  const [tiffJobId, setTiffJobId] = useState(() => {
+    try { return typeof sessionStorage === 'undefined' ? '' : sessionStorage.getItem('boscochat-tiff-job') ?? ''; }
+    catch { return ''; }
+  });
+  const [tiffReview, setTiffReview] = useState(null);
   const [catalogFile, setCatalogFile] = useState(null);
   const [catalogPublication, setCatalogPublication] = useState('');
   const [catalogYear, setCatalogYear] = useState('');
@@ -58,17 +65,29 @@ export default function HistoricalManagement() {
     const uploadForm = event.currentTarget;
     setError('');
     setMessage('');
-    if (!selectedFile) return setError('Selecciona un PDF.');
-    if (selectedFile.size > fileLimit) return setError('El PDF supera el límite de 350 MB.');
+    if (!selectedFile) return setError(uploadKind === 'zip' ? 'Selecciona un ZIP de TIFF.' : 'Selecciona un PDF.');
+    if (selectedFile.size > (uploadKind === 'zip' ? 100 * 1024 * 1024 : fileLimit)) {
+      return setError(uploadKind === 'zip' ? 'El ZIP supera el límite de 100 MB.' : 'El PDF supera el límite de 350 MB.');
+    }
     setBusy(true);
     try {
-      const response = await historicalUpload(selectedFile, setMessage);
-      setSelectedFile(null);
-      uploadForm.reset();
-      setMessage(response.willIndexAutomatically
-        ? 'PDF guardado en AWS. La indexación automática está solicitada.'
-        : 'PDF guardado en AWS y visible en el directorio. Pendiente de catalogación para buscar su contenido.');
-      await refresh();
+      if (uploadKind === 'zip') {
+        const response = await historicalTiffUpload(selectedFile, setMessage);
+        setTiffJobId(response.jobId);
+        setTiffReview({ status: 'queued', pages: [] });
+        try { sessionStorage.setItem('boscochat-tiff-job', response.jobId); } catch { /* optional */ }
+        setSelectedFile(null);
+        uploadForm.reset();
+        setMessage('ZIP conservado en S3. OCR iniciado. Cuando termine podrás revisar las páginas y su transcripción antes de publicar.');
+      } else {
+        const response = await historicalUpload(selectedFile, setMessage);
+        setSelectedFile(null);
+        uploadForm.reset();
+        setMessage(response.willIndexAutomatically
+          ? 'PDF guardado en AWS. La indexación automática está solicitada.'
+          : 'PDF guardado en AWS y visible en el directorio. Pendiente de catalogación para buscar su contenido.');
+        await refresh();
+      }
     } catch (failure) {
       setError(failure.message);
     } finally {
@@ -125,6 +144,17 @@ export default function HistoricalManagement() {
     finally { setBusy(false); setActiveAction(null); }
   };
 
+  const refreshTiffReview = async () => {
+    if (!tiffJobId) return;
+    setBusy(true);
+    setError('');
+    try {
+      const result = await historicalTiffReview(tiffJobId);
+      setTiffReview(result);
+    } catch (failure) { setError(failure.message); }
+    finally { setBusy(false); }
+  };
+
   const download = async (filename) => {
     setError('');
     // Create the window during the user's click, before awaiting the authenticated request.
@@ -147,7 +177,7 @@ export default function HistoricalManagement() {
       {error ? <p role="alert" style={{ background: '#471b1b', border: '1px solid #eb6868', borderRadius: 12, padding: 14 }}>{error}</p> : null}
       {message ? <p role="status" style={{ background: '#223527', borderRadius: 12, padding: 14 }}>{message}</p> : null}
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '20px 0' }}><a style={{ ...button, textDecoration: 'none' }} href="#historical-upload">+ Subir nuevo PDF</a></div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '20px 0' }}><a style={{ ...button, textDecoration: 'none' }} href="#historical-upload">+ Subir nuevo archivo</a></div>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         <h3 style={{ color: '#E6D7AA', margin: 0 }}>Archivos almacenados ({documents.length})</h3>
         <button type="button" onClick={refresh} disabled={loading || busy} style={button}>Actualizar estado</button>
@@ -199,17 +229,75 @@ export default function HistoricalManagement() {
         ))}
       </div>
       <form id="historical-upload" onSubmit={upload} style={{ padding: 20, borderRadius: 20, background: '#11111e', margin: '26px 0' }}>
-        <h3 style={{ color: '#E6D7AA', marginTop: 0 }}>Subir un nuevo PDF</h3>
-        <p>Puedes subir un PDF de hasta 350 MB. Se guardará junto a los originales existentes y nunca sobrescribirá un archivo con el mismo nombre.</p>
-        <label htmlFor="historical-pdf">Archivo PDF</label>
+        <h3 style={{ color: '#E6D7AA', marginTop: 0 }}>Subir un nuevo archivo</h3>
+        {CAN_TIFF_OCR ? (
+          <label htmlFor="historical-upload-kind" style={{ display: 'grid', gap: 8, maxWidth: 420, marginBottom: 14 }}>
+            Formato del archivo
+            <select id="historical-upload-kind" value={uploadKind} disabled={busy}
+              onChange={event => { setUploadKind(event.target.value); setSelectedFile(null); }}
+              style={control}>
+              <option value="pdf">Documento PDF</option>
+              <option value="zip">ZIP de páginas TIFF — OCR y revisión</option>
+            </select>
+          </label>
+        ) : null}
+        {uploadKind === 'zip' && CAN_TIFF_OCR ? (
+          <div role="note" style={{ background: '#28253a', border: '1px solid #e6d7aa', borderRadius: 12, padding: 14, marginBottom: 16 }}>
+            <strong>Antes de subir TIFF:</strong> reúne en un ZIP las páginas .tif o .tiff de una o varias revistas,
+            en orden de lectura, con nombres numerados inequívocos (por ejemplo 0001.tif, 0002.tif, 0003.tif).
+            Si incluyes varias revistas, numera sus carpetas (01 Enero, 02 Febrero) para fijar su orden. Máximo 40 páginas, 100 MB por ZIP y 9 MB por TIFF.
+            BoscoChat hará OCR y propondrá indicios de fecha; aún <strong>no generará ni indexará nuevos PDF</strong>
+            hasta que el historiador revise el contenido, la publicación y los límites de cada ejemplar.
+          </div>
+        ) : (
+          <p>Puedes subir un PDF de hasta 350 MB. Se guardará junto a los originales y no sobrescribirá otros documentos.</p>
+        )}
+        <label htmlFor="historical-source-file">{uploadKind === 'zip' ? 'Archivo ZIP de TIFF' : 'Archivo PDF'}</label>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginTop: 10 }}>
-          <input id="historical-pdf" type="file" accept=".pdf,application/pdf" disabled={busy} onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)} style={{ ...control, flex: '1 1 300px' }} />
-          <button type="submit" disabled={busy || !selectedFile} style={{ ...button, opacity: busy || !selectedFile ? 0.5 : 1 }}>{busy ? 'Subiendo…' : 'Subir PDF'}</button>
+          <input key={uploadKind} id="historical-source-file" type="file"
+            accept={uploadKind === 'zip' ? '.zip,application/zip' : '.pdf,application/pdf'}
+            disabled={busy} onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+            style={{ ...control, flex: '1 1 300px' }} />
+          <button type="submit" disabled={busy || !selectedFile}
+            style={{ ...button, opacity: busy || !selectedFile ? 0.5 : 1 }}>
+            {busy ? 'Procesando…' : uploadKind === 'zip' ? 'Subir ZIP e iniciar OCR' : 'Subir PDF'}
+          </button>
         </div>
-        <p style={{ fontSize: 13, opacity: 0.8 }}>El archivo se sube directamente al S3 privado. Las anualidades «Don Bosco en España_YYYY.pdf» se indexan automáticamente o pueden reintentarse mediante «Indexar PDF». Otros PDF pueden catalogarse indicando publicación y año y solicitar su indexación manual.</p>
+        {uploadKind === 'pdf' ? (
+          <p style={{ fontSize: 13, opacity: 0.8 }}>El PDF se sube directamente al S3 privado.
+            Las anualidades «Don Bosco en España_YYYY.pdf» se indexan automáticamente; otras publicaciones
+            requieren catalogación e indexación manual.</p>
+        ) : null}
       </form>
-
-
+      {CAN_TIFF_OCR && tiffJobId ? (
+        <section aria-label="Estado del OCR TIFF" style={{ marginTop: 18, padding: 18, border: '1px solid #353554', borderRadius: 16 }}>
+          <h3 style={{ color: '#E6D7AA', marginTop: 0 }}>Última importación TIFF — revisión OCR</h3>
+          <p>Estado: <strong>{tiffReview?.status === 'ocr_complete_review_required' ? 'OCR terminado, pendiente de revisión' :
+            tiffReview?.status === 'error' ? 'Error de OCR; requiere revisión' : 'En cola o procesándose'}</strong></p>
+          {tiffReview?.pageCount != null ? <p>{tiffReview.pageCount} páginas analizadas
+            {tiffReview.engine ? ' · ' + tiffReview.engine : ''}</p> : null}
+          {tiffReview?.errorCode ? <p role="alert">Incidencia: {tiffReview.errorCode}. Conservamos el ZIP original.</p> : null}
+          {(tiffReview?.metadataHints ?? []).length ? (
+            <p style={{ fontSize: 13 }}>Años y meses mencionados en OCR (sin catalogar): {tiffReview.metadataHints
+              .map(hint => 'p. ' + hint.pageNumber + ': ' + [...hint.yearsMentioned, ...hint.monthsMentioned].join(', '))
+              .join(' · ')}</p>
+          ) : null}
+          <button type="button" style={button} disabled={busy} onClick={refreshTiffReview}>Consultar estado del OCR</button>
+          {(tiffReview?.pages ?? []).length > 0 ? (
+            <div style={{ marginTop: 18, display: 'grid', gap: 10 }}>
+              {tiffReview.pages.map(page => (
+                <article key={page.pageNumber} style={{ borderTop: '1px solid #444', paddingTop: 10 }}>
+                  <strong>Página {page.pageNumber} · {page.sourceFilename}</strong>
+                  <p style={{ fontSize: 13, margin: '5px 0' }}>Confianza OCR: {page.confidence ?? 0}%
+                    {page.needsReview ? ' · Revisar transcripción' : ''}</p>
+                  <p style={{ whiteSpace: 'pre-wrap', fontSize: 13, opacity: 0.9 }}>{page.textPreview || 'Sin texto reconocible'}</p>
+                </article>
+              ))}
+            </div>
+          ) : null}
+          <p style={{ fontSize: 13, opacity: 0.8 }}>El resultado no se publica ni aparece en búsquedas hasta que se apruebe la catalogación y fragmentación.</p>
+        </section>
+      ) : null}
     </section>
   );
 }

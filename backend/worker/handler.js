@@ -131,6 +131,29 @@ export async function ingestOne({ key, catalog = null, s3, S3GetCommand, S3HeadC
 // SQS event source mapping uses batch size 1 and ReportBatchItemFailures.
 // Repeated S3 notifications reindex the same object transactionally: no duplicate rows.
 export async function handler(event) {
+  if (event?.action === 'ocr-tiff-zip') {
+    // Intentional separate, review-only OCR action. Does not create PDFs,
+    // connect to MySQL or publish anything into the searchable index.
+    const { jobId, key, sourceVersionId } = event;
+    if (typeof jobId !== 'string'
+      || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(jobId)
+      || typeof key !== 'string' || !key.startsWith('imports/tiff/' + jobId + '/')
+      || !key.endsWith('.zip') || typeof sourceVersionId !== 'string'
+      || sourceVersionId.length < 1 || sourceVersionId.length > 256) {
+      throw new Error('INVALID_TIFF_OCR_JOB');
+    }
+    const { fileURLToPath } = await import('node:url');
+    const script = fileURLToPath(new URL('./tiff-ocr.py', import.meta.url));
+    const { stdout } = await execFile('python3',
+      [script, jobId, key, sourceVersionId],
+      { timeout: 13 * 60 * 1000, maxBuffer: 128 * 1024 });
+    const result = JSON.parse(stdout);
+    if (result.jobId !== jobId || !['ocr_complete_review_required', 'error'].includes(result.status)) {
+      throw new Error('INVALID_TIFF_OCR_RESULT');
+    }
+    console.info('TIFF OCR review prepared', { jobId, status: result.status, pages: result.pageCount });
+    return result;
+  }
   if (event?.action === 'index-archive-pdf') {
     if (typeof event.key !== 'string' || safeArchivePdfKey(event.key.slice('originals/'.length)) !== event.key) throw new Error('INVALID_MANUAL_INDEX_KEY');
     const { S3Client, GetObjectCommand, HeadObjectCommand } = await import('@aws-sdk/client-s3');

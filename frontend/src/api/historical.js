@@ -53,3 +53,32 @@ export async function historicalUpload(file, onProgress) {
   }
   return prepared;
 }
+
+export async function historicalTiffUpload(file, onProgress) {
+  if (!file || file.size < 1 || file.size > 100 * 1024 * 1024
+    || !/^[\\p{L}\\p{N}][\\p{L}\\p{N} ._()-]{0,155}\\.zip$/iu.test(file.name)
+    || file.name.includes('..')) {
+    throw new Error('Selecciona un ZIP con nombre seguro y tamaño máximo de 100 MB.');
+  }
+  const prepared = await request('/admin/historical/tiff-imports/uploads', {
+    method: 'POST', body: JSON.stringify({ filename: file.name, sizeBytes: file.size }),
+  });
+  if (typeof onProgress === 'function') onProgress('Subiendo páginas TIFF al archivo privado…');
+  const uploaded = await fetch(prepared.upload.url, {
+    method: 'PUT', headers: prepared.upload.headers, body: file,
+  });
+  if (!uploaded.ok) {
+    throw new Error(uploaded.status === 412
+      ? 'El lote ya existe en el archivo privado.'
+      : 'La subida ZIP a S3 ha fallado (' + uploaded.status + ').');
+  }
+  if (typeof onProgress === 'function') onProgress('Iniciando OCR y comprobación de páginas…');
+  return request('/admin/historical/tiff-imports/submit', {
+    method: 'POST', body: JSON.stringify({ jobId: prepared.jobId, filename: file.name }),
+  });
+}
+
+export function historicalTiffReview(jobId) {
+  if (!/^[a-f0-9-]{36}$/i.test(jobId)) throw new Error('Identificador OCR no válido.');
+  return request('/admin/historical/tiff-imports/' + encodeURIComponent(jobId));
+}

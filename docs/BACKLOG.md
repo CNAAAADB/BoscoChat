@@ -516,6 +516,33 @@ Ground chat answers in MySQL archive data, not unsupported model recollection.
 - [ ] Citation opens the existing authorized page viewer at the correct page.
 - [ ] If evidence is missing, state it clearly; do not fabricate a citation.
 
+### BC-106A — Recepción ZIP TIFF y OCR con borrador protegido
+- Priority: P1
+- Status: BLOCKED
+- Owner role: Developer
+- Depends on: BC-017, BC-106 (#82), BC-107
+- SRS: RF-DOCMGMT-01/02/03/04, RF-SEARCH-05/06, RNF-SEC-02/03, RNF-DATA-01
+- Issue: #82
+- PR: #90 (borrador, CI bloqueada antes de ejecutar pasos)
+
+**Alcance de este incremento:** subida directa a S3 de ZIP TIFF con URL firmada y prefijo privado `imports/tiff/<UUID>/<filename>.zip`; historiador/administrador exclusivamente; marcadores idempotentes en `imports/jobs/`, worker asíncrono con ZIP y TIFF validados, OCR por TIFF con Amazon Textract, salida `imports/reviews/<UUID>.json` con OCR, confianza, bounding boxes y nombres de origen, y visualización de estado/previsualización de texto. **No se generan PDF ni se indexa automáticamente nada**.
+
+**Aceptación**
+- [x] UX informa requisitos de orden al seleccionar ZIP; acepta ZIP TIFF y conserva subida PDF existente.
+- [x] Clave opaca, sin sobrescritura, tamaño fijo firmado y cifrado SSE-S3; sólo roles de gestión.
+- [x] Worker rechaza Zip Slip, symlinks, cifrado ZIP, ratio excesivo, archivos extra, números ambiguos, huecos, TIFF inválidos/multipágina, dimensiones excesivas y más de 40 páginas.
+- [x] Amazon Textract síncrono por página TIFF de hasta 9 MB, OCR con confianza y coordenadas, sin interpretar los datos como instrucciones.
+- [x] El ZIP fuente nunca se modifica, el resultado es un borrador `requiresHumanReview`, `publishable=false`, `indexed=false`.
+- [x] API de estado con identificador privado y muestra por página, sin exponer OCR al usuario normal.
+- [x] Suite de pruebas Node y Python (parser y Textract simulado) incluida en CI.
+- [ ] CI final, revisión independiente ciber/IAM y medición con TIFF reales.
+- [ ] Conceder mínimos permisos S3 `imports/*` y `textract:DetectDocumentText` al worker, `imports/*` al backend; verificar despliegue separado.
+- [ ] Activar banderas `TIFF_OCR_IMPORT_ENABLED` y `VITE_TIFF_OCR_IMPORT` sólo tras verificación de tamaño, presupuesto y rendimiento.
+- [ ] Siguiente entrega: detección multiagente de revistas/títulos/meses, validación y edición de límites, PDF por ejemplar y posterior indexación/desindexación reversible; integración BC-201 de imágenes.
+- [ ] Antes de producción a escala, persistencia/lista de trabajos con recuperación/reintento si falla el procesamiento y paginado por lotes mayores de 40 TIFF.
+
+**Límites piloto (provisionales hasta muestra real):** 100 MB ZIP, 9 MB/TIFF, 40 páginas, ZIP descomprimido <=250 MB, TIFF <=45 Mpx y <=12.000 px por lado. Textract síncrono no admite TIFF multipágina y limita las imágenes a 10 MB.
+
 ### BC-109 — FAST PATH FULLTEXT para el chat histórico tras BC-108
 - Priority: P0
 - Status: IN_REVIEW

@@ -38,3 +38,12 @@ test('BC-017 acknowledges safe nonannual original PDFs for later cataloguing wit
     detail: { bucket: { name: 'boscochat-archivo-pdfs' }, object: { key: 'originals/Memoria Histórica 1982.pdf', size: 500000000 } },
   })), /Invalid S3 object size/);
 });
+
+test('BC-106 acknowledges TIFF ZIP, job and review S3 events without touching PDF index', () => {
+  const keys = [
+    'imports/tiff/550e8400-e29b-41d4-a716-446655440000/lote.zip',
+    'imports/jobs/550e8400-e29b-41d4-a716-446655440000.json',
+    'imports/reviews/550e8400-e29b-41d4-a716-446655440000.json',
+  ];
+  for (const key of keys) assert.deepEqual(objectsFromQueueEvent(event(key)), []);
+});
