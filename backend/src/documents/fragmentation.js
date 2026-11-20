@@ -14,7 +14,13 @@ function coverCandidate(text, year) {
   const issue = /(?:n[.º°o]*|numero|num\.)\s*[:.\-]?\s*(\d{1,5}[a-z]?)/i.exec(head);
   const number = MONTHS.indexOf(month[1].toLowerCase() === 'setiembre' ? 'septiembre' : month[1].toLowerCase()) + 1;
   if (number < 1) return null;
-  return { monthStart: number, monthEnd: number, issueNumber: issue?.[1] ?? '', confidence: issue ? 'alta' : 'media' };
+  // Combined issues may say "enero-febrero" or "enero y febrero".
+  const tail = head.slice(month.index + month[0].length);
+  const combined = /^[\\s\/-]*(?:y|e|a|al|-|\/)?[\\s\/-]*([a-z]+)/i.exec(tail);
+  const combinedMonth = combined?.[1] === 'setiembre' ? 'septiembre' : combined?.[1];
+  const endIndex = combinedMonth ? MONTHS.indexOf(combinedMonth) + 1 : 0;
+  const monthEnd = endIndex >= number && endIndex <= 12 ? endIndex : number;
+  return { monthStart: number, monthEnd, issueNumber: issue?.[1] ?? '', confidence: issue ? 'alta' : 'media' };
 }
 
 export function detectMonthlySegments(pages, year) {
