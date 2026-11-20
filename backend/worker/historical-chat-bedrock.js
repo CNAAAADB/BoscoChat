@@ -21,7 +21,7 @@ export async function handler(event) {
       modelId: process.env.BOSCOCHAT_BEDROCK_MODEL_ID ?? 'amazon.nova-pro-v1:0',
       system: [{ text: system }],
       messages: [{ role: 'user', content: [{ text: user }] }],
-      inferenceConfig: { maxTokens: depth === 'research' ? 1300 : 650, temperature: 0.2 },
+      inferenceConfig: { maxTokens: depth === 'research' ? 1900 : 650, temperature: 0.2 },
     }));
     if (!['end_turn', 'max_tokens'].includes(response.stopReason)) throw new Error('CHAT_MODEL_REJECTED');
     const answer = response.output?.message?.content?.filter((v) => typeof v.text === 'string')
@@ -29,7 +29,7 @@ export async function handler(event) {
     if (!answer) throw new Error('CHAT_EMPTY_MODEL_RESPONSE');
     return {
       status: 'ok',
-      text: answer.slice(0, 6500),
+      text: answer.slice(0, 10000),
       usage: {
         inputTokens: response.usage?.inputTokens ?? 0,
         outputTokens: response.usage?.outputTokens ?? 0,
