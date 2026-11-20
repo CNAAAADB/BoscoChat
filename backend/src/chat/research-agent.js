@@ -180,7 +180,7 @@ export async function conductHistoricalResearch(pool, question, history = [], {
     }
     const query = queries[i];
     try {
-      const results = await withinChatBudget(() => retrieve(pool,query), deadline, 1_900);
+      const results = await withinChatBudget(() => retrieve(pool,query), deadline, 3_400);
       if (!Array.isArray(results)) throw new Error('INVALID_RESEARCH_RESULTS');
       performed.push(query);
       for (const s of results) {
