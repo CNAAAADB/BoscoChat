@@ -50,3 +50,36 @@ test('BC-012 visual page gate requires a strong dedicated watermark secret', () 
     environment: { NODE_ENV: 'test', ARCHIVE_PAGE_IMAGE_ENABLED: 'true', ARCHIVE_WATERMARK_HMAC_KEY: 'short' },
   }), /ARCHIVE_WATERMARK_HMAC_KEY_REQUIRED/);
 });
+
+test('BC-012 authenticated page-view gate reports exhausted MySQL deadlock as retriable 503, not generic 500', async () => {
+  let pageLookupCalls = 0;
+  const app = createApp({
+    pool: { async execute() { pageLookupCalls += 1; return [[]]; } },
+    authService: { repository: {}, async session() { return { id: 42, role: 'administrator', username: 'Admin' }; } },
+    authRateLimitStore: {
+      async consume() {
+        throw Object.assign(new Error('InnoDB deadlock'), { code: 'ER_LOCK_DEADLOCK', sqlState: '40001' });
+      },
+    },
+    environment: {
+      NODE_ENV: 'test',
+      CORS_ORIGINS: 'http://localhost:5173',
+      ARCHIVE_PAGE_IMAGE_ENABLED: 'true',
+      ARCHIVE_WATERMARK_HMAC_KEY: 'z'.repeat(48),
+    },
+  });
+  const server = await new Promise((resolve) => {
+    const instance = app.listen(0, '127.0.0.1', () => resolve(instance));
+  });
+  try {
+    const response = await fetch('http://127.0.0.1:' + server.address().port + '/api/archive/documents/33/pages/23/image', {
+      headers: { cookie: 'boscochat_session=existing-session' },
+    });
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.get('retry-after'), '1');
+    assert.equal((await response.json()).error.code, 'TEMPORARY_DATABASE_CONTENTION');
+    assert.equal(pageLookupCalls, 0);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
