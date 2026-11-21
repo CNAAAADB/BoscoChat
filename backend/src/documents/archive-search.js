@@ -51,11 +51,19 @@ export function excerptNearMatch(text, words, maxLength = 280) {
   return (start ? '…' : '') + value.slice(start, end) + (end < value.length ? '…' : '');
 }
 
-export async function searchArchivePages(pool, rawQuery, { year = null, page = 1, pageSize = 10, mode = 'relevance' } = {}) {
+export async function searchArchivePages(pool, rawQuery, { year = null, publication = null, page = 1, pageSize = 10, mode = 'relevance' } = {}) {
   const plan = searchPlan(rawQuery, mode);
   const parsedYear = year == null || year === '' ? null : Number(year);
-  if (parsedYear !== null && (!Number.isInteger(parsedYear) || parsedYear < 1922 || parsedYear > 2100)) {
+  if (parsedYear !== null && (!Number.isInteger(parsedYear) || parsedYear < 1800 || parsedYear > 2100)) {
     throw searchError('INVALID_SEARCH_YEAR', 'El año de búsqueda no es válido.');
+  }
+  let source = null;
+  if (publication !== null && publication !== '') {
+    if (typeof publication !== 'string' || publication !== publication.trim()
+      || publication.length < 2 || publication.length > 180 || /[\x00-\x1f]/u.test(publication)) {
+      throw searchError('INVALID_SEARCH_PUBLICATION', 'Selecciona una fuente válida.');
+    }
+    source = publication.normalize('NFC');
   }
   // Bound the amount of work per request; pages remain independently retrievable.
   const safePage = Number(page);
@@ -71,10 +79,11 @@ export async function searchArchivePages(pool, rawQuery, { year = null, page = 1
   const where = `FROM archive_pages p JOIN archive_documents d ON d.id = p.document_id
       WHERE d.indexed_at IS NOT NULL
         AND MATCH(p.text_content) AGAINST (? IN ${sqlMode} MODE)
-        AND (? IS NULL OR d.publication_year = ?)`;
+        AND (? IS NULL OR d.publication_year = ?)
+        AND (? IS NULL OR d.publication = ?)`;
   const [countRows] = await pool.execute(
     `SELECT COUNT(*) AS total ${where}`,
-    [plan.expression, parsedYear, parsedYear],
+    [plan.expression, parsedYear, parsedYear, source, source],
   );
   const total = Number(countRows[0]?.total ?? 0);
   const [rows] = await pool.execute(
@@ -84,7 +93,7 @@ export async function searchArchivePages(pool, rawQuery, { year = null, page = 1
        ${where}
       ORDER BY relevance DESC, d.publication_year ASC, d.id ASC, p.page_number ASC
       LIMIT ? OFFSET ?`,
-    [plan.expression, plan.expression, parsedYear, parsedYear, safePageSize, offset],
+    [plan.expression, plan.expression, parsedYear, parsedYear, source, source, safePageSize, offset],
   );
   const results = rows.map((row) => ({
     document_id: row.document_id,

@@ -18,6 +18,24 @@ This file is the product/work source of truth. It is seeded from `docs/requireme
 
 # Phase 1 — MVP
 
+### BC-110 — Fuente y año en búsquedas y gestión histórica; preparar Boletín Salesiano
+- Priority: P1
+- Status: IN_REVIEW
+- Owner role: Developer
+- Depends on: BC-008, BC-017
+- SRS: RF-SEARCH-05, RF-SEARCH-07, RF-DOCMGMT-01, RF-DOCMGMT-02
+- PR: en preparación (un solo commit, pendiente de CI por cuota GitHub)
+
+**Solicitud:** soportar dos publicaciones, Don Bosco en España y Boletín Salesiano, con filtro de publicación y año combinables tanto en el buscador como en Gestión histórica. La nueva colección comprende PDF mensuales de 1886–2008. Importar e indexar los PDF reales solo después de recibir y verificar el ZIP.
+
+**Acceptance criteria**
+- [x] Buscador muestra las dos fuentes y «Todas», conserva criterios al paginar, filtra por publicación exacta con parámetros SQL y permite años desde 1800.
+- [x] Gestión histórica permite filtrar por fuente y año simultáneamente y mantiene accesibles los PDF sin catalogar al quitar filtros.
+- [x] Pruebas de parámetros SQL y regresiones de filtros, incluyendo Boletín Salesiano en 1886.
+- [ ] Recibir ZIP real, inventariar nombres, años, meses, duplicados, OCR y tamaño; validar metadatos de cada número.
+- [ ] Importación S3 privada, indexación controlada por lotes, reporte de progreso y verificación del buscador/chat con fuentes de ambas publicaciones.
+- [ ] CI, revisión independiente y despliegue. No afirmar que Boletín Salesiano está indexado antes de contar con el ZIP.
+
 ### BC-001 — User registration and authentication
 - Priority: P1
 - Status: DONE
