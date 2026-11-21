@@ -19,6 +19,7 @@ export default function HistoricalManagement() {
   const [documents, setDocuments] = useState([]);
   const [query, setQuery] = useState('');
   const [filterPublication, setFilterPublication] = useState('');
+  const [filterMonth, setFilterMonth] = useState('');
   const [filterYear, setFilterYear] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [catalogFile, setCatalogFile] = useState(null);
@@ -57,7 +58,7 @@ export default function HistoricalManagement() {
     .sort((a, b) => b - a), [documents]);
   const visible = useMemo(() => filterHistoricalDocuments(documents, {
     query, publication: filterPublication, year: filterYear,
-  }), [documents, query, filterPublication, filterYear]);
+  }).filter((doc) => !filterMonth || doc.month === Number(filterMonth)), [documents, query, filterPublication, filterYear, filterMonth]);
 
   const upload = async (event) => {
     event.preventDefault();
@@ -166,6 +167,7 @@ export default function HistoricalManagement() {
             {ARCHIVE_PUBLICATIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
           </select>
         </label>
+        <label>Mes <select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} style={control}><option value="">Todos los meses</option>{Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}</select></label>
         <label style={{ display: 'grid', gap: 6, flex: '1 1 155px' }} htmlFor="historical-year-filter">Año
           <select id="historical-year-filter" value={filterYear} onChange={(e) => setFilterYear(e.target.value)} style={control}>
             <option value="">Todos los años</option>
