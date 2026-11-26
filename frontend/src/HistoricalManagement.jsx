@@ -182,7 +182,7 @@ export default function HistoricalManagement() {
           <article key={doc.filename} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap', background: '#12121d', border: '1px solid #353554', borderRadius: 16, padding: 16 }}>
             <div style={{ minWidth: 200, flex: 1 }}>
               <strong style={{ overflowWrap: 'anywhere' }}>📄 {doc.filename}</strong>
-              <div style={{ fontSize: 13, color: '#c7c7d6', marginTop: 8 }}>{doc.publication ?? 'Publicación pendiente de catalogación'} · {sizeLabel(doc.sizeBytes)}{doc.year ? ` · ${doc.year}` : ''} · {doc.pages} páginas indexadas</div>
+              <div style={{ fontSize: 13, color: '#c7c7d6', marginTop: 8 }}>{doc.publication ?? 'Publicación pendiente de catalogación'} · {sizeLabel(doc.sizeBytes)}{doc.year ? ` · ${doc.year}` : ''}{doc.month ? ` · mes ${String(doc.month).padStart(2, '0')} · n.º ${doc.issue_number}` : ''} · {doc.pages} páginas indexadas</div>
               <div style={{ color: doc.status === 'indexed' ? '#a4dfb4' : '#efcd80', marginTop: 5 }}>
                 {doc.status === 'indexed' ? 'Indexado y disponible para búsqueda' : doc.status === 'stored' ? 'Almacenado · pendiente de catalogación' : 'Pendiente de indexación'}
               </div>

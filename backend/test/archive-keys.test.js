@@ -36,3 +36,29 @@ test('BC-006 marks duplicate annual editions for manual review', () => {
   assert.equal(result.entries[0].reason, 'Duplicate publication year');
   assert.equal(result.entries[1].reason, 'Duplicate publication year');
 });
+
+test('BC-110 recognizes monthly Boletín Salesiano with year, month and issue', () => {
+  const key = 'originals/Boletin Salesiano 188610 N001.pdf';
+  assert.deepEqual(parseArchiveKey(key), {
+    status: 'recognized', key, publication: 'Boletín Salesiano', year: 1886,
+    month: 10, issueNumber: 1, originalFilename: 'Boletin Salesiano 188610 N001.pdf',
+  });
+  const accented = parseArchiveKey('originals/Boletín Salesiano_200802_N002.pdf');
+  assert.equal(accented.status, 'recognized');
+  assert.equal(accented.month, 2);
+  assert.equal(accented.issueNumber, 2);
+  assert.equal(parseArchiveKey('originals/Boletin Salesiano 194100 N000.pdf').status, 'review');
+  assert.equal(parseArchiveKey('originals/Boletin Salesiano 188613 N013.pdf').status, 'review');
+  assert.equal(parseArchiveKey('originals/188610_N001.pdf').status, 'review');
+});
+test('BC-110 separate monthly issues are independent, duplicates are flagged', () => {
+  const r = analyzeArchiveKeys([
+    'originals/Boletin Salesiano 188610 N001.pdf',
+    'originals/Boletin Salesiano 188611 N002.pdf',
+    'originals/Boletín Salesiano_188610_N001.pdf',
+  ]);
+  assert.equal(r.recognized, 1);
+  assert.equal(r.review, 2);
+  assert.equal(r.entries[0].reason, 'Duplicate publication issue');
+  assert.equal(r.entries[1].month, 11);
+});

@@ -79,3 +79,24 @@ test('BC-110 source and year filters cover Boletín Salesiano from 1886 without 
       (error) => error.code === 'INVALID_SEARCH_PUBLICATION');
   }
 });
+
+test('BC-110 source/year/month search uses bound SQL and returns issue metadata', async () => {
+  const queries = [];
+  const pool = { async execute(sql, params) {
+    queries.push({ sql, params });
+    if (sql.includes('COUNT(*)')) return [[{ total: 1 }]];
+    return [[{ document_id: 21, s3_key: 'originals/Boletin Salesiano 188610 N001.pdf',
+      publication: 'Boletín Salesiano', publication_year: 1886,
+      page_number: 3, text_content: 'La actividad salesiana en Cádiz', relevance: 2 }]];
+  } };
+  const r = await searchArchivePages(pool, 'salesiana Cádiz', {
+    publication: 'Boletín Salesiano', year: '1886', month: '10',
+  });
+  assert.equal(r.results[0].month, 10);
+  assert.equal(r.results[0].issue_number, 1);
+  assert.match(queries[0].sql, /d\.s3_key REGEXP \?/);
+  assert.match(queries[0].params.at(-1), /0-9/);
+  assert.equal(queries[1].params.length, 9);
+  await assert.rejects(searchArchivePages(pool, 'salesiana', { month: '13' }),
+    (error) => error.code === 'INVALID_SEARCH_MONTH');
+});

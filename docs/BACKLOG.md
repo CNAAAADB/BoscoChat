@@ -33,7 +33,7 @@ This file is the product/work source of truth. It is seeded from `docs/requireme
 - [x] Gestión histórica permite filtrar por fuente y año simultáneamente y mantiene accesibles los PDF sin catalogar al quitar filtros.
 - [x] Pruebas de parámetros SQL y regresiones de filtros, incluyendo Boletín Salesiano en 1886.
 - [ ] Recibir ZIP real, inventariar nombres, años, meses, duplicados, OCR y tamaño; validar metadatos de cada número.
-- [ ] Importación S3 privada, indexación controlada por lotes, reporte de progreso y verificación del buscador/chat con fuentes de ambas publicaciones.
+- [ ] Importación TOTAL de Drive pendiente; 283 PDF ya almacenados en S3 recibieron confirmación de indexación el 26-11-2026. Faltan los demás candidatos y prueba E2E de historiador.
 - [ ] CI, revisión independiente y despliegue. No afirmar que Boletín Salesiano está indexado antes de contar con el ZIP.
 
 ### BC-001 — User registration and authentication

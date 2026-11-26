@@ -1,3 +1,8 @@
+## BC-110 — Indexación operativa de Boletín Salesiano (2026-11-26)
+- S3 privado: 283 PDF mensuales originales con nombres Boletin Salesiano AAAAMM N###.pdf, rango 1886–1985, inventario previo a esta intervención.
+- La Lambda existente confirmó indexación de los 283 PDF y sus páginas con publication=Boletín Salesiano y año verificado; cuatro deadlocks transitorios se recuperaron secuencialmente.
+- Se corrige en PR #91 el filtro SQL incompleto de mes, se reconoce automáticamente el nombre mensual y se añaden reintentos transaccionales acotados por deadlock.
+- PENDIENTE: cargar el resto de los 1.335 candidatos desde Google Drive (~15,4 GB origen), CI/revisión/despliegue de PR #91, y comprobación con sesión real de historiador.
 ## BC-110 — Publicaciones y años en archivo/buscador (2026-11-21)
 - Nueva fuente prevista: Boletín Salesiano, con PDF individuales por mes entre 1886 y 2008. El usuario todavía no ha adjuntado el ZIP; no se ha importado ni indexado ningún ejemplar por esta solicitud.
 - Implementación en una rama y un solo commit: opciones de fuente «Todas», «Don Bosco en España» y «Boletín Salesiano» en el buscador, filtro SQL exacto de publicación, año desde 1800, y filtros combinables en Gestión histórica por publicación y años realmente presentes.

@@ -1,3 +1,10 @@
+## BC-110 — Evidencia de indexación y metadatos mensuales (2026-11-26)
+- 283 PDF presentes inicialmente en S3: indexación confirmada mediante boscochat-pdf-ingestor, sin modificar originales ni permisos.
+- backend/src/documents/archive-keys.js: catálogo mensual seguro con publicación/año/mes/número y deduplicación por ejemplar.
+- backend/src/documents/archive-search.js: parametrización segura de filtros y resultado con mes/número.
+- backend/worker/handler.js: reintento de transacción completa ante ER_LOCK_DEADLOCK/ER_LOCK_WAIT_TIMEOUT.
+- Regresiones: backend/test/archive-keys.test.js, ingestion-events.test.js, ingestion-worker.test.js, archive-search.test.js.
+- TRACE-GAP: CI, revisión independiente, despliegue del PR, traslado del resto de Drive a S3 y prueba E2E historiador.
 ## BC-110 — Filtros de publicación y año / Boletín Salesiano (2026-11-21)
 - Requisitos RF-SEARCH-05 y RF-SEARCH-07: `frontend/src/App.jsx` incorpora lista visible de dos fuentes y año desde 1800; `backend/src/routes/archive-search.js` transmite publication; `backend/src/documents/archive-search.js` valida tipo/longitud y añade filtro SQL parametrizado idéntico a COUNT y resultados.
 - Gestión histórica: `frontend/src/HistoricalManagement.jsx` filtra directorio por fuente, año y texto sobre metadatos existentes; `frontend/src/archive-filters.js` centraliza opciones y filtrado.

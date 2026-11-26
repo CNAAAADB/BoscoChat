@@ -1,8 +1,9 @@
-// Queue an initial batch of already-uploaded annual PDFs. Dry-run by default.
+// Queue recognized annual and monthly PDFs. Dry-run by default.
 // Usage: node scripts/queue-archive-backfill.js <sqs-queue-url> [--send]
 // Run from a trusted AWS shell WITH SQS connectivity; VPC CloudShell may lack it.
 import { execFile as execFileCb } from 'node:child_process';
 import { promisify } from 'node:util';
+import { createHash } from 'node:crypto';
 import { parseArchiveKey } from '../src/documents/archive-keys.js';
 
 const run = promisify(execFileCb);
@@ -18,18 +19,15 @@ const { stdout } = await run('aws', [
   '--query', 'Contents[].{Key:Key,Size:Size}', '--output', 'json',
 ], { maxBuffer: 8 * 1024 * 1024, timeout: 120000 });
 const objects = JSON.parse(stdout ?? '[]') ?? [];
-const annuals = objects.filter(item =>
+const eligible = objects.filter(item =>
   parseArchiveKey(item.Key).status === 'recognized' &&
   Number.isSafeInteger(item.Size) && item.Size > 0 && item.Size <= 350 * 1024 * 1024,
 );
-console.log(`Annual PDFs eligible: ${annuals.length}; mode: ${mode === '--send' ? 'SEND' : 'DRY RUN'}`);
-if (annuals.length !== 92) {
-  console.warn('Inventory differs from previously confirmed 92 PDFs; inspect before sending.');
-}
+console.log(`Recognized archive PDFs eligible: ${eligible.length}; mode: ${mode === '--send' ? 'SEND' : 'DRY RUN'}`);
 if (mode !== '--send') process.exit(0);
-for (const { Key, Size } of annuals) {
+for (const { Key, Size } of eligible) {
   const message = {
-    id: `backfill-${Key.match(/\d{4}(?=\.pdf$)/)?.[0]}`,
+    id: `backfill-${createHash('sha256').update(Key).digest('hex').slice(0,20)}`,
     source: 'aws.s3',
     'detail-type': 'Object Created',
     detail: {
