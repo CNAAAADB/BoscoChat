@@ -3,6 +3,7 @@
 Run with private AWS credentials: python scripts/publish_boletin.py INVENTORY_KEY
 Requires boto3, disk space for the largest ZIP and the deployed catalogue-aware worker.
 """
+import argparse
 import collections
 import hashlib
 import json
@@ -50,7 +51,16 @@ def catalogue(row):
     return f"originals/Boletin Salesiano {label}.pdf", year
 
 
-def publish(s3, worker, archive, row):
+def index_payload(key, year, row):
+    payload = {"action": "index-archive-pdf", "key": key}
+    # The deployed worker automatically recognises normal monthly names.
+    # Explicit manual catalogue is reserved for the ambiguous 1898 edition.
+    if row["disposition"] == "metadata_review":
+        payload["catalog"] = {"publication": PUBLICATION, "year": year}
+    return payload
+
+
+def publish(s3, worker, archive, row, *, upload_only=False):
     key, year = catalogue(row)
     member = archive.getinfo(row["member"])
     if not row["crc_ok"] or member.file_size != row["bytes"] or not 0 < member.file_size <= 350 * 1024**2:
@@ -70,8 +80,14 @@ def publish(s3, worker, archive, row):
             if hashlib.sha256(existing.read()).hexdigest() != digest:
                 raise ValueError(f"Different PDF already stored: {key}") from exc
     del data
-    payload = {"action": "index-archive-pdf", "key": key,
-               "catalog": {"publication": PUBLICATION, "year": year}}
+    if upload_only:
+        # The private S3 EventBridge/SQS pipeline indexes newly-created files.
+        # Do not report indexing as completed before independent confirmation.
+        result = {"pages": row["pages"], "needsReview": len(row.get("review_pages", [])),
+                  "stored": True, "indexing": "unverified"}
+        print(json.dumps({"key": key, **result}, ensure_ascii=False), flush=True)
+        return result
+    payload = index_payload(key, year, row)
     response = worker.invoke(FunctionName=WORKER, Payload=json.dumps(payload).encode())
     result = json.load(response["Payload"])
     if response.get("FunctionError") or result.get("pages") != row["pages"] or result.get("year") != year:
@@ -80,7 +96,7 @@ def publish(s3, worker, archive, row):
     return result
 
 
-def run(inventory_key):
+def run(inventory_key, *, upload_only=False):
     s3 = boto3.client("s3", region_name="us-east-1")
     worker = boto3.client("lambda", region_name="us-east-1",
                           config=Config(read_timeout=920, retries={"total_max_attempts": 1}))
@@ -106,7 +122,7 @@ def run(inventory_key):
         for (source, version), rows in groups.items():
             s3.download_file(BUCKET, source, str(path), ExtraArgs={"VersionId": version})
             with zipfile.ZipFile(path) as archive:
-                tasks = [(r, pool.submit(publish, s3, worker, archive, r)) for r in rows]
+                tasks = [(r, pool.submit(publish, s3, worker, archive, r, upload_only=upload_only)) for r in rows]
                 for row, task in tasks:
                     try:
                         result = task.result()
@@ -115,9 +131,15 @@ def run(inventory_key):
                         failures.append(row["member"])
                         print(f"{row['member']}: {exc}", file=sys.stderr, flush=True)
             path.unlink()
-    print(json.dumps({"expected": len(keys), **totals, "failed": failures}), flush=True)
+    print(json.dumps({"expected": len(keys), **totals, "failed": failures,
+                      "mode": "upload_only" if upload_only else "publish_and_index"}), flush=True)
     return bool(failures)
 
 
 if __name__ == "__main__":
-    raise SystemExit(run(sys.argv[1]))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("inventory_key")
+    parser.add_argument("--upload-only", action="store_true",
+                        help="Upload verified originals; allow the existing S3/SQS worker to index asynchronously")
+    arguments = parser.parse_args()
+    raise SystemExit(run(arguments.inventory_key, upload_only=arguments.upload_only))
