@@ -13,6 +13,19 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+MAX_INVENTORY_BYTES = 16 * 1024 * 1024
+
+
+def read_inventory_rows(stream):
+    """Read a bounded JSONL S3 StreamingBody with its standard read() method."""
+    raw = stream.read(MAX_INVENTORY_BYTES + 1)
+    if len(raw) > MAX_INVENTORY_BYTES:
+        raise ValueError("Inventory exceeds safe size limit")
+    for line in raw.splitlines():
+        if line.strip():
+            yield json.loads(line)
+
+
 import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
@@ -76,8 +89,7 @@ def run(inventory_key):
     failures = []
     totals = collections.Counter()
     with s3.get_object(Bucket=BUCKET, Key=inventory_key)["Body"] as stream:
-        for line in stream.iter_lines():
-            row = json.loads(line)
+        for row in read_inventory_rows(stream):
             if row["disposition"] in {"non_pdf", "duplicate", "notice"}:
                 continue
             if row["disposition"] not in {"review", "validated", "metadata_review"}:
@@ -89,7 +101,7 @@ def run(inventory_key):
             groups[row["zip"], row["version"]].append(row)
     if not keys:
         raise ValueError("Empty inventory")
-    with tempfile.TemporaryDirectory() as folder, ThreadPoolExecutor(max_workers=2) as pool:
+    with tempfile.TemporaryDirectory() as folder, ThreadPoolExecutor(max_workers=1) as pool:
         path = Path(folder) / "source.zip"
         for (source, version), rows in groups.items():
             s3.download_file(BUCKET, source, str(path), ExtraArgs={"VersionId": version})
