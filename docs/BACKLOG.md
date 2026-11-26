@@ -20,11 +20,11 @@ This file is the product/work source of truth. It is seeded from `docs/requireme
 
 ### BC-110 — Fuente y año en búsquedas y gestión histórica; preparar Boletín Salesiano
 - Priority: P1
-- Status: IN_REVIEW
+- Status: IN_PROGRESS
 - Owner role: Developer
 - Depends on: BC-008, BC-017
 - SRS: RF-SEARCH-05, RF-SEARCH-07, RF-DOCMGMT-01, RF-DOCMGMT-02
-- PR: en preparación (un solo commit, pendiente de CI por cuota GitHub)
+- PR: #91 fusionado y desplegado; corrección de regresión de búsqueda del 26-11-2026 en PR de seguimiento
 
 **Solicitud:** soportar dos publicaciones, Don Bosco en España y Boletín Salesiano, con filtro de publicación y año combinables tanto en el buscador como en Gestión histórica. La nueva colección comprende PDF mensuales de 1886–2008. Importar e indexar los PDF reales solo después de recibir y verificar el ZIP.
 
@@ -32,9 +32,9 @@ This file is the product/work source of truth. It is seeded from `docs/requireme
 - [x] Buscador muestra las dos fuentes y «Todas», conserva criterios al paginar, filtra por publicación exacta con parámetros SQL y permite años desde 1800.
 - [x] Gestión histórica permite filtrar por fuente y año simultáneamente y mantiene accesibles los PDF sin catalogar al quitar filtros.
 - [x] Pruebas de parámetros SQL y regresiones de filtros, incluyendo Boletín Salesiano en 1886.
-- [ ] Recibir ZIP real, inventariar nombres, años, meses, duplicados, OCR y tamaño; validar metadatos de cada número.
-- [ ] Importación TOTAL de Drive pendiente; 283 PDF ya almacenados en S3 recibieron confirmación de indexación el 26-11-2026. Faltan los demás candidatos y prueba E2E de historiador.
-- [ ] CI, revisión independiente y despliegue. No afirmar que Boletín Salesiano está indexado antes de contar con el ZIP.
+- [x] Recibir e inventariar 8 ZIP versionados; 1.364 entradas, 1.011 PDF únicos (incluida una edición de 1898 con mes desconocido) y 309 registros duplicados excluidos. Pendiente revisar manualmente páginas con OCR deficiente.
+- [x] Los 1.011 PDF únicos del inventario versionado están en S3 privado, sin tamaños divergentes; SQS y DLQ vacías, con indexaciones registradas. Falta reconciliar el recuento final de páginas indexadas contra la BD y probar sesión real de historiador.
+- [ ] Corregir timeout HTTP 500 observado en búsqueda real por publicación/año/mes; exigir CI, despliegue, prueba de regresión E2E y validación del historiador antes de DONE.
 
 ### BC-001 — User registration and authentication
 - Priority: P1

@@ -35,9 +35,11 @@ test('BC-008/BC-011 paginates all matches with a bounded page size and stable ra
   assert.equal(first.pageSize, 10);
   assert.equal(first.results[0].page_number, 8);
   assert.match(queries[0].sql, /COUNT\(\*\)/);
-  assert.deepEqual(queries[0].params, ['Don Bosco', 1922, 1922, null, null]);
+  assert.match(queries[0].sql, /STRAIGHT_JOIN/);
+  assert.doesNotMatch(queries[0].sql, /MATCH\(/);
+  assert.deepEqual(queries[0].params, [1922, '%Don%', '%Bosco%']);
   assert.match(queries[1].sql, /ORDER BY relevance DESC, d.publication_year ASC, d.id ASC, p.page_number ASC/);
-  assert.deepEqual(queries[1].params, ['Don Bosco', 'Don Bosco', 1922, 1922, null, null, 10, 0]);
+  assert.deepEqual(queries[1].params, ['%Don%', '%Bosco%', 1922, '%Don%', '%Bosco%', 10, 0]);
 
   const later = await searchArchivePages(pool, 'Don Bosco', { page: '3', pageSize: '20', mode: 'exact' });
   assert.equal(later.totalPages, 7);
@@ -71,9 +73,10 @@ test('BC-110 source and year filters cover Boletín Salesiano from 1886 without 
   assert.equal(result.total, 1);
   assert.equal(result.results[0].publication_year, 1886);
   assert.match(statements[0].sql, /d.publication = \?/);
-  assert.deepEqual(statements[0].params, ['boletín salesiano', 1886, 1886, 'Boletín Salesiano', 'Boletín Salesiano']);
+  assert.match(statements[0].sql, /STRAIGHT_JOIN/);
+  assert.deepEqual(statements[0].params, [1886, 'Boletín Salesiano', '%boletín%', '%salesiano%']);
   assert.deepEqual(statements[1].params,
-    ['boletín salesiano', 'boletín salesiano', 1886, 1886, 'Boletín Salesiano', 'Boletín Salesiano', 10, 0]);
+    ['%boletín%', '%salesiano%', 1886, 'Boletín Salesiano', '%boletín%', '%salesiano%', 10, 0]);
   for (const source of [['Boletín Salesiano', 'Don Bosco en España'], '  Boletín Salesiano', 'a', 'X'.repeat(181)]) {
     await assert.rejects(searchArchivePages(pool, 'salesianos', { publication: source }),
       (error) => error.code === 'INVALID_SEARCH_PUBLICATION');
@@ -95,8 +98,36 @@ test('BC-110 source/year/month search uses bound SQL and returns issue metadata'
   assert.equal(r.results[0].month, 10);
   assert.equal(r.results[0].issue_number, 1);
   assert.match(queries[0].sql, /d\.s3_key REGEXP \?/);
-  assert.match(queries[0].params.at(-1), /0-9/);
+  assert.match(queries[0].params[2], /0-9/);
+  assert.doesNotMatch(queries[0].sql, /MATCH\(/);
+  assert.deepEqual(queries[0].params.slice(0, 2), [1886, 'Boletín Salesiano']);
   assert.equal(queries[1].params.length, 9);
   await assert.rejects(searchArchivePages(pool, 'salesiana', { month: '13' }),
     (error) => error.code === 'INVALID_SEARCH_MONTH');
+});
+
+test('BC-110 production regression: year-scoped search avoids corpus-wide FULLTEXT count', async () => {
+  const statements = [];
+  const pool = { async execute(sql, params) {
+    statements.push({ sql, params });
+    if (sql.includes('COUNT(*)')) return [[{ total: 2 }]];
+    return [[{ document_id: 42, s3_key: 'originals/Boletin Salesiano 188610 N001.pdf',
+      publication: 'Boletín Salesiano', publication_year: 1886,
+      page_number: 6, text_content: 'Don Bosco y la misión', relevance: 1 }]];
+  } };
+  const r = await searchArchivePages(pool, 'Don Bosco', {
+    year: '1886', month: '10', publication: 'Boletín Salesiano', mode: 'all',
+  });
+  assert.equal(r.total, 2);
+  assert.equal(r.results[0].month, 10);
+  assert.equal(r.results[0].issue_number, 1);
+  assert.match(statements[0].sql, /FROM archive_documents d STRAIGHT_JOIN archive_pages p/);
+  assert.match(statements[0].sql, /d.publication_year = \?/);
+  assert.match(statements[0].sql, /p.text_content LIKE \? AND p.text_content LIKE \?/);
+  assert.doesNotMatch(statements[0].sql, /MATCH\(/);
+  assert.equal(statements[0].params.length, 5);
+  assert.equal(statements[1].params.length, 9);
+  await searchArchivePages(pool, 'Don Bosco', { year: '1886', mode: 'exact' });
+  assert.match(statements[2].sql, /p.text_content LIKE \?/);
+  assert.deepEqual(statements[2].params, [1886, '%Don Bosco%']);
 });
