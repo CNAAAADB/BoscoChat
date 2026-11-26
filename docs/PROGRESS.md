@@ -1,3 +1,8 @@
+## BC-110 — Separar transferencia de indexación automática (2026-11-26)
+- Tras transferir 290 originales nuevos (inventario pasó de 283 a 573), se observó `Invalid manual catalogue` al invocar directamente la Lambda con catálogo para claves mensuales que ahora reconoce automáticamente. Se detuvo el trabajo, conservando los PDF en S3; los eventos de S3 sí alimentan a SQS y a la Lambda con registros `Archive indexed` confirmados.
+- Se incorpora `--upload-only` en `scripts/publish_boletin.py`: verifica huella del PDF, origen ZIP y conserva `IfNoneMatch=*`; no realiza invocaciones Lambda duplicadas ni informa indexación completada. Para futura reindexación explícita, `index_payload()` solo adjunta catálogo manual al ejemplar ambiguo de 1898.
+- La cola SQS debe llegar a cero y verificarse el índice de páginas antes de declarar BC-110 completo; la importación de 727 está en curso y queda pendiente la reconciliación final de calidad/OCR.
+
 ## BC-110 — Corrección de lector S3 en importación de ZIP (2026-11-26)
 - CodeBuild `boscochat-boletin-import-20261126` inició con manifiesto de 727 PDF restantes (538 revisión OCR, 189 validados); se detuvo antes de subir PDFs por usar `stream.iter_lines()` sobre una respuesta S3 que expone `read()`. Se corrige en `scripts/publish_boletin.py` con lectura JSONL acotada (16 MiB) y una regresión; se reduce paralelismo a 1 para evitar deadlocks MySQL.
 - Origen: 8 ZIP versionados ya en S3, 1.364 entradas; 1.011 candidatos únicos incluyendo un ejemplar de 1898 con metadatos ambiguos. 283 presentes/indexados, 727 válidos faltantes, 1 metadato ambiguo excluido del lote.

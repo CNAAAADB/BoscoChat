@@ -1,3 +1,7 @@
+## BC-110 — Evitar índice duplicado y error de catálogo (2026-11-26)
+- Backend interpreta nombres mensuales como catálogo automático. `scripts/publish_boletin.py` enviaba `catalog` para todas las fuentes, produciendo `Invalid manual catalogue`. Se mantiene `catalog` solo para `metadata_review` y se añade `--upload-only` con evidencia de estado no indexado.
+- S3 EventBridge → SQS → Lambda: validación en CloudWatch con `Archive indexed`; la transferencia no implica que el índice esté completado. Regresiones específicas en `scripts/tests/test_publish_boletin.py`.
+
 ## BC-110 — Error de lectura en CodeBuild (2026-11-26)
 - Falla reproducible: `AttributeError: 'HTTPResponse' object has no attribute 'iter_lines'` en `scripts/publish_boletin.py` al cargar el inventario de S3. La lectura correcta de `StreamingBody` usa `read()` con límite de tamaño y `splitlines()`.
 - Regresión `scripts/tests/test_publish_boletin.py`: cuerpo sin `iter_lines()`, JSONL y límite de tamaño; CI `corpus-tools.yml` incluye herramienta y test con boto3.
