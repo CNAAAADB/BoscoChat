@@ -1,3 +1,4 @@
+import { boletinIssue } from '../documents/boletin-issue.js';
 import express from 'express';
 import { requireAuthorization } from '../middleware/authorization.js';
 import { ROLES } from '../users/roles.js';
@@ -75,6 +76,7 @@ export function createHistoricalManagementRouter(pool, authService, {
           const meta = parseArchiveKey(o.Key);
           const db = indexed.get(o.Key);
           return {
+            ...boletinIssue(o.Key),
             filename: o.Key.slice('originals/'.length),
             year: db?.publication_year ?? (meta.status === 'recognized' ? meta.year : null),
             publication: db?.publication ?? (meta.status === 'recognized' ? meta.publication : null),

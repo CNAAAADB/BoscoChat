@@ -120,12 +120,29 @@ export async function ingestOne({ key, catalog = null, s3, S3GetCommand, S3HeadC
     if (!sourceVersionId || current.VersionId !== sourceVersionId) {
       return { year: metadata.year, skipped: 'source_version_changed' };
     }
-    const persisted = await saveDocument(pool, metadata, contentBytes, pages, sourceVersionId);
+    const persisted = await saveDocumentWithRetry(pool, metadata, contentBytes, pages, sourceVersionId);
     if (!persisted) return { year: metadata.year, skipped: 'source_version_deleted' };
     return { year: metadata.year, pages: pages.length, needsReview: pages.filter(page => page.quality === 'needs_review').length };
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+}
+
+// MySQL FULLTEXT inserts can deadlock under concurrent ingestion.
+// Retry the whole transaction, never individual page inserts.
+export async function saveDocumentWithRetry(
+  pool, metadata, contentBytes, pages, sourceVersionId,
+  { pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms)) } = {},
+) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await saveDocument(pool, metadata, contentBytes, pages, sourceVersionId);
+    } catch (error) {
+      if (!['ER_LOCK_DEADLOCK', 'ER_LOCK_WAIT_TIMEOUT'].includes(error?.code) || attempt === 2) throw error;
+      await pause(200 * (attempt + 1));
+    }
+  }
+  throw new Error('Archive write retries exhausted');
 }
 
 // SQS event source mapping uses batch size 1 and ReportBatchItemFailures.

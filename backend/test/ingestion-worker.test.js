@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { Readable } from 'node:stream';
 import { writeFile } from 'node:fs/promises';
-import { ingestOne } from '../worker/handler.js';
+import { ingestOne, saveDocumentWithRetry } from '../worker/handler.js';
 
 test('BC-007 worker preserves empty physical pages and commits only after verifying count', async () => {
   const calls = [];
@@ -100,4 +100,67 @@ test('BC-017 manual indexing can catalogue a safe nonannual PDF', async () => {
   await assert.rejects(ingestOne({
     key: 'originals/Boletín de la casa 1950.pdf', catalog: { publication: 'A', year: 1950 }, s3,
   }), /Invalid manual catalogue/);
+});
+
+test('BC-110 automatically indexes source-qualified monthly PDF', async () => {
+  const pdf = Buffer.from('%PDF-1.7\nmock-pdf');
+  const queries = [];
+  const connection = {
+    async beginTransaction() {},
+    async execute(sql, params) {
+      queries.push({ sql, params });
+      if (sql.includes('SELECT id FROM archive_documents')) return [[{ id: 20 }]];
+      if (sql.includes('SELECT COUNT(*)')) return [[{ total: 1 }]];
+      return [[]];
+    },
+    async commit() {}, async rollback() {}, release() {},
+  };
+  const result = await ingestOne({
+    key: 'originals/Boletin Salesiano 188610 N001.pdf',
+    s3: { async send(command) {
+      return command.input.head ? { ContentLength: pdf.length, VersionId: 'v1' }
+        : { Body: Readable.from([pdf]) };
+    } },
+    S3HeadCommand: class { constructor(input) { this.input = { ...input, head: true }; } },
+    S3GetCommand: class { constructor(input) { this.input = input; } },
+    pool: { async getConnection() { return connection; } },
+    pdfinfo: async () => ({ stdout: 'Pages: 1\n' }),
+    pdftotext: async (_cmd, args) => {
+      await writeFile(args.at(-1), 'El Boletín Salesiano de octubre de 1886 relata la historia de Don Bosco.\f');
+    },
+  });
+  assert.equal(result.pages, 1);
+  const insert = queries.find((x) => x.sql.includes('INSERT INTO archive_documents'));
+  assert.deepEqual(insert.params.slice(0, 3), [
+    'originals/Boletin Salesiano 188610 N001.pdf', 'Boletín Salesiano', 1886,
+  ]);
+});
+
+test('BC-110 retries the entire transaction following a recoverable deadlock', async () => {
+  let attempts = 0, rollbacks = 0, commits = 0;
+  const pool = { async getConnection() {
+    return {
+      async beginTransaction() { attempts++; },
+      async execute(sql) {
+        if (sql.startsWith('INSERT INTO archive_documents') && attempts === 1) {
+          throw Object.assign(new Error('deadlock'), { code: 'ER_LOCK_DEADLOCK' });
+        }
+        if (sql.includes('SELECT id FROM archive_documents')) return [[{ id: 4 }]];
+        if (sql.includes('SELECT COUNT(*)')) return [[{ total: 1 }]];
+        return [[]];
+      },
+      async commit() { commits++; },
+      async rollback() { rollbacks++; },
+      release() {},
+    };
+  } };
+  const persisted = await saveDocumentWithRetry(
+    pool, { key: 'originals/Boletin Salesiano 188610 N001.pdf', publication: 'Boletín Salesiano', year: 1886 },
+    120, [{ pageNumber: 1, text: 'Page', quality: 'unreviewed' }], 'v1',
+    { pause: async () => {} },
+  );
+  assert.equal(persisted, true);
+  assert.equal(attempts, 2);
+  assert.equal(rollbacks, 1);
+  assert.equal(commits, 1);
 });

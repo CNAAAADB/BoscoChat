@@ -19,7 +19,7 @@ test('public archive discovery paginates results without a session', async () =>
   const pool = { async execute(sql, params) {
     statements.push({ sql, params });
     if (sql.includes('COUNT(*)')) {
-      assert.deepEqual(params, ['Bosco', null, null]);
+      assert.deepEqual(params, ['Bosco', null, null, null, null]);
       return [[{ total: 81 }]];
     }
     assert.match(sql, /LIMIT \? OFFSET \?/);
@@ -34,14 +34,14 @@ test('public archive discovery paginates results without a session', async () =>
     assert.equal(payload.results[0].page_number, 12);
     assert.deepEqual({ total: payload.total, page: payload.page, pageSize: payload.pageSize, totalPages: payload.totalPages },
       { total: 81, page: 1, pageSize: 10, totalPages: 9 });
-    assert.deepEqual(statements[1].params, ['Bosco', 'Bosco', null, null, 10, 0]);
+    assert.deepEqual(statements[1].params, ['Bosco', 'Bosco', null, null, null, null, 10, 0]);
 
     const later = await fetch(base + '/api/archive/search?q=Bosco&page=3&pageSize=20');
     assert.equal(later.status, 200);
     const laterPayload = await later.json();
     assert.deepEqual({ page: laterPayload.page, pageSize: laterPayload.pageSize, totalPages: laterPayload.totalPages },
       { page: 3, pageSize: 20, totalPages: 5 });
-    assert.deepEqual(statements[3].params, ['Bosco', 'Bosco', null, null, 20, 40]);
+    assert.deepEqual(statements[3].params, ['Bosco', 'Bosco', null, null, null, null, 20, 40]);
 
     for (const invalid of ['page=0', 'page=abc', 'pageSize=1000']) {
       const response = await fetch(base + '/api/archive/search?q=Bosco&' + invalid);

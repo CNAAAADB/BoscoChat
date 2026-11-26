@@ -38,3 +38,9 @@ test('BC-017 acknowledges safe nonannual original PDFs for later cataloguing wit
     detail: { bucket: { name: 'boscochat-archivo-pdfs' }, object: { key: 'originals/Memoria Histórica 1982.pdf', size: 500000000 } },
   })), /Invalid S3 object size/);
 });
+
+test('BC-110 accepts monthly Boletín Salesiano S3 notifications', () => {
+  const key = 'originals/Boletin Salesiano 188610 N001.pdf';
+  assert.deepEqual(objectsFromQueueEvent(event(key)), [{ key, eventId: 'evt-123' }]);
+  assert.deepEqual(objectsFromQueueEvent(event('originals/188610_N001.pdf')), []);
+});

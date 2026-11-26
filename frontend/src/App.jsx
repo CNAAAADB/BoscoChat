@@ -4,6 +4,7 @@ import { changeUserRole, createUser, deleteUser, listUsers, setUserSuspended, is
 import HistoricalManagement from './HistoricalManagement.jsx';
 import HistoricalChat from './HistoricalChat.jsx';
 import { clearChatSession } from './chat-session.js';
+import { ARCHIVE_PUBLICATIONS } from './archive-filters.js';
 
 const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 // Switch on only after RDS archive migration, real ingestion and API deployment.
@@ -66,6 +67,8 @@ export default function App() {
   const [searchError, setSearchError] = useState('');
   const [searchBusy, setSearchBusy] = useState(false);
   const [searchYear, setSearchYear] = useState('');
+  const [searchMonth, setSearchMonth] = useState('');
+  const [searchPublication, setSearchPublication] = useState('');
   const [searchMode, setSearchMode] = useState('relevance');
   const [selectedPage, setSelectedPage] = useState(linkedIssue);
   const [documentReturnView, setDocumentReturnView] = useState('buscador');
@@ -208,6 +211,8 @@ export default function App() {
       const query = new URLSearchParams({ q: criteria.q });
       if (ARCHIVE_SEARCH_ENABLED) {
         if (criteria.year) query.set('year', criteria.year);
+        if (criteria.month) query.set('month', criteria.month);
+        if (criteria.publication) query.set('publication', criteria.publication);
         query.set('mode', criteria.mode);
         query.set('page', String(page));
         query.set('pageSize', String(pageSize));
@@ -373,13 +378,15 @@ export default function App() {
           <h2 style={styles.sectionTitle}>Buscador Histórico</h2>
           <form style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '20px' }} onSubmit={(event) => {
             event.preventDefault();
-            const criteria = { q: search, year: searchYear, mode: searchMode };
+            const criteria = { q: search, year: searchYear, month: searchMonth, publication: searchPublication, mode: searchMode };
             setSubmittedSearch(null);
             setResults([]);
             runSearch(criteria, 1);
           }}>
             <input required minLength="2" style={{ ...styles.input, flex: '1 1 260px', width: 'auto', marginBottom: 0 }} aria-label="Consulta" placeholder="Buscar..." value={search} onChange={(event) => setSearch(event.target.value)} />
-            {ARCHIVE_SEARCH_ENABLED ? <input style={{ ...styles.input, width: '130px', marginBottom: 0 }} aria-label="Filtrar por año" type="number" min="1922" max="2100" placeholder="Año" value={searchYear} onChange={(event) => setSearchYear(event.target.value)} /> : null}
+            {ARCHIVE_SEARCH_ENABLED ? <select aria-label="Mes" value={searchMonth} onChange={(e) => setSearchMonth(e.target.value)}><option value="">Todos los meses</option>{Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}</select> : null}
+            {ARCHIVE_SEARCH_ENABLED ? <select aria-label="Filtrar por fuente" style={{ ...styles.input, width: '220px', marginBottom: 0 }} value={searchPublication} onChange={(event) => setSearchPublication(event.target.value)}>{ARCHIVE_PUBLICATIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select> : null}
+            {ARCHIVE_SEARCH_ENABLED ? <input style={{ ...styles.input, width: '130px', marginBottom: 0 }} aria-label="Filtrar por año" type="number" min="1800" max="2100" placeholder="Año" value={searchYear} onChange={(event) => setSearchYear(event.target.value)} /> : null}
             {ARCHIVE_SEARCH_ENABLED ? <select aria-label="Tipo de búsqueda" style={{ ...styles.input, width: '220px', marginBottom: 0 }} value={searchMode} onChange={(event) => setSearchMode(event.target.value)}>{SEARCH_MODES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select> : null}
             <button style={styles.btnPrimary} disabled={searchBusy || (sessionLoading)} type="submit">{searchBusy ? 'Buscando…' : 'Buscar'}</button>
           </form>
@@ -399,7 +406,7 @@ export default function App() {
           ) : null}
           {results.map((result) => (
             <article key={`${result.document_id ?? result.title}-${result.page_number}`} style={{ padding: '20px', background: '#1a1a2e', borderRadius: '20px', marginBottom: '10px' }}>
-              <h3 style={{ color: '#E6D7AA' }}>{ARCHIVE_SEARCH_ENABLED ? `${result.publication} (${result.publication_year})` : result.title} (Pág. {result.page_number})</h3>
+              <h3 style={{ color: '#E6D7AA' }}>{ARCHIVE_SEARCH_ENABLED ? `${result.publication} (${result.publication_year})` : result.title} {result.month ? `· Mes ${result.month} · N.º ${result.issue_number}` : null} (Pág. {result.page_number})</h3>
               <p>{ARCHIVE_SEARCH_ENABLED ? highlightSearchTerms(result.text_content, submittedSearch?.q ?? search) : result.text_content}</p>
               {ARCHIVE_SEARCH_ENABLED ? <button style={styles.btnPrimary} type="button" onClick={() => openSearchResult(result)}>Consultar página {result.page_number}</button> : null}
             </article>

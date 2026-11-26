@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { historicalDocuments, historicalDownload, historicalUpload, historicalDelete, historicalIndex, historicalUnindex } from './api/historical.js';
+import { ARCHIVE_PUBLICATIONS, filterHistoricalDocuments } from './archive-filters.js';
 
 const panel = { background: 'rgba(25,25,45,0.9)', border: '1px solid #28295E', borderRadius: 30, padding: 'clamp(20px, 4vw, 42px)', maxWidth: 1100, margin: '0 auto 40px' };
 const control = { background: '#111', border: '1px solid #777', borderRadius: 12, color: '#fff', padding: 12, boxSizing: 'border-box', maxWidth: '100%' };
@@ -17,6 +18,9 @@ function sizeLabel(bytes) {
 export default function HistoricalManagement() {
   const [documents, setDocuments] = useState([]);
   const [query, setQuery] = useState('');
+  const [filterPublication, setFilterPublication] = useState('');
+  const [filterMonth, setFilterMonth] = useState('');
+  const [filterYear, setFilterYear] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [catalogFile, setCatalogFile] = useState(null);
   const [catalogPublication, setCatalogPublication] = useState('');
@@ -49,9 +53,12 @@ export default function HistoricalManagement() {
       .finally(() => setLoading(false));
   }, []);
 
-  const visible = useMemo(() => documents.filter((doc) => (
-    doc.filename.toLocaleLowerCase('es').includes(query.trim().toLocaleLowerCase('es'))
-  )), [documents, query]);
+  const availableYears = useMemo(() => [...new Set(documents.map((doc) => Number(doc.year))
+    .filter((year) => Number.isInteger(year) && year >= 1800 && year <= 2100))]
+    .sort((a, b) => b - a), [documents]);
+  const visible = useMemo(() => filterHistoricalDocuments(documents, {
+    query, publication: filterPublication, year: filterYear,
+  }).filter((doc) => !filterMonth || doc.month === Number(filterMonth)), [documents, query, filterPublication, filterYear, filterMonth]);
 
   const upload = async (event) => {
     event.preventDefault();
@@ -152,8 +159,22 @@ export default function HistoricalManagement() {
         <h3 style={{ color: '#E6D7AA', margin: 0 }}>Archivos almacenados ({documents.length})</h3>
         <button type="button" onClick={refresh} disabled={loading || busy} style={button}>Actualizar estado</button>
       </div>
-      <label htmlFor="historical-filter" style={{ display: 'block', margin: '20px 0 10px' }}>Filtrar por nombre o año</label>
-      <input id="historical-filter" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Ej. 1954 o Don Bosco" style={{ ...control, width: '100%' }} />
+      <label htmlFor="historical-filter" style={{ display: 'block', margin: '20px 0 10px' }}>Buscar documento</label>
+      <input id="historical-filter" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Nombre del PDF o publicación" style={{ ...control, width: '100%' }} />
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 12 }}>
+        <label style={{ display: 'grid', gap: 6, flex: '2 1 230px' }} htmlFor="historical-source-filter">Fuente
+          <select id="historical-source-filter" value={filterPublication} onChange={(e) => setFilterPublication(e.target.value)} style={control}>
+            {ARCHIVE_PUBLICATIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          </select>
+        </label>
+        <label>Mes <select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} style={control}><option value="">Todos los meses</option>{Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}</select></label>
+        <label style={{ display: 'grid', gap: 6, flex: '1 1 155px' }} htmlFor="historical-year-filter">Año
+          <select id="historical-year-filter" value={filterYear} onChange={(e) => setFilterYear(e.target.value)} style={control}>
+            <option value="">Todos los años</option>
+            {availableYears.map((year) => <option key={year} value={String(year)}>{year}</option>)}
+          </select>
+        </label>
+      </div>
       {loading ? <p role="status">Consultando el archivo…</p> : null}
       {!loading && !visible.length ? <p>No hay PDF que coincidan con el filtro.</p> : null}
       <div style={{ display: 'grid', gap: 12, marginTop: 18 }}>
@@ -161,7 +182,7 @@ export default function HistoricalManagement() {
           <article key={doc.filename} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap', background: '#12121d', border: '1px solid #353554', borderRadius: 16, padding: 16 }}>
             <div style={{ minWidth: 200, flex: 1 }}>
               <strong style={{ overflowWrap: 'anywhere' }}>📄 {doc.filename}</strong>
-              <div style={{ fontSize: 13, color: '#c7c7d6', marginTop: 8 }}>{sizeLabel(doc.sizeBytes)}{doc.year ? ` · ${doc.year}` : ''} · {doc.pages} páginas indexadas</div>
+              <div style={{ fontSize: 13, color: '#c7c7d6', marginTop: 8 }}>{doc.publication ?? 'Publicación pendiente de catalogación'} · {sizeLabel(doc.sizeBytes)}{doc.year ? ` · ${doc.year}` : ''}{doc.month ? ` · mes ${String(doc.month).padStart(2, '0')} · n.º ${doc.issue_number}` : ''} · {doc.pages} páginas indexadas</div>
               <div style={{ color: doc.status === 'indexed' ? '#a4dfb4' : '#efcd80', marginTop: 5 }}>
                 {doc.status === 'indexed' ? 'Indexado y disponible para búsqueda' : doc.status === 'stored' ? 'Almacenado · pendiente de catalogación' : 'Pendiente de indexación'}
               </div>

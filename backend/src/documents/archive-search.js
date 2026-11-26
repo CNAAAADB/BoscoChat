@@ -1,3 +1,4 @@
+import { boletinIssue } from './boletin-issue.js';
 // Ranked archive discovery. Never interpolate user input into SQL syntax.
 function searchError(code, message) {
   const error = new Error(message);
@@ -51,11 +52,24 @@ export function excerptNearMatch(text, words, maxLength = 280) {
   return (start ? '…' : '') + value.slice(start, end) + (end < value.length ? '…' : '');
 }
 
-export async function searchArchivePages(pool, rawQuery, { year = null, page = 1, pageSize = 10, mode = 'relevance' } = {}) {
+export async function searchArchivePages(pool, rawQuery, { year = null, month = null, publication = null, page = 1, pageSize = 10, mode = 'relevance' } = {}) {
   const plan = searchPlan(rawQuery, mode);
   const parsedYear = year == null || year === '' ? null : Number(year);
-  if (parsedYear !== null && (!Number.isInteger(parsedYear) || parsedYear < 1922 || parsedYear > 2100)) {
+  if (parsedYear !== null && (!Number.isInteger(parsedYear) || parsedYear < 1800 || parsedYear > 2100)) {
     throw searchError('INVALID_SEARCH_YEAR', 'El año de búsqueda no es válido.');
+  }
+  const byMonth = month !== null && month !== '';
+  if (byMonth && !/^(0?[1-9]|1[0-2])$/.test(String(month))) {
+    throw searchError('INVALID_SEARCH_MONTH', 'El mes debe estar entre 1 y 12.');
+  }
+  const monthParams = byMonth ? ['^originals/Bolet[ií]n Salesiano[ _-][0-9]{4}' + String(month).padStart(2, '0') + '[ _-]N[0-9]{3,4}[.]pdf$'] : [];
+  let source = null;
+  if (publication !== null && publication !== '') {
+    if (typeof publication !== 'string' || publication !== publication.trim()
+      || publication.length < 2 || publication.length > 180 || /[\x00-\x1f]/u.test(publication)) {
+      throw searchError('INVALID_SEARCH_PUBLICATION', 'Selecciona una fuente válida.');
+    }
+    source = publication.normalize('NFC');
   }
   // Bound the amount of work per request; pages remain independently retrievable.
   const safePage = Number(page);
@@ -71,23 +85,25 @@ export async function searchArchivePages(pool, rawQuery, { year = null, page = 1
   const where = `FROM archive_pages p JOIN archive_documents d ON d.id = p.document_id
       WHERE d.indexed_at IS NOT NULL
         AND MATCH(p.text_content) AGAINST (? IN ${sqlMode} MODE)
-        AND (? IS NULL OR d.publication_year = ?)`;
+        AND (? IS NULL OR d.publication_year = ?)
+        AND (? IS NULL OR d.publication = ?)${byMonth ? ' AND d.s3_key REGEXP ?' : ''}`;
   const [countRows] = await pool.execute(
     `SELECT COUNT(*) AS total ${where}`,
-    [plan.expression, parsedYear, parsedYear],
+    [plan.expression, parsedYear, parsedYear, source, source, ...monthParams],
   );
   const total = Number(countRows[0]?.total ?? 0);
   const [rows] = await pool.execute(
-    `SELECT d.id AS document_id, d.publication, d.publication_year,
+    `SELECT d.id AS document_id, d.s3_key, d.publication, d.publication_year,
             p.page_number, LEFT(p.text_content, 1600) AS text_content,
             MATCH(p.text_content) AGAINST (? IN ${sqlMode} MODE) AS relevance
        ${where}
       ORDER BY relevance DESC, d.publication_year ASC, d.id ASC, p.page_number ASC
       LIMIT ? OFFSET ?`,
-    [plan.expression, plan.expression, parsedYear, parsedYear, safePageSize, offset],
+    [plan.expression, plan.expression, parsedYear, parsedYear, source, source, ...monthParams, safePageSize, offset],
   );
   const results = rows.map((row) => ({
     document_id: row.document_id,
+    ...boletinIssue(row.s3_key),
     publication: row.publication,
     publication_year: row.publication_year,
     page_number: row.page_number,
