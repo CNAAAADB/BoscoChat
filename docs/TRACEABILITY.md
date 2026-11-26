@@ -1,3 +1,8 @@
+## BC-110 — Error de lectura en CodeBuild (2026-11-26)
+- Falla reproducible: `AttributeError: 'HTTPResponse' object has no attribute 'iter_lines'` en `scripts/publish_boletin.py` al cargar el inventario de S3. La lectura correcta de `StreamingBody` usa `read()` con límite de tamaño y `splitlines()`.
+- Regresión `scripts/tests/test_publish_boletin.py`: cuerpo sin `iter_lines()`, JSONL y límite de tamaño; CI `corpus-tools.yml` incluye herramienta y test con boto3.
+- Importación reanudable de 727 PDF: manifiesto `staging/boletin-salesiano/inventarios/20261126-import-remaining-727.jsonl`; no modifica los 283 originales existentes. La fuente de 1898 con `month=00` permanece pendiente de catalogación manual.
+
 ## BC-110 — Evidencia de indexación y metadatos mensuales (2026-11-26)
 - 283 PDF presentes inicialmente en S3: indexación confirmada mediante boscochat-pdf-ingestor, sin modificar originales ni permisos.
 - backend/src/documents/archive-keys.js: catálogo mensual seguro con publicación/año/mes/número y deduplicación por ejemplar.

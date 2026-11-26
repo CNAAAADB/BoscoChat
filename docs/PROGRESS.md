@@ -1,3 +1,8 @@
+## BC-110 — Corrección de lector S3 en importación de ZIP (2026-11-26)
+- CodeBuild `boscochat-boletin-import-20261126` inició con manifiesto de 727 PDF restantes (538 revisión OCR, 189 validados); se detuvo antes de subir PDFs por usar `stream.iter_lines()` sobre una respuesta S3 que expone `read()`. Se corrige en `scripts/publish_boletin.py` con lectura JSONL acotada (16 MiB) y una regresión; se reduce paralelismo a 1 para evitar deadlocks MySQL.
+- Origen: 8 ZIP versionados ya en S3, 1.364 entradas; 1.011 candidatos únicos incluyendo un ejemplar de 1898 con metadatos ambiguos. 283 presentes/indexados, 727 válidos faltantes, 1 metadato ambiguo excluido del lote.
+- AWS: rol temporal de CodeBuild con mínimo privilegio, manifiesto inmutable por SHA256, imagen worker ya actualizada y backend/despliegue principal en verde. El lote total permanece pendiente hasta evidencia de ejecución y validación E2E.
+
 ## BC-110 — Indexación operativa de Boletín Salesiano (2026-11-26)
 - S3 privado: 283 PDF mensuales originales con nombres Boletin Salesiano AAAAMM N###.pdf, rango 1886–1985, inventario previo a esta intervención.
 - La Lambda existente confirmó indexación de los 283 PDF y sus páginas con publication=Boletín Salesiano y año verificado; cuatro deadlocks transitorios se recuperaron secuencialmente.
